@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+import os
+from datetime import datetime
+import jpholiday
+import glob
+import logging
+
+BASE_DIR = os.path.dirname(__file__)
+FLAG_DIR = os.path.join(BASE_DIR, "notified_flags")
+FLAG_EXT = ".flag"
+NOTIFY_THRESHOLDS = [60, 70, 80, 90, 100]
+
+
+def get_flag_path(employee_code: str, threshold: int) -> str:
+    os.makedirs(FLAG_DIR, exist_ok=True)
+    year, week, _ = datetime.today().isocalendar()
+    return os.path.join(FLAG_DIR, f"{employee_code}_{year}_{week}_{threshold}{FLAG_EXT}")
+
+
+def already_notified_this_week(employee_code: str, threshold: int) -> bool:
+    path = get_flag_path(employee_code, threshold)
+    return os.path.exists(path)
+
+
+def set_notified_flag_today(employee_code: str, threshold: int):
+    path = get_flag_path(employee_code, threshold)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(datetime.today().strftime("%Y-%m-%d"))
+
+
+def cleanup_old_flags():
+    """前の週の通知フラグファイルを削除"""
+    current_week = datetime.today().isocalendar()[1]
+    if not os.path.exists(FLAG_DIR):
+        return
+
+    for path in glob.glob(os.path.join(FLAG_DIR, f"*{FLAG_EXT}")):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                saved = f.read().strip()
+            saved_date = datetime.strptime(saved, "%Y-%m-%d")
+            if saved_date.isocalendar()[1] != current_week:
+                os.remove(path)
+        except Exception as e:
+            logging.warning(f"[削除失敗] {path}: {e}")
+
+
+def should_notify(percent_target: int, employee_code: str) -> int | None:
+    """
+    通知すべき閾値（60,70,80,90,100）を返す。なければNone。
+    """
+    for threshold in sorted(NOTIFY_THRESHOLDS):
+        if percent_target >= threshold and not already_notified_this_week(employee_code, threshold):
+            return threshold
+    return None

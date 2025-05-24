@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.vscode/
+.env
+employeeKey.csv
+*.flag
+log/
+*.log
+cache/
+overtime_result_*.json
+.DS_Store
+Thumbs.db
