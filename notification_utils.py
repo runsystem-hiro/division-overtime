@@ -29,8 +29,7 @@ def set_notified_flag_today(employee_code: str, threshold: int):
 
 
 def cleanup_old_flags():
-    """前の週の通知フラグファイルを削除"""
-    current_week = datetime.today().isocalendar()[1]
+    current_year, current_week, _ = datetime.today().isocalendar()
     if not os.path.exists(FLAG_DIR):
         return
 
@@ -38,8 +37,15 @@ def cleanup_old_flags():
         try:
             with open(path, "r", encoding="utf-8") as f:
                 saved = f.read().strip()
-            saved_date = datetime.strptime(saved, "%Y-%m-%d")
-            if saved_date.isocalendar()[1] != current_week:
+            try:
+                saved_date = datetime.strptime(saved, "%Y-%m-%d")
+            except ValueError:
+                logging.warning(f"[無効な日付形式] フラグ破損または不正な書式: {path} の内容: {repr(saved)}")
+                continue
+            saved_year, saved_week, _ = saved_date.isocalendar()
+
+            # 年と週の両方が現在と異なる場合のみ削除
+            if (saved_year != current_year) or (saved_week != current_week):
                 os.remove(path)
         except Exception as e:
             logging.warning(f"[削除失敗] {path}: {e}")
