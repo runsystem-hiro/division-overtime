@@ -29,6 +29,8 @@
 
 Slack Bot Token（`xoxb-...`）を `.env` に設定してください。
 
+![Slack通知例](slack.png)
+
 ---
 
 ## 📂 ディレクトリ構成（一部抜粋）
