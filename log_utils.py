@@ -8,8 +8,9 @@ from datetime import datetime
 LOG_DIR = os.path.join(os.path.dirname(__file__), 'log')
 NOTIFY_LOG = os.path.join(LOG_DIR, 'notify_history.log')
 
+
 def setup_logging(log_file_path=None, to_stdout=False, log_level=logging.INFO):
-   
+
     if logging.getLogger().hasHandlers():
         return  # すでに設定済みの場合は何もしない
     handlers = []
@@ -28,6 +29,7 @@ def setup_logging(log_file_path=None, to_stdout=False, log_level=logging.INFO):
         handlers=handlers
     )
 
+
 def append_or_replace_log_line(summary_line: str):
     """Slack通知成功ログを追記する（上書きしない）"""
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -35,6 +37,7 @@ def append_or_replace_log_line(summary_line: str):
     new_line = f"{now.strftime('%Y-%m-%d %H:%M')} | {summary_line}"
     with open(NOTIFY_LOG, "a", encoding="utf-8") as f:
         f.write(new_line + "\n")
+
 
 def log_no_notification(reason: str):
     """Slack通知対象外の理由をログに記録"""

@@ -11,6 +11,7 @@ from pathlib import Path
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+
 class SlackNotifier:
     RETRY_COUNT = 5
     RETRY_WAIT_SEC = 10
@@ -59,24 +60,29 @@ class SlackNotifier:
 
         for attempt in range(self.RETRY_COUNT):
             try:
-                response = self.client.users_lookupByEmail(email=self.user_email)
+                response = self.client.users_lookupByEmail(
+                    email=self.user_email)
                 user = response.get("user") if response else None
                 if user and "id" in user:
                     return user["id"]
                 else:
-                    logging.error(f"[Slackエラー] ユーザーID取得失敗（{self.user_email}）: レスポンスに'user'または'id'がありません")
+                    logging.error(
+                        f"[Slackエラー] ユーザーID取得失敗（{self.user_email}）: レスポンスに'user'または'id'がありません")
                     return None
             except SlackApiError as e:
-                logging.error(f"[Slackエラー] ユーザーID取得失敗（{self.user_email}）: {e.response['error']}")
+                logging.error(
+                    f"[Slackエラー] ユーザーID取得失敗（{self.user_email}）: {e.response['error']}")
                 return None
             except socket.gaierror as e:
-                logging.warning(f"[ネットワークエラー] 名前解決失敗（{e}）: リトライ {attempt+1}/{self.RETRY_COUNT}")
+                logging.warning(
+                    f"[ネットワークエラー] 名前解決失敗（{e}）: リトライ {attempt+1}/{self.RETRY_COUNT}")
                 time.sleep(self.RETRY_WAIT_SEC)
             except Exception as e:
                 logging.exception(f"[Slackエラー] 不明なエラー: {e}")
                 return None
 
-        logging.error(f"[Slackエラー] ユーザーID取得に{self.RETRY_COUNT}回失敗しました（{self.user_email}）")
+        logging.error(
+            f"[Slackエラー] ユーザーID取得に{self.RETRY_COUNT}回失敗しました（{self.user_email}）")
         return None
 
     def _get_dm_channel_id(self) -> Optional[str]:
@@ -89,7 +95,8 @@ class SlackNotifier:
             if channel_info and "id" in channel_info:
                 return channel_info["id"]
             else:
-                logging.error(f"[Slackエラー] DMチャンネルオープン失敗: レスポンスに'channel'または'id'がありません")
+                logging.error(
+                    f"[Slackエラー] DMチャンネルオープン失敗: レスポンスに'channel'または'id'がありません")
                 return None
         except SlackApiError as e:
             logging.error(f"[Slackエラー] DMチャンネルオープン失敗: {e.response['error']}")

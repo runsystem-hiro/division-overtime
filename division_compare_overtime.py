@@ -12,6 +12,8 @@ from notification_utils import should_notify, set_notified_flag_today, cleanup_o
 from log_utils import setup_logging, append_or_replace_log_line, log_no_notification
 import logging
 from overtime_result_saver import save_results_to_json
+from collections import defaultdict
+
 
 def is_force_notify_time() -> bool:
     now = datetime.now()
@@ -23,6 +25,7 @@ def is_force_notify_time() -> bool:
     if now.weekday() != target_day or now.hour != target_hour:
         return False
     return abs(now.minute - target_minute) <= window
+
 
 @dataclass
 class EmployeeInfo:
@@ -36,6 +39,7 @@ class EmployeeInfo:
     @property
     def full_name(self) -> str:
         return f"{self.last_name}{self.first_name}"
+
 
 @dataclass
 class OvertimeResult:
@@ -102,6 +106,7 @@ class OvertimeResult:
             return "📘 備考: 50%超過"
         return "✅ 問題なし"
 
+
 class ConfigManager:
     @staticmethod
     def load_config() -> Dict[str, Any]:
@@ -132,6 +137,7 @@ class ConfigManager:
                         logging.warning(f"無効な設定が無視されました: {setting}")
         return division_settings
 
+
 class EmployeeLoader:
     @staticmethod
     def load_employees(filepath: str) -> List[EmployeeInfo]:
@@ -151,6 +157,7 @@ class EmployeeLoader:
                     email=row['メールアドレス']
                 ))
         return employees
+
 
 class KingOfTimeAPI:
     def __init__(self, config: Dict[str, Any]):
@@ -179,6 +186,7 @@ class KingOfTimeAPI:
             logging.error(f"APIエラーが発生しました: {e}")
             return None
 
+
 class OvertimeAnalyzer:
     def __init__(self, api: KingOfTimeAPI, config: Dict[str, Any]):
         self.api = api
@@ -200,14 +208,17 @@ class OvertimeAnalyzer:
         target_overtime = self.get_target_overtime(employee.division_code)
         return OvertimeResult(employee, current_overtime, last_overtime, target_overtime)
 
+
 def format_date_string(offset_months: int, format_str: str = "%Y-%m") -> str:
     target_date = datetime.today() + relativedelta(months=offset_months)
     return target_date.strftime(format_str)
+
 
 def calculate_percentage(numerator: int, denominator: int) -> int:
     if denominator == 0:
         return 0
     return round((numerator / denominator) * 100)
+
 
 def parse_department_email_mapping(mapping_str: str) -> Dict[str, List[str]]:
     mappings = {}
@@ -223,6 +234,7 @@ def parse_department_email_mapping(mapping_str: str) -> Dict[str, List[str]]:
                     mappings.setdefault(dept, []).append(email)
     return mappings
 
+
 def main():
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -230,16 +242,20 @@ def main():
 
         setup_logging(log_file_path=log_path, to_stdout=True)
         load_dotenv()
-        enable_self_notify = os.getenv("ENABLE_SELF_NOTIFY", "false").lower() == "true"
+        enable_self_notify = os.getenv(
+            "ENABLE_SELF_NOTIFY", "false").lower() == "true"
+        enabled_codes_str = os.getenv("SELF_NOTIFY_ENABLED_CODES", "")
+        enabled_codes = set(code.strip()
+                            for code in enabled_codes_str.split(",") if code.strip())
         config = ConfigManager.load_config()
 
         if is_force_notify_time():
-                config['force_notify'] = True
-                day_map = ['月', '火', '水', '木', '金', '土', '日']
-                day_label = day_map[int(os.getenv("FORCE_NOTIFY_DAY", 5)) % 7]
-                hour = os.getenv("FORCE_NOTIFY_HOUR", "21")
-                minute = os.getenv("FORCE_NOTIFY_MINUTE", "30")
-                logging.info(f"⏰ 強制通知モード（全員通知）が有効です（{day_label}曜{hour}:{minute}）")
+            config['force_notify'] = True
+            day_map = ['月', '火', '水', '木', '金', '土', '日']
+            day_label = day_map[int(os.getenv("FORCE_NOTIFY_DAY", 5)) % 7]
+            hour = os.getenv("FORCE_NOTIFY_HOUR", "21")
+            minute = os.getenv("FORCE_NOTIFY_MINUTE", "30")
+            logging.info(f"⏰ 強制通知モード（全員通知）が有効です（{day_label}曜{hour}:{minute}）")
 
         slack_token = os.getenv('SLACK_BOT_TOKEN')
         mapping_str = os.getenv('DEPARTMENT_EMAIL_MAPPING')
@@ -250,6 +266,8 @@ def main():
         cleanup_old_flags()
 
         dept_email_mappings = parse_department_email_mapping(mapping_str)
+        email_summary_map = defaultdict(list)
+
         department_reports = {}
         results_to_save = []
         notification_candidates = []
@@ -276,18 +294,27 @@ def main():
                     notification_candidates.append(
                         (employee.full_name, result.percent_target))
                     set_notified_flag_today(employee.code, threshold)
-                    
+
+                    # メール別サマリ構築
+                    for dept_key in [employee.division_code, "ALL"]:
+                        for email in dept_email_mappings.get(dept_key, []):
+                            email_summary_map[email].append(
+                                (employee.full_name, result.percent_target))
+
                     # ✅ 本人にSlack DM通知を送信
-                    if enable_self_notify and employee.email:
-                        self_notifier = SlackNotifier(slack_token, employee.email)
+                    if enable_self_notify and employee.code in enabled_codes and employee.email:
+                        self_notifier = SlackNotifier(
+                            slack_token, employee.email)
                         self_message = f"{employee.full_name}さんの残業状況レポート\n\n" + report
                         success = self_notifier.send_message(self_message)
                         if success:
-                            logging.info(f"[👤本人通知] ✅ {employee.email} へのSlack通知完了")
+                            logging.info(
+                                f"[👤本人通知] ✅ {employee.email} へのSlack通知完了")
                             summary = f"Slack本人通知: {employee.email} | 対象: {employee.full_name}（{result.percent_target}％）"
                             append_or_replace_log_line(summary)
                         else:
-                            logging.warning(f"[👤本人通知] ⚠️ {employee.email} へのSlack通知失敗")
+                            logging.warning(
+                                f"[👤本人通知] ⚠️ {employee.email} へのSlack通知失敗")
                 else:
                     reason = f"{employee.full_name}（{result.percent_target}%）通知条件未達"
                     log_no_notification(reason)
@@ -315,7 +342,7 @@ def main():
 
                         if user_reports:
                             notifier = SlackNotifier(slack_token, email)
-                            message = "残業時間レポート\n" + "="*29 + "\n\n"
+                            message = "Testflight.残業時間レポート by ヒロ\n" + "="*29 + "\n\n"
                             message += "\n\n".join(user_reports)
                             success = notifier.send_message(message)
                             notified_summaries = [
@@ -331,8 +358,17 @@ def main():
                                 sent_to.add(email)
                             else:
                                 logging.error(f"❌ {email} への送信失敗")
-                              
+
             logging.info("Slack通知の送信が完了しました")
+
+            # ▼ 通知先ごとのサマリログ出力（通知条件を満たした社員のみ）
+            for email, summaries in email_summary_map.items():
+                if not summaries:
+                    continue
+                notified_summary_strs = [
+                    f"{name}（{percent}％）" for name, percent in summaries]
+                summary = f"{datetime.now().strftime('%Y-%m-%d %H:%M')} | Slack通知先: {email} | 通知件数: {len(summaries)} | 対象: {', '.join(notified_summary_strs)}"
+                append_or_replace_log_line(summary)
 
     except Exception as e:
         logging.exception(f"エラーが発生しました")

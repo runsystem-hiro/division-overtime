@@ -8,6 +8,7 @@ import logging
 if TYPE_CHECKING:
     from division_compare_overtime import OvertimeResult
 
+
 def save_results_to_json(results: List["OvertimeResult"], output_dir="cache"):
     """
     OvertimeResultリストをJSONファイルに保存

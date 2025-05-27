@@ -40,7 +40,8 @@ def cleanup_old_flags():
             try:
                 saved_date = datetime.strptime(saved, "%Y-%m-%d")
             except ValueError:
-                logging.warning(f"[無効な日付形式] フラグ破損または不正な書式: {path} の内容: {repr(saved)}")
+                logging.warning(
+                    f"[無効な日付形式] フラグ破損または不正な書式: {path} の内容: {repr(saved)}")
                 continue
             saved_year, saved_week, _ = saved_date.isocalendar()
 

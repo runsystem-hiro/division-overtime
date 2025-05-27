@@ -10,7 +10,9 @@
 - 📊 **部署ごとの残業上限チェック**：設定値と比較し、警告/注意を判定
 - 📣 **Slack 通知機能**：
   - 部署責任者へ：閾値を超過した社員のレポートを送信
-  - 本人通知（オプション）：社員個人の Slack DM に状況レポート送信
+  - 本人通知（オプション）：社員個人の Slack DM に状況レポート送信  
+    - `ENABLE_SELF_NOTIFY=true` のとき有効  
+    - `.env` の `SELF_NOTIFY_ENABLED_CODES` で社員番号を指定可能（カンマ区切り）
 - 🔒 **閾値フラグ管理**：60%, 70%, 80%, 90%, 100% の段階で通知履歴を記録し、重複送信を防止
 - 🗓️ **強制通知モード**：毎週金曜21:30（または任意指定）に残業状況に関係なく全員に通知
 - 🧾 **通知履歴 / 実行ログの保存**：Slack通知履歴と実行ログをファイルに記録
@@ -78,9 +80,11 @@ python division_compare_overtime.py
 ### ④ cron による定期実行設定（例）
 
 ℹ️KING OF TIME WebAPI利用禁止時間帯について
+
 以下の時間帯（JST）はアクセストークン、打刻登録以外のAPIの利用ができません。
-8:30～10:00
-17:30～18:30
+- 8:30～10:00
+- 17:30～18:30
+
 詳細は https://developer.kingoftime.jp/ を確認してください。
 
 ```cron
@@ -101,6 +105,8 @@ python division_compare_overtime.py
 - `OVERTIME_TARGET_DIVISION`, `OVERTIME_TARGET_DEFAULT`
 - `FORCE_NOTIFY_DAY`, `FORCE_NOTIFY_HOUR`, `FORCE_NOTIFY_MINUTE`, `FORCE_NOTIFY_WINDOW`
 - `ENABLE_SELF_NOTIFY=true` にすると本人にも通知が送信されます
+- `SELF_NOTIFY_ENABLED_CODES=12345,67890`  
+   本人通知の対象社員番号をカンマ区切りで指定。空の場合は全員通知対象となりません。
 
 ---
 
