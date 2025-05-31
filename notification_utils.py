@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 from datetime import datetime
-import jpholiday
 import glob
 import logging
 
@@ -9,7 +8,7 @@ BASE_DIR = os.path.dirname(__file__)
 FLAG_DIR = os.path.join(BASE_DIR, "notified_flags")
 FLAG_EXT = ".flag"
 NOTIFY_THRESHOLDS = [60, 70, 80, 90, 100]
-
+DEPT_NOTIFY_FORCE_THRESHOLD=95
 
 def get_flag_path(employee_code: str, threshold: int) -> str:
     os.makedirs(FLAG_DIR, exist_ok=True)
@@ -51,12 +50,15 @@ def cleanup_old_flags():
         except Exception as e:
             logging.warning(f"[削除失敗] {path}: {e}")
 
-
 def should_notify(percent_target: int, employee_code: str) -> int | None:
     """
-    通知すべき閾値（60,70,80,90,100）を返す。なければNone。
+    通知すべき閾値を返す。通常は週1回まで。
+    ただし DEPT_NOTIFY_FORCE_THRESHOLD（例:95）以上はフラグを無視して毎回通知。
     """
     for threshold in sorted(NOTIFY_THRESHOLDS):
-        if percent_target >= threshold and not already_notified_this_week(employee_code, threshold):
-            return threshold
+        if percent_target >= threshold:
+            if threshold >= DEPT_NOTIFY_FORCE_THRESHOLD:
+                return threshold
+            if not already_notified_this_week(employee_code, threshold):
+                return threshold
     return None

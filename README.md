@@ -8,15 +8,42 @@
 
 - 🔁 **King of Time API 連携**：対象月・前月の残業時間を取得
 - 📊 **部署ごとの残業上限チェック**：設定値と比較し、警告/注意を判定
-- 📣 **Slack 通知機能**：
+- 📣 **Slack 通知機能(土日祝除く)**：
   - 部署責任者へ：閾値を超過した社員のレポートを送信
   - 本人通知（オプション）：社員個人の Slack DM に状況レポート送信  
     - `ENABLE_SELF_NOTIFY=true` のとき有効  
     - `.env` の `SELF_NOTIFY_ENABLED_CODES` で社員番号を指定可能（カンマ区切り）
 - 🔒 **閾値フラグ管理**：60%, 70%, 80%, 90%, 100% の段階で通知履歴を記録し、重複送信を防止
-- 🗓️ **強制通知モード**：毎週金曜21:30（または任意指定）に残業状況に関係なく全員に通知
+- 🗓️ **強制通知モード**：毎週金曜21:30（または任意指）に残業状況に関係なく全員に通知
 - 🧾 **通知履歴 / 実行ログの保存**：Slack通知履歴と実行ログをファイルに記録
 - ⚙️ **`.env` による柔軟な設定管理**
+
+---
+
+## 📢通知条件のフロー（図解）
+
+以下は `division_compare_overtime.py` および `.env` 設定に基づいた、通知処理の実行フローです。
+
+```plaintext
+(1) cron実行（毎日10:30）
+       ↓
+(2) 今日が土日祝？
+       ├─ YES → is_force_notify_time()？
+       │         ├─ YES → 通知実行（強制モード）
+       │         └─ NO  → return（スキップ）
+       └─ NO  → 通常モードで通知実行
+
+(3) 各社員について：
+       ├─ force_notify → 全員通知（threshold = 100）
+       └─ else → percent_target が 60/70/80/90/100以上？
+                    ├─ YES ＋ 未通知なら → 通知
+                    └─ NO → 非通知ログへ
+
+(4) 本人通知：
+       ├─ ENABLE_SELF_NOTIFY=true かつ 強制 or 指定社員 → Slack DM
+```
+
+この図解により、通常通知・強制通知・本人通知の判定がどのように制御されているかを把握できます。
 
 ---
 
@@ -44,15 +71,17 @@ Slack Bot Token（`xoxb-...`）を `.env` に設定してください。
 ├── notification_utils.py              # 通知条件の判定など
 ├── log_utils.py                       # ログ出力補助
 ├── overtime_result_saver.py           # JSON保存処理
-├── employeeKey.csv                    # 社員データCSV（Git管理対象外）
 ├── .env                               # 本番用設定ファイル（Git管理対象外）
 ├── .env.sample                        # 環境変数サンプル
+├── employeeKey.csv                    # 社員データCSV（Git管理対象外）
 ├── employeeKey.sample.csv             # 社員データサンプル
 ├── log/
 │   ├── overtime_runner.log            # 実行処理ログ
 │   └── notify_history.log             # Slack通知履歴
 ├── cache/
 │   └── overtime_result_YYYYMM.json    # 月次分析結果の保存
+├── notified_flags/
+│   └── 00123_2025_22_60.flag          # 週次処理フラグ
 ```
 
 ---

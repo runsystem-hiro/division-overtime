@@ -2,6 +2,7 @@
 import os
 import csv
 from datetime import datetime
+import jpholiday
 from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 import requests
@@ -86,7 +87,7 @@ class OvertimeResult:
         else:
             over_minutes = abs(self.remaining_overtime)
             lines.append(
-                f"📊 前月比 {self.percent_vs_last}% 🚨 上限超過: +{to_hhmm(over_minutes)}抑制失敗")
+                f"📊 前月比 {self.percent_vs_last}% 🔥 上限超過: +{to_hhmm(over_minutes)}抑制失敗")
 
         lines.append(self._get_status_message())
         return "\n".join(lines)
@@ -235,8 +236,20 @@ def parse_department_email_mapping(mapping_str: str) -> Dict[str, List[str]]:
     return mappings
 
 
+def is_skip_day(today: datetime) -> bool:
+    """土日祝判定（Trueならスキップすべき日）"""
+    return today.weekday() >= 5 or jpholiday.is_holiday(today)
+
+
 def main():
     try:
+        today = datetime.today()
+
+        # 強制通知判定は is_skip_day() の前に評価される必要がある
+        if is_skip_day(today) and not is_force_notify_time():
+            print("⛔ 土日祝日のため通知スキップ")
+            return
+
         script_dir = os.path.dirname(os.path.abspath(__file__))
         log_path = os.path.join(script_dir, "log", "overtime_runner.log")
 
@@ -301,8 +314,18 @@ def main():
                             email_summary_map[email].append(
                                 (employee.full_name, result.percent_target))
 
+                    # .envから強制本人通知しきい値を取得
+                    force_self_threshold = int(
+                        os.getenv("SELF_NOTIFY_FORCE_THRESHOLD", "90"))
+                    percent = result.percent_target
+
+                    # 強制本人通知対象かどうか
+                    should_force_notify_self = enable_self_notify and percent >= force_self_threshold and employee.email
+                    # 通常の本人通知対象かどうか
+                    should_regular_notify_self = enable_self_notify and employee.code in enabled_codes and employee.email
+
                     # ✅ 本人にSlack DM通知を送信
-                    if enable_self_notify and employee.code in enabled_codes and employee.email:
+                    if should_force_notify_self or should_regular_notify_self:
                         self_notifier = SlackNotifier(
                             slack_token, employee.email)
                         self_message = f"{employee.full_name}さんの残業状況レポート\n\n" + report
@@ -310,11 +333,13 @@ def main():
                         if success:
                             logging.info(
                                 f"[👤本人通知] ✅ {employee.email} へのSlack通知完了")
-                            summary = f"Slack本人通知: {employee.email} | 対象: {employee.full_name}（{result.percent_target}％）"
+                            mode = "強制通知" if should_force_notify_self else "通常通知"
+                            summary = f"Slack本人通知（{mode}）: {employee.email} | 対象: {employee.full_name}（{percent}％）"
                             append_or_replace_log_line(summary)
                         else:
                             logging.warning(
                                 f"[👤本人通知] ⚠️ {employee.email} へのSlack通知失敗")
+
                 else:
                     reason = f"{employee.full_name}（{result.percent_target}%）通知条件未達"
                     log_no_notification(reason)
@@ -367,7 +392,7 @@ def main():
                     continue
                 notified_summary_strs = [
                     f"{name}（{percent}％）" for name, percent in summaries]
-                summary = f"{datetime.now().strftime('%Y-%m-%d %H:%M')} | Slack通知先: {email} | 通知件数: {len(summaries)} | 対象: {', '.join(notified_summary_strs)}"
+                summary = f"📝内容: {email} | 通知件数: {len(summaries)} | 対象: {', '.join(notified_summary_strs)}"
                 append_or_replace_log_line(summary)
 
     except Exception as e:
