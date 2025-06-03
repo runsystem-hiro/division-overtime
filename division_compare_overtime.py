@@ -367,7 +367,7 @@ def main():
 
                         if user_reports:
                             notifier = SlackNotifier(slack_token, email)
-                            message = "Testflight.残業時間レポート by ヒロ\n" + "="*29 + "\n\n"
+                            message = "残業時間レポート\n" + "="*29 + "\n\n"
                             message += "\n\n".join(user_reports)
                             success = notifier.send_message(message)
                             notified_summaries = [
