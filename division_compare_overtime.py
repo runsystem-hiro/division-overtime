@@ -17,15 +17,30 @@ from collections import defaultdict
 
 
 def is_force_notify_time() -> bool:
-    now = datetime.now()
-    target_day = int(os.getenv("FORCE_NOTIFY_DAY", 4))
-    target_hour = int(os.getenv("FORCE_NOTIFY_HOUR", 21))
-    target_minute = int(os.getenv("FORCE_NOTIFY_MINUTE", 30))
-    window = int(os.getenv("FORCE_NOTIFY_WINDOW", 0))
+    if os.getenv("FORCE_NOTIFY_ALWAYS", "false").lower() == "true":
+        logging.info("⏰ FORCE_NOTIFY_ALWAYS により、時刻判定をスキップして常時強制通知を実行します")
+        return True
 
-    if now.weekday() != target_day or now.hour != target_hour:
-        return False
-    return abs(now.minute - target_minute) <= window
+    try:
+        today = datetime.today()
+        weekday = today.weekday()  # 0=月, ..., 6=日
+        hour = today.hour
+        minute = today.minute
+
+        force_day = int(os.getenv("FORCE_NOTIFY_DAY", "-1"))
+        force_hour = int(os.getenv("FORCE_NOTIFY_HOUR", "-1"))
+        force_minute = int(os.getenv("FORCE_NOTIFY_MINUTE", "-1"))
+        window = int(os.getenv("FORCE_NOTIFY_WINDOW", "0"))
+
+        if (weekday == force_day and
+            hour == force_hour and
+                abs(minute - force_minute) <= window):
+            logging.info(f"⏰ 強制通知モード（全員通知）が有効です（{weekday}曜 {hour}:{minute}）")
+            return True
+    except Exception as e:
+        logging.warning(f"⚠️ 強制通知時刻の判定に失敗しました: {e}")
+
+    return False
 
 
 @dataclass
@@ -74,31 +89,27 @@ class OvertimeResult:
             mins = minutes % 60
             return f"{hours}:{mins:02d}"
 
-        lines = [
-            f"社員番号 {self.employee.code} 氏名 {self.employee.full_name}",
-            f"部署コード {self.employee.division_code} 上限 {to_hhmm(self.target_overtime)}",
-            f"🗓️ 今月({current_month}) 残業 {to_hhmm(self.current_overtime)}",
-            f"🗓️ 前月({last_month}) 残業 {to_hhmm(self.last_overtime)}"
-        ]
+        status = self._get_status_message()
+        over_minutes = abs(self.remaining_overtime)
 
-        if not self.is_over_target:
-            lines.append(
-                f"📊 前月比 {self.percent_vs_last}% ⌛上限まであと {to_hhmm(self.remaining_overtime)}")
-        else:
+        line1 = f"氏名 {self.employee.full_name} {status}"
+        line2 = f"🗓️ 今月({current_month}) 残業 {to_hhmm(self.current_overtime)}"
+        if self.is_over_target:
             over_minutes = abs(self.remaining_overtime)
-            lines.append(
-                f"📊 前月比 {self.percent_vs_last}% 🔥 上限超過: +{to_hhmm(over_minutes)}抑制失敗")
+            line3 = f"📊 上限比 {self.percent_target}％ 🔥 上限超過: +{to_hhmm(over_minutes)}"
+        else:
+            line3 = f"📊 上限比 {self.percent_target}％ ⌛ 上限まで {to_hhmm(self.remaining_overtime)}"
+        line4 = f"🔙 前月残業 {to_hhmm(self.last_overtime)} 前月比 {self.percent_vs_last}%"
 
-        lines.append(self._get_status_message())
-        return "\n".join(lines)
+        return "\n".join([line1, line2, line3, line4])
 
     def _get_status_message(self) -> str:
         if self.percent_target >= 100:
-            return "🚨 アラート: 上限100%超過"
+            return "🚨 上限100%超過"
         elif self.percent_target >= 90:
-            return "⚠️ 警告: 90%超過"
+            return "⚠️ 警告:90%超過"
         elif self.percent_target >= 80:
-            return "⚠️ 注意: 80%超過"
+            return "⚠️ 注意:80%超過"
         elif self.percent_target >= 70:
             return "📙 注意: 70%超過"
         elif self.percent_target >= 60:

@@ -136,7 +136,10 @@ python division_compare_overtime.py
 - `ENABLE_SELF_NOTIFY=true` にすると本人にも通知が送信されます
 - `SELF_NOTIFY_ENABLED_CODES=12345,67890`  
    本人通知の対象社員番号をカンマ区切りで指定。空の場合は全員通知対象となりません。
-
+- `DEBUG_FORCE_NOTIFY=true` 
+   指定すると、閾値にかかわらず強制通知モードが有効になります。
+- `FORCE_NOTIFY_ALWAYS=true` 
+   追加すると、指定曜日・時間帯を無視して「実行した瞬間に強制通知」が発動します（テストに便利）。
 ---
 
 ## 🔐 セキュリティとGit運用
