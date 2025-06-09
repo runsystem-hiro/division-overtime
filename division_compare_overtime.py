@@ -92,13 +92,13 @@ class OvertimeResult:
         status = self._get_status_message()
         over_minutes = abs(self.remaining_overtime)
 
-        line1 = f"氏名 {self.employee.full_name} {status}"
+        line1 = f"👤 {self.employee.full_name} {status}"
         line2 = f"🗓️ 今月({current_month}) 残業 {to_hhmm(self.current_overtime)}"
         if self.is_over_target:
             over_minutes = abs(self.remaining_overtime)
-            line3 = f"📊 上限比 {self.percent_target}％ 🔥 上限超過: +{to_hhmm(over_minutes)}"
+            line3 = f"🔥 上限超過 +{to_hhmm(over_minutes)} 📊 上限比 {self.percent_target}%"
         else:
-            line3 = f"📊 上限比 {self.percent_target}％ ⌛ 上限まで {to_hhmm(self.remaining_overtime)}"
+            line3 = f"⌛ 上限まで {to_hhmm(self.remaining_overtime)} 📊 上限比 {self.percent_target}%"
         line4 = f"🔙 前月残業 {to_hhmm(self.last_overtime)} 前月比 {self.percent_vs_last}%"
 
         return "\n".join([line1, line2, line3, line4])
@@ -107,7 +107,7 @@ class OvertimeResult:
         if self.percent_target >= 100:
             return "🚨 上限100%超過"
         elif self.percent_target >= 90:
-            return "⚠️ 警告:90%超過"
+            return "💣 警告:90%超過"
         elif self.percent_target >= 80:
             return "⚠️ 注意:80%超過"
         elif self.percent_target >= 70:
@@ -345,7 +345,7 @@ def main():
                             logging.info(
                                 f"[👤本人通知] ✅ {employee.email} へのSlack通知完了")
                             mode = "強制通知" if should_force_notify_self else "通常通知"
-                            summary = f"Slack本人通知（{mode}）: {employee.email} | 対象: {employee.full_name}（{percent}％）"
+                            summary = f"Slack本人通知（{mode}）: {employee.email} | 対象: {employee.full_name}（{percent}%）"
                             append_or_replace_log_line(summary)
                         else:
                             logging.warning(
@@ -382,7 +382,7 @@ def main():
                             message += "\n\n".join(user_reports)
                             success = notifier.send_message(message)
                             notified_summaries = [
-                                f"{name}（{percent}％）"
+                                f"{name}（{percent}%）"
                                 for name, percent in notification_candidates
                                 if email in dept_email_mappings.get(dept, []) or email in all_recipients
                             ]
@@ -402,7 +402,7 @@ def main():
                 if not summaries:
                     continue
                 notified_summary_strs = [
-                    f"{name}（{percent}％）" for name, percent in summaries]
+                    f"{name}（{percent}%）" for name, percent in summaries]
                 summary = f"📝内容: {email} | 通知件数: {len(summaries)} | 対象: {', '.join(notified_summary_strs)}"
                 append_or_replace_log_line(summary)
 
