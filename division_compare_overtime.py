@@ -51,6 +51,7 @@ class EmployeeInfo:
     first_name: str
     division_code: str
     email: str
+    overtime_target: Optional[int] = None
 
     @property
     def full_name(self) -> str:
@@ -96,9 +97,9 @@ class OvertimeResult:
         line2 = f"🗓️ 今月({current_month}) 残業 {to_hhmm(self.current_overtime)}"
         if self.is_over_target:
             over_minutes = abs(self.remaining_overtime)
-            line3 = f"🔥 上限超過 +{to_hhmm(over_minutes)} 📊 上限比 {self.percent_target}%"
+            line3 = f"📊 上限比 {self.percent_target}％ 🔥 上限超過: +{to_hhmm(over_minutes)}"
         else:
-            line3 = f"⌛ 上限まで {to_hhmm(self.remaining_overtime)} 📊 上限比 {self.percent_target}%"
+            line3 = f"📊 上限比 {self.percent_target}％ ⌛ 上限まで {to_hhmm(self.remaining_overtime)}"
         line4 = f"🔙 前月残業 {to_hhmm(self.last_overtime)} 前月比 {self.percent_vs_last}%"
 
         return "\n".join([line1, line2, line3, line4])
@@ -107,7 +108,7 @@ class OvertimeResult:
         if self.percent_target >= 100:
             return "🚨 上限100%超過"
         elif self.percent_target >= 90:
-            return "💣 警告:90%超過"
+            return "⚠️ 警告:90%超過"
         elif self.percent_target >= 80:
             return "⚠️ 注意:80%超過"
         elif self.percent_target >= 70:
@@ -152,6 +153,20 @@ class ConfigManager:
 
 class EmployeeLoader:
     @staticmethod
+    def _parse_optional_int(value: Optional[str], field_name: str, employee_code: str) -> Optional[int]:
+        if value is None or str(value).strip() == "":
+            return None
+        try:
+            parsed = int(str(value).strip())
+            if parsed < 0:
+                logging.warning(f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
+                return None
+            return parsed
+        except ValueError:
+            logging.warning(f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
+            return None
+
+    @staticmethod
     def load_employees(filepath: str) -> List[EmployeeInfo]:
         if not os.path.exists(filepath):
             logging.critical(f"❌ 社員情報ファイルが見つかりません: {filepath}")
@@ -160,13 +175,19 @@ class EmployeeLoader:
         with open(filepath, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
+                employee_code = row['社員番号'].strip()
                 employees.append(EmployeeInfo(
-                    code=row['社員番号'],
-                    key=row['キー'],
-                    last_name=row['氏'],
-                    first_name=row['名'],
-                    division_code=row['部署コード'],
-                    email=row['メールアドレス']
+                    code=employee_code,
+                    key=row['キー'].strip(),
+                    last_name=row['氏'].strip(),
+                    first_name=row['名'].strip(),
+                    division_code=row['部署コード'].strip(),
+                    email=row['メールアドレス'].strip(),
+                    overtime_target=EmployeeLoader._parse_optional_int(
+                        row.get('個人別残業上限分'),
+                        '個人別残業上限分',
+                        employee_code
+                    )
                 ))
         return employees
 
@@ -205,8 +226,11 @@ class OvertimeAnalyzer:
         self.default_target = config['default_overtime']
         self.division_targets = config['division_overtime']
 
-    def get_target_overtime(self, division_code: str) -> int:
-        return self.division_targets.get(division_code, self.default_target)
+    def get_target_overtime(self, employee: EmployeeInfo) -> int:
+        # 判定優先順位: 個人別上限 > 部署別上限 > デフォルト上限
+        if employee.overtime_target is not None:
+            return employee.overtime_target
+        return self.division_targets.get(employee.division_code, self.default_target)
 
     def analyze(self, employee: EmployeeInfo) -> Optional[OvertimeResult]:
         this_month = format_date_string(0, "%Y-%m")
@@ -217,7 +241,7 @@ class OvertimeAnalyzer:
             last_month, employee.division_code, employee.key)
         if current_overtime is None or last_overtime is None:
             return None
-        target_overtime = self.get_target_overtime(employee.division_code)
+        target_overtime = self.get_target_overtime(employee)
         return OvertimeResult(employee, current_overtime, last_overtime, target_overtime)
 
 
@@ -345,7 +369,7 @@ def main():
                             logging.info(
                                 f"[👤本人通知] ✅ {employee.email} へのSlack通知完了")
                             mode = "強制通知" if should_force_notify_self else "通常通知"
-                            summary = f"Slack本人通知（{mode}）: {employee.email} | 対象: {employee.full_name}（{percent}%）"
+                            summary = f"Slack本人通知（{mode}）: {employee.email} | 対象: {employee.full_name}（{percent}％）"
                             append_or_replace_log_line(summary)
                         else:
                             logging.warning(
@@ -382,7 +406,7 @@ def main():
                             message += "\n\n".join(user_reports)
                             success = notifier.send_message(message)
                             notified_summaries = [
-                                f"{name}（{percent}%）"
+                                f"{name}（{percent}％）"
                                 for name, percent in notification_candidates
                                 if email in dept_email_mappings.get(dept, []) or email in all_recipients
                             ]
@@ -402,7 +426,7 @@ def main():
                 if not summaries:
                     continue
                 notified_summary_strs = [
-                    f"{name}（{percent}%）" for name, percent in summaries]
+                    f"{name}（{percent}％）" for name, percent in summaries]
                 summary = f"📝内容: {email} | 通知件数: {len(summaries)} | 対象: {', '.join(notified_summary_strs)}"
                 append_or_replace_log_line(summary)
 

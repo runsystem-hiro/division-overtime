@@ -8,7 +8,8 @@ BASE_DIR = os.path.dirname(__file__)
 FLAG_DIR = os.path.join(BASE_DIR, "notified_flags")
 FLAG_EXT = ".flag"
 NOTIFY_THRESHOLDS = [60, 70, 80, 90, 100]
-DEPT_NOTIFY_FORCE_THRESHOLD=95
+DEPT_NOTIFY_FORCE_THRESHOLD = 95
+
 
 def get_flag_path(employee_code: str, threshold: int) -> str:
     os.makedirs(FLAG_DIR, exist_ok=True)
@@ -49,6 +50,7 @@ def cleanup_old_flags():
                 os.remove(path)
         except Exception as e:
             logging.warning(f"[削除失敗] {path}: {e}")
+
 
 def should_notify(percent_target: int, employee_code: str) -> int | None:
     """

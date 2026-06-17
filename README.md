@@ -1,17 +1,17 @@
 # 🚨 Division Overtime Notifier（部署別残業通知）
 
- King of Time API から従業員の残業情報を取得し、部署ごとの閾値や個人の状況に応じて Slack 通知を自動で行う Python ベースのスクリプトです。定期実行により、管理者および従業員自身への残業警告を効率化します。
+King of Time API から従業員の残業情報を取得し、個人別・部署別の閾値や個人の状況に応じて Slack 通知を自動で行う Python ベースのスクリプトです。定期実行により、管理者および従業員自身への残業警告を効率化します。
 
 ---
 
 ## ✅ 主な機能
 
 - 🔁 **King of Time API 連携**：対象月・前月の残業時間を取得
-- 📊 **部署ごとの残業上限チェック**：設定値と比較し、警告/注意を判定
+- 📊 **個人別・部署別の残業上限チェック**：個人別上限を最優先し、未設定時は部署別上限、さらに未設定時はデフォルト上限で判定
 - 📣 **Slack 通知機能(土日祝除く)**：
   - 部署責任者へ：閾値を超過した社員のレポートを送信
-  - 本人通知（オプション）：社員個人の Slack DM に状況レポート送信  
-    - `ENABLE_SELF_NOTIFY=true` のとき有効  
+  - 本人通知（オプション）：社員個人の Slack DM に状況レポート送信
+    - `ENABLE_SELF_NOTIFY=true` のとき有効
     - `.env` の `SELF_NOTIFY_ENABLED_CODES` で社員番号を指定可能（カンマ区切り）
 - 🔒 **閾値フラグ管理**：60%, 70%, 80%, 90%, 100% の段階で通知履歴を記録し、重複送信を防止
 - 🗓️ **強制通知モード**：毎週金曜21:30（または任意指）に残業状況に関係なく全員に通知
@@ -52,6 +52,7 @@
 このスクリプトを使用するには、Slack App の作成と以下のスコープが必要です。https://api.slack.com/lang/ja-jp
 
 ### 📌 必須スコープ
+
 - `chat:write`（メッセージ送信）
 - `users:read.email`（メールアドレスからユーザー特定）
 - `users:read`（ユーザー情報取得）
@@ -89,12 +90,14 @@ Slack Bot Token（`xoxb-...`）を `.env` に設定してください。
 ## ⚙️ 使用手順
 
 ### ① `.env` を作成（初回のみ）
+
 ```bash
 cp .env.sample .env
 vi .env  # APIトークン・Slackトークンなどを設定
 ```
 
 ### ② 仮想環境を作成し、依存ライブラリをインストール
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -102,6 +105,7 @@ pip install -r requirements.txt
 ```
 
 ### ③ 手動実行
+
 ```bash
 python division_compare_overtime.py
 ```
@@ -111,6 +115,7 @@ python division_compare_overtime.py
 ℹ️KING OF TIME WebAPI利用禁止時間帯について
 
 以下の時間帯（JST）はアクセストークン、打刻登録以外のAPIの利用ができません。
+
 - 8:30～10:00
 - 17:30～18:30
 
@@ -132,15 +137,37 @@ python division_compare_overtime.py
 
 - `KINGOFTIME_TOKEN`, `SLACK_BOT_TOKEN`
 - `OVERTIME_TARGET_DIVISION`, `OVERTIME_TARGET_DEFAULT`
+- 個人別上限は `employeeKey.csv` の `個人別残業上限分` に「分」で指定します。空欄の場合は従来どおり部署別上限またはデフォルト上限を使用します。
 - `FORCE_NOTIFY_DAY`, `FORCE_NOTIFY_HOUR`, `FORCE_NOTIFY_MINUTE`, `FORCE_NOTIFY_WINDOW`
 - `ENABLE_SELF_NOTIFY=true` にすると本人にも通知が送信されます
 - `SELF_NOTIFY_ENABLED_CODES=12345,67890`  
    本人通知の対象社員番号をカンマ区切りで指定。空の場合は全員通知対象となりません。
-- `DEBUG_FORCE_NOTIFY=true` 
-   指定すると、閾値にかかわらず強制通知モードが有効になります。
-- `FORCE_NOTIFY_ALWAYS=true` 
-   追加すると、指定曜日・時間帯を無視して「実行した瞬間に強制通知」が発動します（テストに便利）。
+- `DEBUG_FORCE_NOTIFY=true`
+  指定すると、閾値にかかわらず強制通知モードが有効になります。
+- `FORCE_NOTIFY_ALWAYS=true`
+  追加すると、指定曜日・時間帯を無視して「実行した瞬間に強制通知」が発動します（テストに便利）。
+
 ---
+
+## 👤 個人別残業上限の設定
+
+`employeeKey.csv` に `個人別残業上限分` 列を追加します。値は「分」で入力してください。
+
+```csv
+社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分
+00001,aaaaaaaa...,田中,太郎,taro.tanaka@example.com,300,営業部,1200
+00002,bbbbbbbb...,山田,花子,hanako.yamada@example.com,158,開発部,
+```
+
+判定優先順位は以下の通りです。
+
+```plaintext
+1. employeeKey.csv の 個人別残業上限分
+2. .env の OVERTIME_TARGET_DIVISION
+3. .env の OVERTIME_TARGET_DEFAULT
+```
+
+個人別上限が空欄、列が存在しない、または不正値の場合は、従来どおり部署別上限またはデフォルト上限を使用します。
 
 ## 🔐 セキュリティとGit運用
 
