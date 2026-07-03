@@ -14,7 +14,7 @@ King of Time API から従業員の残業情報を取得し、個人別・部署
     - `ENABLE_SELF_NOTIFY=true` のとき有効
     - `.env` の `SELF_NOTIFY_ENABLED_CODES` で社員番号を指定可能（カンマ区切り）
 - 🔒 **閾値フラグ管理**：60%, 70%, 80%, 90%, 100% の段階で通知履歴を記録し、重複送信を防止
-- 🗓️ **強制通知モード**：毎週金曜21:30（または任意指）に残業状況に関係なく全員に通知
+- 🗓️ **強制通知モード**：毎週金曜21:30（または任意指定）に残業状況に関係なく全員に通知
 - 🧾 **通知履歴 / 実行ログの保存**：Slack通知履歴と実行ログをファイルに記録
 - ⚙️ **`.env` による柔軟な設定管理**
 
@@ -65,7 +65,7 @@ Slack Bot Token（`xoxb-...`）を `.env` に設定してください。
 
 ## 📂 ディレクトリ構成（一部抜粋）
 
-```
+```bash
 .
 ├── division_compare_overtime.py       # メインスクリプト
 ├── slack_notifier.py                  # Slack通知処理
@@ -74,7 +74,7 @@ Slack Bot Token（`xoxb-...`）を `.env` に設定してください。
 ├── overtime_result_saver.py           # JSON保存処理
 ├── .env                               # 本番用設定ファイル（Git管理対象外）
 ├── .env.sample                        # 環境変数サンプル
-├── employeeKey.csv                    # 社員データCSV（Git管理対象外）
+├── employeeKey.csv                    # 社員データCSV（Git管理対象外 / UTF-8 BOM付きCSVも可）
 ├── employeeKey.sample.csv             # 社員データサンプル
 ├── log/
 │   ├── overtime_runner.log            # 実行処理ログ
@@ -137,7 +137,9 @@ python division_compare_overtime.py
 
 - `KINGOFTIME_TOKEN`, `SLACK_BOT_TOKEN`
 - `OVERTIME_TARGET_DIVISION`, `OVERTIME_TARGET_DEFAULT`
-- 個人別上限は `employeeKey.csv` の `個人別残業上限分` に「分」で指定します。空欄の場合は従来どおり部署別上限またはデフォルト上限を使用します。
+- 個人別上限は `employeeKey.csv` の **`個人別残業上限分`** 列に「分」で指定します。
+  - この列名はコード側の参照名です。`個人別残業上限` など別名にすると読み取れず、部署別上限が適用されます。
+  - 空欄の場合は従来どおり部署別上限またはデフォルト上限を使用します。
 - `FORCE_NOTIFY_DAY`, `FORCE_NOTIFY_HOUR`, `FORCE_NOTIFY_MINUTE`, `FORCE_NOTIFY_WINDOW`
 - `ENABLE_SELF_NOTIFY=true` にすると本人にも通知が送信されます
 - `SELF_NOTIFY_ENABLED_CODES=12345,67890`  
@@ -151,15 +153,20 @@ python division_compare_overtime.py
 
 ## 👤 個人別残業上限の設定
 
-`employeeKey.csv` に `個人別残業上限分` 列を追加します。値は「分」で入力してください。
+`employeeKey.csv` に **`個人別残業上限分`** 列を追加します。値は「分」で入力してください。
+
+> 例：20時間 = `1200`、0分上限 = `0`
 
 ```csv
 社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分
 00001,aaaaaaaa...,田中,太郎,taro.tanaka@example.com,300,営業部,1200
 00002,bbbbbbbb...,山田,花子,hanako.yamada@example.com,158,開発部,
+00003,cccccccc...,佐藤,次郎,jiro.sato@example.com,156,サポート部,0
 ```
 
-判定優先順位は以下の通りです。
+### 判定優先順位
+
+残業上限は以下の優先順位で決定します。
 
 ```plaintext
 1. employeeKey.csv の 個人別残業上限分
@@ -167,7 +174,26 @@ python division_compare_overtime.py
 3. .env の OVERTIME_TARGET_DEFAULT
 ```
 
-個人別上限が空欄、列が存在しない、または不正値の場合は、従来どおり部署別上限またはデフォルト上限を使用します。
+### 入力ルール
+
+| `個人別残業上限分` の値 | 動作 |
+| --- | --- |
+| `1200` などの正の整数 | 個人別上限として使用 |
+| `0` | 上限0分として使用。1分でも残業があれば上限超過扱い |
+| 空欄 | 部署別上限、なければデフォルト上限を使用 |
+| マイナス値 / 数字以外 | 無効値として扱い、部署別上限またはデフォルト上限を使用 |
+| 列名違い | 個人別上限を読み取れないため、部署別上限またはデフォルト上限を使用 |
+
+### CSV保存時の注意
+
+ExcelでCSVを編集・保存すると、ファイル先頭にBOMが付く場合があります。  
+コード側は `utf-8-sig` で読み込むため、BOMあり / なしのどちらでも読み取り可能です。
+
+```python
+with open(filepath, 'r', encoding='utf-8-sig') as f:
+```
+
+ただし、ヘッダー名は必ず **`個人別残業上限分`** に統一してください。
 
 ## 🔐 セキュリティとGit運用
 
