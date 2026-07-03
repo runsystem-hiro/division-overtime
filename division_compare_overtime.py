@@ -71,6 +71,8 @@ class OvertimeResult:
 
     @property
     def percent_target(self) -> int:
+        if self.target_overtime == 0:
+            return 100 if self.current_overtime > 0 else 0
         return calculate_percentage(self.current_overtime, self.target_overtime)
 
     @property
@@ -95,7 +97,12 @@ class OvertimeResult:
 
         line1 = f"👤 {self.employee.full_name} {status}"
         line2 = f"🗓️ 今月({current_month}) 残業 {to_hhmm(self.current_overtime)}"
-        if self.is_over_target:
+        if self.target_overtime == 0:
+            if self.current_overtime > 0:
+                line3 = f"📊 上限0分設定 🔥 残業発生: +{to_hhmm(self.current_overtime)}"
+            else:
+                line3 = "📊 上限0分設定 ✅ 残業なし"
+        elif self.is_over_target:
             over_minutes = abs(self.remaining_overtime)
             line3 = f"📊 上限比 {self.percent_target}％ 🔥 上限超過: +{to_hhmm(over_minutes)}"
         else:
@@ -159,11 +166,13 @@ class EmployeeLoader:
         try:
             parsed = int(str(value).strip())
             if parsed < 0:
-                logging.warning(f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
+                logging.warning(
+                    f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
                 return None
             return parsed
         except ValueError:
-            logging.warning(f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
+            logging.warning(
+                f"無効な{field_name}が無視されました: 社員番号={employee_code}, 値={value}")
             return None
 
     @staticmethod
@@ -172,7 +181,7 @@ class EmployeeLoader:
             logging.critical(f"❌ 社員情報ファイルが見つかりません: {filepath}")
             raise FileNotFoundError(f"社員情報ファイルが存在しません: {filepath}")
         employees = []
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 employee_code = row['社員番号'].strip()
