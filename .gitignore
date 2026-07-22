@@ -68,6 +68,7 @@ docs/reference/*
 frontend/node_modules/
 frontend/dist/
 
+config/production.toml
 data/employeeKey.csv
 var/
 legacy/
