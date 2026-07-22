@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -18,19 +19,28 @@ venv/
 .env.*
 !.env.example
 
+# Production configuration
+config/production.toml
+
 # Runtime data
-data/
 logs/
 tmp/
+var/
 *.log
 *.pid
 *.lock
+
+# Employee and result data
+data/employeeKey.csv
+data/*.json
 
 # SQLite
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.sqlite3
 *.sqlite3-shm
 *.sqlite3-wal
@@ -48,7 +58,7 @@ desktop.ini
 !.vscode/extensions.json
 !.vscode/settings.json
 
-# Raspberry Pi / deployment
+# Raspberry Pi / deployment overrides
 *.service.local
 *.timer.local
 
@@ -58,18 +68,14 @@ desktop.ini
 *.tar.gz
 *.bak
 
-# Internal reference images
+# Internal reference files
 docs/reference/*
 !docs/reference/.gitkeep
-
-*.egg-info/
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
 
-config/production.toml
-data/employeeKey.csv
-var/
+# Legacy sources
 legacy/
 .old/
