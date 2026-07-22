@@ -519,3 +519,56 @@ http://4b64bit:8000/
 ```
 
 Webサービスを停止しても、既存のthreshold、weekly、healthサービスおよびtimerには影響しません。
+
+## Raspberry Piへのデプロイ（Issue #7）
+
+Raspberry Pi 4Bでは、ソース取得、Python依存更新、フロントエンドビルド、検証、Webサービス再起動、ヘルスチェックを`deploy.sh`でまとめて実行します。
+
+### 初回のみ必要な準備
+
+Node.jsとnpmが未導入の場合は、OSのパッケージ管理で導入します。
+
+```bash
+sudo apt update
+sudo apt install -y nodejs npm
+node --version
+npm --version
+```
+
+Python仮想環境とsystemd定義の初期配置は、次で行います。
+
+```bash
+cd /home/pi/division-overtime
+bash ./scripts/install.sh
+```
+
+### 通常のデプロイ
+
+作業ツリーがcleanであることを確認してから実行します。
+
+```bash
+cd /home/pi/division-overtime
+./scripts/deploy.sh
+```
+
+`deploy.sh`は次の順で処理します。
+
+1. `git`、`npm`、`curl`、`sudo`と`.venv`の存在確認
+2. 作業ツリーがcleanであることを確認
+3. `git pull --ff-only`
+4. Python依存関係を更新
+5. `npm ci`
+6. `npm run build`
+7. `scripts/verify.sh`
+8. `division-overtime-web.service`を再起動
+9. `/api/system/health`を確認
+
+フロントエンドのビルドまたはアプリ検証に失敗した場合、Webサービスは再起動しません。既存の`frontend/dist`と稼働中プロセスを維持します。
+
+状態確認:
+
+```bash
+systemctl status division-overtime-web.service --no-pager
+curl -fsS http://127.0.0.1:8000/api/system/health
+echo
+```
