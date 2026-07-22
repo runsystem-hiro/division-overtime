@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -219,3 +220,59 @@ def test_self_delivery_uses_legacy_personal_header(tmp_path: Path, monkeypatch: 
     assert messages["tanaka@example.com"].startswith(
         "田中太郎さんの残業状況レポート\n\n👤 田中太郎 📗 備考: 60%超過"
     )
+
+
+def test_weekly_self_notification_is_sent_to_configured_employee(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    base = make_config(tmp_path)
+    config = replace(
+        base,
+        enable_self_notify=True,
+        self_notify_employee_codes=frozenset({"00001"}),
+    )
+    monkeypatch.setattr(FakeKingOfTimeClient, "current_minutes", 60)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "weekly") == 0
+
+    recipients = {recipient for recipient, _ in SuccessfulMessenger.calls}
+    assert recipients == {"manager@example.com", "tanaka@example.com"}
+
+
+def test_weekly_self_notification_is_not_sent_to_unconfigured_employee_below_force_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    base = make_config(tmp_path)
+    config = replace(
+        base,
+        enable_self_notify=True,
+        self_notify_employee_codes=frozenset(),
+        force_self_threshold=95,
+    )
+    monkeypatch.setattr(FakeKingOfTimeClient, "current_minutes", 540)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "weekly") == 0
+
+    recipients = {recipient for recipient, _ in SuccessfulMessenger.calls}
+    assert recipients == {"manager@example.com"}
+
+
+def test_weekly_self_notification_is_sent_above_force_threshold(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    base = make_config(tmp_path)
+    config = replace(
+        base,
+        enable_self_notify=True,
+        self_notify_employee_codes=frozenset(),
+        force_self_threshold=95,
+    )
+    monkeypatch.setattr(FakeKingOfTimeClient, "current_minutes", 570)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "weekly") == 0
+
+    recipients = {recipient for recipient, _ in SuccessfulMessenger.calls}
+    assert recipients == {"manager@example.com", "tanaka@example.com"}
