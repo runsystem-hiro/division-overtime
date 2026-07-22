@@ -38,11 +38,21 @@ class AppConfig:
     force_self_threshold: int
 
 
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+_REPLACE_TABLE_PATHS = {("notifications", "department_recipients")}
+
+
+def _deep_merge(
+    base: dict[str, Any],
+    override: dict[str, Any],
+    path: tuple[str, ...] = (),
+) -> dict[str, Any]:
     result = dict(base)
     for key, value in override.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = _deep_merge(result[key], value)
+        current_path = (*path, key)
+        if current_path in _REPLACE_TABLE_PATHS:
+            result[key] = dict(value) if isinstance(value, dict) else value
+        elif isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value, current_path)
         else:
             result[key] = value
     return result
