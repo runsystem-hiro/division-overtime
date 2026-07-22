@@ -1,4 +1,4 @@
-* text=auto
+* text=auto eol=lf
 
 # Linux / Raspberry Piで実行するファイル
 *.py      text eol=lf
