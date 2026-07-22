@@ -1,0 +1,19 @@
+[Unit]
+Description=Division Overtime weekly notification
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/division-overtime
+EnvironmentFile=/home/pi/division-overtime/.env
+ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime run weekly
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/division-overtime/var
+
+[Install]
+WantedBy=multi-user.target

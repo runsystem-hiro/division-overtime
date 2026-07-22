@@ -1,0 +1,5 @@
+# Copy to config/production.toml and adjust only non-secret production settings.
+# Secrets belong in .env.
+
+[notifications.department_recipients]
+ALL = ["admin@example.com"]

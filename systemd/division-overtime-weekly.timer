@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Division Overtime weekly report
+
+[Timer]
+OnCalendar=Fri *-*-* 21:30:00
+Persistent=true
+RandomizedDelaySec=30
+Unit=division-overtime-weekly.service
+
+[Install]
+WantedBy=timers.target

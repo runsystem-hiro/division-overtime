@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Division Overtime health check
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+Persistent=true
+Unit=division-overtime-health.service
+
+[Install]
+WantedBy=timers.target

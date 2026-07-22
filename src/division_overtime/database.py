@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+
+SCHEMA_VERSION = 1
+
+
+class Database:
+    def __init__(self, path: Path):
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path, timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        conn = self.connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def initialize(self) -> None:
+        with self.transaction() as conn:
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS schema_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS execution_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT NOT NULL UNIQUE,
+                    mode TEXT NOT NULL CHECK(mode IN ('threshold','weekly','health')),
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    status TEXT NOT NULL CHECK(status IN ('running','succeeded','failed')),
+                    dry_run INTEGER NOT NULL DEFAULT 0,
+                    error_message TEXT
+                );
+                CREATE TABLE IF NOT EXISTS overtime_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id TEXT NOT NULL,
+                    target_month TEXT NOT NULL,
+                    employee_code TEXT NOT NULL,
+                    employee_name TEXT NOT NULL,
+                    division_code TEXT NOT NULL,
+                    current_minutes INTEGER NOT NULL,
+                    previous_minutes INTEGER NOT NULL,
+                    target_minutes INTEGER NOT NULL,
+                    target_percent INTEGER NOT NULL,
+                    captured_at TEXT NOT NULL,
+                    UNIQUE(run_id, employee_code),
+                    FOREIGN KEY(run_id) REFERENCES execution_runs(run_id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS notification_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dedupe_key TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    employee_code TEXT,
+                    recipient TEXT NOT NULL,
+                    notification_type TEXT NOT NULL,
+                    threshold_percent INTEGER,
+                    status TEXT NOT NULL CHECK(status IN ('pending','sent','failed','skipped')),
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    slack_timestamp TEXT,
+                    error_message TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    UNIQUE(dedupe_key, recipient),
+                    FOREIGN KEY(run_id) REFERENCES execution_runs(run_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_notification_status
+                    ON notification_attempts(status, updated_at);
+                """
+            )
+            conn.execute(
+                "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (str(SCHEMA_VERSION),),
+            )
+
+    def integrity_check(self) -> str:
+        with self.connect() as conn:
+            return str(conn.execute("PRAGMA integrity_check").fetchone()[0])
+
+    def start_run(self, run_id: str, mode: str, started_at: datetime, dry_run: bool) -> None:
+        with self.transaction() as conn:
+            conn.execute(
+                "INSERT INTO execution_runs(run_id, mode, started_at, status, dry_run) "
+                "VALUES(?, ?, ?, 'running', ?)",
+                (run_id, mode, started_at.isoformat(), int(dry_run)),
+            )
+
+    def finish_run(
+        self, run_id: str, finished_at: datetime, status: str, error: str | None = None
+    ) -> None:
+        with self.transaction() as conn:
+            conn.execute(
+                "UPDATE execution_runs SET finished_at=?, status=?, error_message=? WHERE run_id=?",
+                (finished_at.isoformat(), status, error, run_id),
+            )

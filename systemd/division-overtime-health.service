@@ -1,0 +1,9 @@
+[Unit]
+Description=Division Overtime health check
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/division-overtime
+EnvironmentFile=/home/pi/division-overtime/.env
+ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime health

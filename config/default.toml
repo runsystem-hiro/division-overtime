@@ -1,0 +1,34 @@
+[app]
+timezone = "Asia/Tokyo"
+database_path = "var/division_overtime.sqlite3"
+employee_csv = "data/employeeKey.csv"
+log_level = "INFO"
+
+[king_of_time]
+base_url = "https://api.kingtime.jp/v1.0"
+endpoint = "/monthly-workings"
+connect_timeout_seconds = 5
+read_timeout_seconds = 30
+retry_count = 3
+retry_backoff_seconds = 2
+
+[overtime]
+default_target_minutes = 600
+thresholds = [60, 70, 80, 90, 100]
+force_self_threshold = 95
+
+[overtime.division_targets]
+"300" = 600
+"156" = 1800
+"157" = 1800
+"158" = 1200
+"159" = 1200
+
+[notifications]
+enable_self_notify = true
+self_notify_employee_codes = []
+
+[notifications.department_recipients]
+ALL = ["admin@example.com"]
+"300" = ["manager300@example.com"]
+"158" = ["leader158@example.com"]
