@@ -17,13 +17,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+web = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+]
 dev = [
+  "httpx2>=2.0,<3",
   "pytest>=8.3,<9",
   "ruff>=0.12,<1",
 ]
 
 [project.scripts]
 division-overtime = "division_overtime.cli:main"
+division-overtime-web = "division_overtime.web.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
