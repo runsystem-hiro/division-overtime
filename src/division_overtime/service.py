@@ -112,7 +112,6 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
                     and (
                         employee.code in config.self_notify_employee_codes
                         or snapshot.target_percent >= config.force_self_threshold
-                        or mode == "weekly"
                     )
                 ):
                     reports_by_delivery[(employee.email, f"self:{employee.code}")].append(
