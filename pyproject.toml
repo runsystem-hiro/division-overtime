@@ -20,9 +20,10 @@ dependencies = [
 web = [
   "fastapi>=0.116,<1",
   "uvicorn[standard]>=0.35,<1",
+  "argon2-cffi>=23.1,<26",
 ]
 dev = [
-  "httpx>=0.28,<1",
+  "httpx2>=2.0,<3",
   "pytest>=8.3,<9",
   "ruff>=0.12,<1",
 ]
@@ -30,6 +31,7 @@ dev = [
 [project.scripts]
 division-overtime = "division_overtime.cli:main"
 division-overtime-web = "division_overtime.web.__main__:main"
+division-overtime-web-hash-password = "division_overtime.web.password_hash:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

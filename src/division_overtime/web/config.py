@@ -23,6 +23,44 @@ class WebConfig:
     host: str
     port: int
     log_level: str
+    admin_username: str
+    admin_password_hash: str
+    session_secret: str
+    session_cookie_name: str
+    session_cookie_secure: bool
+    session_max_age_seconds: int
+    login_max_attempts: int
+    login_window_seconds: int
+    login_lockout_seconds: int
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise WebConfigError(f"required environment variable is not set: {name}")
+    return value
+
+
+def _positive_int_env(name: str, default: str) -> int:
+    try:
+        value = int(os.getenv(name, default))
+    except ValueError as exc:
+        raise WebConfigError(f"{name} must be an integer") from exc
+    if value <= 0:
+        raise WebConfigError(f"{name} must be greater than 0")
+    return value
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise WebConfigError(f"{name} must be true or false")
 
 
 def load_web_config(root: Path | None = None) -> WebConfig:
@@ -61,6 +99,14 @@ def load_web_config(root: Path | None = None) -> WebConfig:
     if not 1 <= port <= 65535:
         raise WebConfigError("WEB_PORT must be between 1 and 65535")
 
+    session_cookie_name = os.getenv("WEB_SESSION_COOKIE_NAME", "division_overtime_session").strip()
+    if not session_cookie_name:
+        raise WebConfigError("WEB_SESSION_COOKIE_NAME must not be empty")
+
+    session_secret = _required_env("WEB_SESSION_SECRET")
+    if len(session_secret) < 32:
+        raise WebConfigError("WEB_SESSION_SECRET must be at least 32 characters")
+
     return WebConfig(
         root=root,
         timezone=timezone,
@@ -70,4 +116,13 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         host=host,
         port=port,
         log_level=log_level,
+        admin_username=_required_env("WEB_ADMIN_USERNAME"),
+        admin_password_hash=_required_env("WEB_ADMIN_PASSWORD_HASH"),
+        session_secret=session_secret,
+        session_cookie_name=session_cookie_name,
+        session_cookie_secure=_bool_env("WEB_SESSION_COOKIE_SECURE", False),
+        session_max_age_seconds=_positive_int_env("WEB_SESSION_MAX_AGE_SECONDS", "28800"),
+        login_max_attempts=_positive_int_env("WEB_LOGIN_MAX_ATTEMPTS", "5"),
+        login_window_seconds=_positive_int_env("WEB_LOGIN_WINDOW_SECONDS", "900"),
+        login_lockout_seconds=_positive_int_env("WEB_LOGIN_LOCKOUT_SECONDS", "900"),
     )
