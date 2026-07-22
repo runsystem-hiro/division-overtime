@@ -8,12 +8,11 @@ Type=oneshot
 User=pi
 WorkingDirectory=/home/pi/division-overtime
 EnvironmentFile=/home/pi/division-overtime/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime run weekly
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/pi/division-overtime/var
-
-[Install]
-WantedBy=multi-user.target
