@@ -161,3 +161,61 @@ def test_dry_run_does_not_consume_notification_state(
     assert len(attempts) == 1
     assert attempts[0]["status"] == "sent"
     assert len(SuccessfulMessenger.calls) == 1
+
+
+def test_department_delivery_uses_legacy_message_style(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config = make_config(tmp_path)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "threshold") == 0
+
+    recipient, message = SuccessfulMessenger.calls[0]
+    assert recipient == "manager@example.com"
+    assert message == "\n".join(
+        [
+            "残業時間レポート",
+            "=============================",
+            "",
+            "👤 田中太郎 📗 備考: 60%超過",
+            "🗓️ 今月(2026-07) 残業 6:00",
+            "📊 目安比 60％ ⌛ 目安まで 4:00",
+            "🔙 前月残業 5:00 前月比 120%",
+        ]
+    )
+
+
+def test_self_delivery_uses_legacy_personal_header(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    base = make_config(tmp_path)
+    config = AppConfig(
+        root=base.root,
+        timezone=base.timezone,
+        database_path=base.database_path,
+        employee_csv=base.employee_csv,
+        log_level=base.log_level,
+        kot_base_url=base.kot_base_url,
+        kot_endpoint=base.kot_endpoint,
+        kot_token=base.kot_token,
+        connect_timeout=base.connect_timeout,
+        read_timeout=base.read_timeout,
+        retry_count=base.retry_count,
+        retry_backoff=base.retry_backoff,
+        default_target_minutes=base.default_target_minutes,
+        thresholds=base.thresholds,
+        division_targets=base.division_targets,
+        slack_token=base.slack_token,
+        department_recipients=base.department_recipients,
+        enable_self_notify=True,
+        self_notify_employee_codes=frozenset({"00001"}),
+        force_self_threshold=95,
+    )
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "threshold") == 0
+
+    assert len(SuccessfulMessenger.calls) == 2
+    messages = {recipient: message for recipient, message in SuccessfulMessenger.calls}
+    assert messages["tanaka@example.com"].startswith(
+        "田中太郎さんの残業状況レポート\n\n👤 田中太郎 📗 備考: 60%超過"
+    )
