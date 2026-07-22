@@ -12,37 +12,12 @@ from .config import AppConfig
 from .database import Database
 from .employees import load_employees
 from .king_of_time import KingOfTimeClient
+from .message_formatter import format_department_message, format_self_message
 from .models import OvertimeSnapshot
 from .policy import notification_dedupe_key, reached_threshold, target_minutes
 from .slack import SlackDeliveryError, SlackMessenger
 
 logger = logging.getLogger(__name__)
-
-
-def _hhmm(minutes: int) -> str:
-    return f"{minutes // 60}:{minutes % 60:02d}"
-
-
-def _report(snapshot: OvertimeSnapshot) -> str:
-    remaining = snapshot.target_minutes - snapshot.current_minutes
-    if snapshot.target_minutes == 0:
-        target_line = (
-            "目安0分 / 残業なし"
-            if snapshot.current_minutes == 0
-            else f"目安0分 / 超過 +{_hhmm(snapshot.current_minutes)}"
-        )
-    elif remaining < 0:
-        target_line = f"目安比 {snapshot.target_percent}% / 超過 +{_hhmm(abs(remaining))}"
-    else:
-        target_line = f"目安比 {snapshot.target_percent}% / 残り {_hhmm(remaining)}"
-    return "\n".join(
-        [
-            f"👤 {snapshot.employee.full_name}",
-            f"🗓️ 今月残業 {_hhmm(snapshot.current_minutes)}",
-            f"📊 {target_line}",
-            f"🔙 前月残業 {_hhmm(snapshot.previous_minutes)} / 前月比 {snapshot.previous_percent}%",
-        ]
-    )
 
 
 def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
@@ -81,9 +56,9 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
             for division in division_codes
         }
 
-        reports_by_recipient: dict[str, list[tuple[OvertimeSnapshot, int | None, str]]] = (
-            defaultdict(list)
-        )
+        reports_by_delivery: dict[
+            tuple[str, str], list[tuple[OvertimeSnapshot, int | None, str]]
+        ] = defaultdict(list)
         with db.transaction() as conn:
             for employee in employees:
                 snapshot = OvertimeSnapshot(
@@ -128,7 +103,9 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
                 recipients = set(config.department_recipients.get("ALL", ()))
                 recipients.update(config.department_recipients.get(employee.division_code, ()))
                 for recipient in recipients:
-                    reports_by_recipient[recipient].append((snapshot, threshold, dedupe))
+                    reports_by_delivery[(recipient, "department")].append(
+                        (snapshot, threshold, dedupe)
+                    )
                 if (
                     config.enable_self_notify
                     and employee.email
@@ -138,12 +115,12 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
                         or mode == "weekly"
                     )
                 ):
-                    reports_by_recipient[employee.email].append(
+                    reports_by_delivery[(employee.email, f"self:{employee.code}")].append(
                         (snapshot, threshold, dedupe + ":self")
                     )
 
         failed = 0
-        for recipient, items in reports_by_recipient.items():
+        for (recipient, delivery_type), items in reports_by_delivery.items():
             sendable: list[tuple[OvertimeSnapshot, int | None, str]] = []
             if dry_run:
                 sendable = items
@@ -188,11 +165,11 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
                                 )
             if not sendable:
                 continue
+            snapshots = [snapshot for snapshot, _, _ in sendable]
             message = (
-                "残業時間レポート\n"
-                + "=" * 29
-                + "\n\n"
-                + "\n\n".join(_report(snapshot) for snapshot, _, _ in sendable)
+                format_self_message(snapshots[0])
+                if delivery_type.startswith("self:")
+                else format_department_message(snapshots)
             )
             if dry_run:
                 logger.info("DRY RUN recipient=%s\n%s", recipient, message)
