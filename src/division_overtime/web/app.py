@@ -6,7 +6,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from division_overtime.web.auth import AuthService
 from division_overtime.web.config import WebConfig, load_web_config
+from division_overtime.web.routes.auth import router as auth_router
 from division_overtime.web.routes.system import router as system_router
 
 
@@ -20,6 +22,16 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
         redoc_url=None,
     )
     app.state.web_config = web_config
+    app.state.auth_service = AuthService(
+        admin_username=web_config.admin_username,
+        admin_password_hash=web_config.admin_password_hash,
+        session_secret=web_config.session_secret,
+        session_max_age_seconds=web_config.session_max_age_seconds,
+        login_max_attempts=web_config.login_max_attempts,
+        login_window_seconds=web_config.login_window_seconds,
+        login_lockout_seconds=web_config.login_lockout_seconds,
+    )
+    app.include_router(auth_router)
     app.include_router(system_router)
 
     assets_dir = web_config.frontend_dist / "assets"
@@ -62,6 +74,3 @@ def _read_version(root: Path) -> str:
     if not version_path.is_file():
         return "unknown"
     return version_path.read_text(encoding="utf-8").strip() or "unknown"
-
-
-app = create_app()
