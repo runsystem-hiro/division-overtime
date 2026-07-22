@@ -4,6 +4,17 @@
 
 ### Added
 
+- Raspberry Pi向け`deploy.sh`
+- デプロイ前のNode.js/npm・Git・curl・仮想環境・作業ツリー確認
+- フロントビルド、全検証、Webサービス再起動、ヘルスチェックの自動化
+
+### Fixed
+
+- Linux用シェルスクリプトの実行権限
+- TypeScriptビルド生成物をGit管理対象外へ整理
+
+### Added
+
 - FastAPIによるWeb管理UI基盤
 - Web専用設定ローダー（KOT・Slackトークン不要）
 - `/api/system/health`および`/api/version`
