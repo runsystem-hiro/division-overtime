@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- FastAPIによるWeb管理UI基盤
+- Web専用設定ローダー（KOT・Slackトークン不要）
+- `/api/system/health`および`/api/version`
+- React / Vite / TypeScriptの最小フロントエンド
+- FastAPIからのビルド済みSPA配信
+- `division-overtime-web.service`
+- Web設定・API・静的配信のテスト5件
+
+### Changed
+
+- Web用Python依存関係を`web`オプションとして追加
+- インストールスクリプトでWeb依存関係を導入
+- READMEへWeb開発・ビルド・systemd手順を追加
+
 ## [1.0.2] - 2026-07-22
 
 ### Fixed

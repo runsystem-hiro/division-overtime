@@ -1,0 +1,50 @@
+:root {
+  font-family: Inter, "Noto Sans JP", system-ui, sans-serif;
+  color: #e5e7eb;
+  background: #0b1020;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input { font: inherit; }
+
+.page-shell {
+  width: min(960px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 72px 0;
+}
+
+.hero { margin-bottom: 32px; }
+.eyebrow {
+  margin: 0 0 12px;
+  color: #60a5fa;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.8rem); line-height: 1.08; }
+.lead { max-width: 720px; margin: 20px 0 0; color: #9ca3af; line-height: 1.8; }
+
+.status-card {
+  padding: 28px;
+  border: 1px solid #293148;
+  border-radius: 18px;
+  background: #12192b;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 24%);
+}
+.status-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+h2 { margin: 0; font-size: 1.2rem; }
+.badge { padding: 6px 10px; border-radius: 999px; background: #374151; font-size: 0.78rem; font-weight: 700; }
+.badge-ok { color: #bbf7d0; background: #14532d; }
+.status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 28px 0 0; }
+.status-grid div { padding-top: 16px; border-top: 1px solid #293148; }
+dt { color: #9ca3af; font-size: 0.78rem; }
+dd { margin: 8px 0 0; overflow-wrap: anywhere; font-weight: 650; }
+.error-message { margin: 24px 0 0; color: #fca5a5; }
+
+@media (max-width: 640px) {
+  .page-shell { width: min(100% - 24px, 960px); padding: 40px 0; }
+  .status-grid { grid-template-columns: 1fr; }
+}
