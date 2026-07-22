@@ -416,7 +416,7 @@ git pull
 
 ## Web管理UI基盤（Issue #5）
 
-Web管理UIは既存のthreshold、weekly、health処理から独立したFastAPIサービスとして起動します。現段階は基盤のみで、認証、社員管理、KOT社員同期、CSV生成は後続PRで追加します。
+Web管理UIは既存のthreshold、weekly、health処理から独立したFastAPIサービスとして起動します。認証基盤まで実装済みです。社員管理、KOT社員同期、CSV生成は後続PRで追加します。
 
 ### 構成
 
@@ -425,10 +425,13 @@ src/division_overtime/web/
 ├── __init__.py
 ├── __main__.py
 ├── app.py
+├── auth.py
 ├── config.py
 ├── dependencies.py
+├── password_hash.py
 └── routes/
     ├── __init__.py
+    ├── auth.py
     └── system.py
 
 frontend/
@@ -445,6 +448,30 @@ frontend/
 ```
 
 Web設定の読み込みでは、KING OF TIMEとSlackのトークンを要求しません。外部サービスの認証情報は、既存通知コマンドが必要になった時点でのみ読み込みます。
+
+### 管理者認証の初期設定
+
+Argon2ハッシュを生成します。入力したパスワード自体は表示・保存されません。
+
+```powershell
+division-overtime-web-hash-password
+```
+
+出力されたハッシュとランダムなセッション秘密鍵を`.env`へ設定します。
+
+```env
+WEB_ADMIN_USERNAME=hiro
+WEB_ADMIN_PASSWORD_HASH=<Argon2ハッシュ>
+WEB_SESSION_SECRET=<32文字以上のランダム文字列>
+WEB_SESSION_COOKIE_NAME=division_overtime_session
+WEB_SESSION_COOKIE_SECURE=false
+WEB_SESSION_MAX_AGE_SECONDS=28800
+WEB_LOGIN_MAX_ATTEMPTS=5
+WEB_LOGIN_WINDOW_SECONDS=900
+WEB_LOGIN_LOCKOUT_SECONDS=900
+```
+
+LAN内HTTP運用中は`WEB_SESSION_COOKIE_SECURE=false`とします。HTTPS化した場合は`true`へ変更します。セッションはWebプロセスのメモリ上に保存され、サービス再起動時には全セッションが失効します。
 
 ### Python依存関係
 
@@ -491,6 +518,9 @@ division-overtime-web
 
 主要エンドポイント:
 
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
 - `GET /api/system/health`
 - `GET /api/version`
 - `GET /api/docs`
@@ -501,6 +531,9 @@ Web用環境変数:
 WEB_HOST=0.0.0.0
 WEB_PORT=8000
 WEB_LOG_LEVEL=INFO
+WEB_ADMIN_USERNAME=hiro
+WEB_ADMIN_PASSWORD_HASH=<Argon2ハッシュ>
+WEB_SESSION_SECRET=<32文字以上のランダム文字列>
 ```
 
 ### systemd
@@ -519,56 +552,3 @@ http://4b64bit:8000/
 ```
 
 Webサービスを停止しても、既存のthreshold、weekly、healthサービスおよびtimerには影響しません。
-
-## Raspberry Piへのデプロイ（Issue #7）
-
-Raspberry Pi 4Bでは、ソース取得、Python依存更新、フロントエンドビルド、検証、Webサービス再起動、ヘルスチェックを`deploy.sh`でまとめて実行します。
-
-### 初回のみ必要な準備
-
-Node.jsとnpmが未導入の場合は、OSのパッケージ管理で導入します。
-
-```bash
-sudo apt update
-sudo apt install -y nodejs npm
-node --version
-npm --version
-```
-
-Python仮想環境とsystemd定義の初期配置は、次で行います。
-
-```bash
-cd /home/pi/division-overtime
-bash ./scripts/install.sh
-```
-
-### 通常のデプロイ
-
-作業ツリーがcleanであることを確認してから実行します。
-
-```bash
-cd /home/pi/division-overtime
-./scripts/deploy.sh
-```
-
-`deploy.sh`は次の順で処理します。
-
-1. `git`、`npm`、`curl`、`sudo`と`.venv`の存在確認
-2. 作業ツリーがcleanであることを確認
-3. `git pull --ff-only`
-4. Python依存関係を更新
-5. `npm ci`
-6. `npm run build`
-7. `scripts/verify.sh`
-8. `division-overtime-web.service`を再起動
-9. `/api/system/health`を確認
-
-フロントエンドのビルドまたはアプリ検証に失敗した場合、Webサービスは再起動しません。既存の`frontend/dist`と稼働中プロセスを維持します。
-
-状態確認:
-
-```bash
-systemctl status division-overtime-web.service --no-pager
-curl -fsS http://127.0.0.1:8000/api/system/health
-echo
-```
