@@ -1,20 +1,54 @@
 # Migration from the legacy cron version
 
-1. Keep the legacy directory offline as a reference copy.
-2. Do not copy legacy logs, cache files, flags, Slack user-ID cache, or the real employee CSV into Git.
-3. Prepare `.env`, `config/production.toml`, and `data/employeeKey.csv` on the Raspberry Pi.
-4. Run configuration validation and database initialization.
-5. Run both modes with `--dry-run` and compare candidates with the legacy output.
-6. Disable the two legacy cron entries.
-7. Enable the new systemd timers.
-8. Observe the first threshold and weekly executions with `journalctl` and SQLite status checks.
+## 移行方針
 
-## Legacy schedules
+旧版は参照用として`legacy/pre-modernization`ブランチおよびローカルバックアップへ退避し、新設計版を`main`として運用する。
 
-- Every day 10:30: legacy script; internally skips weekends and Japanese holidays except force mode.
-- Friday 21:30: legacy script; internally detects force mode.
+## 移行手順
 
-## New schedules
+1. Raspberry Pi OS Trixie 64-bit Desktopをクリーンインストールする。
+2. 旧ログ、キャッシュ、通知フラグ、SlackユーザーIDキャッシュを新Gitリポジトリへ含めない。
+3. `.env`、`config/production.toml`、`data/employeeKey.csv`を実機上で作成する。
+4. 設定検証とSQLite初期化を実行する。
+5. thresholdとweeklyを`--dry-run`で実行し、残業値・通知候補・宛先を確認する。
+6. 通知先を一時的に管理者1名へ限定してweeklyを実送信する。
+7. SQLiteの`sent`記録とSlack受信を確認する。
+8. 同一コマンドを再実行し、重複送信がスキップされることを確認する。
+9. systemd serviceを手動実行し、終了コードとjournalを確認する。
+10. 旧cronが存在しないことを確認する。
+11. systemd timerを有効化する。
+12. 初回自動実行をjournalとSQLiteで確認する。
 
-- Monday-Friday 10:30: explicit `threshold` mode; Japanese public holidays are skipped.
-- Friday 21:30: explicit `weekly` mode; runs regardless of overtime ratio.
+## 旧スケジュール
+
+- 毎日10:30: 旧スクリプトを起動し、内部で曜日・祝日・閾値を判定
+- 金曜21:30: 旧スクリプトを起動し、内部で強制通知モードを判定
+
+## 新スケジュール
+
+- 月曜〜金曜10:30: 明示的な`threshold`モード
+- 金曜21:30: 明示的な`weekly`モード
+- 起動10分後、その後1時間ごと: ローカルhealth
+
+## KING OF TIME API制約
+
+API利用禁止時間帯（JST）:
+
+- 08:30〜10:00
+- 17:30〜18:30
+
+新スケジュールはこの時間帯を避けている。
+healthではAPIへアクセスしない。
+
+## 移行完了条件
+
+- WindowsとPiの両方でRuff成功
+- WindowsとPiの両方でpytest成功
+- SQLite整合性`ok`
+- SQLite journal mode `wal`
+- dry-runで想定通知先だけが表示される
+- Slack実送信成功
+- 同一週の重複送信防止成功
+- systemd service手動実行成功
+- 3つのtimerが`active (waiting)`
+- cron競合なし
