@@ -413,3 +413,109 @@ git pull
 - 旧版の秘密情報を含む資産
 
 秘密情報や実社員情報を、README、Issue、Pull Request、ログ共有へ貼り付けないでください。
+
+## Web管理UI基盤（Issue #5）
+
+Web管理UIは既存のthreshold、weekly、health処理から独立したFastAPIサービスとして起動します。現段階は基盤のみで、認証、社員管理、KOT社員同期、CSV生成は後続PRで追加します。
+
+### 構成
+
+```text
+src/division_overtime/web/
+├── __init__.py
+├── __main__.py
+├── app.py
+├── config.py
+├── dependencies.py
+└── routes/
+    ├── __init__.py
+    └── system.py
+
+frontend/
+├── index.html
+├── package.json
+├── tsconfig.json
+├── tsconfig.app.json
+├── tsconfig.node.json
+├── vite.config.ts
+└── src/
+    ├── App.tsx
+    ├── main.tsx
+    └── styles.css
+```
+
+Web設定の読み込みでは、KING OF TIMEとSlackのトークンを要求しません。外部サービスの認証情報は、既存通知コマンドが必要になった時点でのみ読み込みます。
+
+### Python依存関係
+
+開発環境ではWeb用と開発用の追加依存関係をインストールします。
+
+```powershell
+python -m pip install -e ".[web,dev]"
+```
+
+Raspberry Piでは次のようにインストールします。
+
+```bash
+./.venv/bin/python -m pip install -e '.[web]'
+```
+
+### フロントエンドの開発
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite開発サーバーは`/api`を`http://127.0.0.1:8000`へ転送します。別ターミナルでFastAPIを起動してください。
+
+```powershell
+cd D:\_dev\division-overtime
+$env:WEB_HOST = "127.0.0.1"
+$env:WEB_PORT = "8000"
+division-overtime-web
+```
+
+### 本番用ビルドと同一オリジン配信
+
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..
+division-overtime-web
+```
+
+`frontend/dist/index.html`が存在する場合、FastAPIがSPAと`/assets`を配信します。未ビルドの場合もAPIは起動し、`/`はHTTP 503と`frontend_not_built`を返します。
+
+主要エンドポイント:
+
+- `GET /api/system/health`
+- `GET /api/version`
+- `GET /api/docs`
+
+Web用環境変数:
+
+```env
+WEB_HOST=0.0.0.0
+WEB_PORT=8000
+WEB_LOG_LEVEL=INFO
+```
+
+### systemd
+
+```bash
+sudo cp systemd/division-overtime-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now division-overtime-web.service
+systemctl status division-overtime-web.service --no-pager
+```
+
+初期アクセスURL:
+
+```text
+http://4b64bit:8000/
+```
+
+Webサービスを停止しても、既存のthreshold、weekly、healthサービスおよびtimerには影響しません。
