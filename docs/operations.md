@@ -271,55 +271,192 @@ ok
 
 ### 復旧手順
 
-DBとCSVは必ず同じバックアップ世代から復旧する。復旧中はWebから社員情報が更新されないようにWebサービスだけを停止する。threshold、weekly、healthのtimerは停止しない。
+DBとCSVは必ず同じバックアップ世代から復旧する。復旧中にWeb更新や通知処理がSQLite・CSVを参照しないよう、Webサービスと通知timerを停止し、oneshot serviceがすべて停止していることを確認してから作業する。
+
+> [!WARNING]
+> 復旧は障害対応時だけ実施する。`BACKUP_DIR`を実在するバックアップ世代へ変更し、整合性確認が`ok`であることを確認するまでは、現在のDBとCSVを置き換えない。
+
+#### 1. 復旧元を選定して事前確認する
 
 ```bash
 cd /home/pi/division-overtime
 BACKUP_DIR="var/backups/kot-sync/<対象日時>"
 
-sudo systemctl stop division-overtime-web.service
+[ -d "$BACKUP_DIR" ] || { echo "バックアップが見つかりません: $BACKUP_DIR" >&2; exit 1; }
+[ -f "$BACKUP_DIR/division_overtime.sqlite3" ] || {
+  echo "バックアップDBが見つかりません" >&2
+  exit 1
+}
 
-cp -a var/division_overtime.sqlite3 \
-  "var/division_overtime.sqlite3.before-restore-$(date +%Y%m%d_%H%M%S)"
+find "$BACKUP_DIR" -maxdepth 1 -type f -printf '%M %m %p\n' | sort
+sqlite3 "$BACKUP_DIR/division_overtime.sqlite3" 'PRAGMA integrity_check;'
+```
+
+期待値:
+
+```text
+ok
+```
+
+`employeeKey.csv`が存在する世代では、DBと同じディレクトリにあるCSVを必ず使用する。バックアップ世代にCSVがない場合は、その時点でCSVが存在しなかった状態へ戻すため、復旧時に現行CSVを削除する。
+
+#### 2. Webと通知処理を停止する
+
+先にtimerを停止し、新しい通知処理が起動しないようにする。その後Webサービスとoneshot serviceを停止する。
+
+```bash
+sudo systemctl stop \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer
+
+sudo systemctl stop \
+  division-overtime-web.service \
+  division-overtime-threshold.service \
+  division-overtime-weekly.service \
+  division-overtime-health.service
+```
+
+すべて`inactive`であることを確認する。
+
+```bash
+systemctl is-active \
+  division-overtime-web.service \
+  division-overtime-threshold.service \
+  division-overtime-weekly.service \
+  division-overtime-health.service || true
+```
+
+`active`または`activating`が1つでも表示された場合は復旧を開始しない。
+
+#### 3. 現在のDBとCSVを追加退避する
+
+ライブDBの単純コピーは行わず、SQLite Backup APIを使用する。退避先は所有者だけが参照できる権限にする。
+
+```bash
+RESTORE_ID="$(date +%Y%m%d_%H%M%S)"
+RESTORE_SAFETY_DIR="var/backups/manual-restore/$RESTORE_ID"
+
+install -d -m 700 "$RESTORE_SAFETY_DIR"
+sqlite3 var/division_overtime.sqlite3 \
+  ".backup '$RESTORE_SAFETY_DIR/division_overtime.sqlite3'"
+chmod 600 "$RESTORE_SAFETY_DIR/division_overtime.sqlite3"
 
 if [ -f data/employeeKey.csv ]; then
-  cp -a data/employeeKey.csv \
-    "data/employeeKey.csv.before-restore-$(date +%Y%m%d_%H%M%S)"
+  install -m 600 data/employeeKey.csv "$RESTORE_SAFETY_DIR/employeeKey.csv"
 fi
 
-cp -a "$BACKUP_DIR/division_overtime.sqlite3" var/division_overtime.sqlite3
+sqlite3 "$RESTORE_SAFETY_DIR/division_overtime.sqlite3" 'PRAGMA integrity_check;'
+printf '復旧前退避先: %s\n' "$RESTORE_SAFETY_DIR"
+```
+
+整合性確認が`ok`以外の場合は復旧を中止する。
+
+#### 4. SQLiteとCSVを同一世代から復旧する
+
+停止済みプロセスがないことを再確認してから、WAL・SHMを削除し、権限を限定した一時ファイル経由で置き換える。
+
+```bash
+systemctl is-active \
+  division-overtime-web.service \
+  division-overtime-threshold.service \
+  division-overtime-weekly.service \
+  division-overtime-health.service || true
+
+rm -f var/division_overtime.sqlite3-wal var/division_overtime.sqlite3-shm
+
+install -m 600 \
+  "$BACKUP_DIR/division_overtime.sqlite3" \
+  var/division_overtime.sqlite3.restore
+mv -f var/division_overtime.sqlite3.restore var/division_overtime.sqlite3
 
 if [ -f "$BACKUP_DIR/employeeKey.csv" ]; then
-  cp -a "$BACKUP_DIR/employeeKey.csv" data/employeeKey.csv
+  install -m 600 "$BACKUP_DIR/employeeKey.csv" data/employeeKey.csv.restore
+  mv -f data/employeeKey.csv.restore data/employeeKey.csv
 else
-  rm -f data/employeeKey.csv
+  rm -f data/employeeKey.csv data/employeeKey.csv.restore
 fi
 
 chmod 600 var/division_overtime.sqlite3
-if [ -f data/employeeKey.csv ]; then
-  chmod 600 data/employeeKey.csv
-fi
-
+[ ! -f data/employeeKey.csv ] || chmod 600 data/employeeKey.csv
 sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
-sudo systemctl start division-overtime-web.service
-curl -fsS http://127.0.0.1:8000/api/system/health
-echo
 ```
 
-復旧後に次を確認する。
+整合性確認が`ok`以外の場合はサービスを再開せず、後述のロールバックを行う。
+
+#### 5. サービスを再開して確認する
 
 ```bash
+sudo systemctl start division-overtime-web.service
+sudo systemctl start \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer
+
+curl -fsS http://127.0.0.1:8000/api/system/health
+echo
+
 systemctl is-active \
   division-overtime-threshold.timer \
   division-overtime-weekly.timer \
   division-overtime-health.timer \
   division-overtime-web.service
+
+sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
+ls -l var/division_overtime.sqlite3 data/employeeKey.csv 2>/dev/null || true
 ```
+
+確認項目:
 
 - SQLite整合性が`ok`
 - Web API healthが`status: ok`
-- 4サービスが`active`
+- 3つのtimerとWebサービスが`active`
+- SQLiteとCSVの権限が`600`
 - 社員一覧と`employeeKey.csv`の内容が対象バックアップ世代と一致
+- threshold、weekly、healthのoneshot serviceに異常終了がない
+
+#### ロールバック
+
+復旧後の確認に失敗した場合は、手順3で作成した`RESTORE_SAFETY_DIR`から復旧前の状態へ戻す。Webサービスと通知timer/serviceを停止した状態で実行する。
+
+```bash
+RESTORE_SAFETY_DIR="var/backups/manual-restore/<復旧前退避日時>"
+
+sudo systemctl stop \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer \
+  division-overtime-web.service \
+  division-overtime-threshold.service \
+  division-overtime-weekly.service \
+  division-overtime-health.service
+
+sqlite3 "$RESTORE_SAFETY_DIR/division_overtime.sqlite3" 'PRAGMA integrity_check;'
+rm -f var/division_overtime.sqlite3-wal var/division_overtime.sqlite3-shm
+
+install -m 600 \
+  "$RESTORE_SAFETY_DIR/division_overtime.sqlite3" \
+  var/division_overtime.sqlite3.restore
+mv -f var/division_overtime.sqlite3.restore var/division_overtime.sqlite3
+
+if [ -f "$RESTORE_SAFETY_DIR/employeeKey.csv" ]; then
+  install -m 600 \
+    "$RESTORE_SAFETY_DIR/employeeKey.csv" \
+    data/employeeKey.csv.restore
+  mv -f data/employeeKey.csv.restore data/employeeKey.csv
+else
+  rm -f data/employeeKey.csv data/employeeKey.csv.restore
+fi
+
+sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
+sudo systemctl start division-overtime-web.service
+sudo systemctl start \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer
+```
+
+ロールバック後も、Web API health、SQLite整合性、timer状態、社員一覧、CSV内容を同じ手順で確認する。
 
 ## 更新手順
 
