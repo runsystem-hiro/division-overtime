@@ -1,7 +1,6 @@
 # Changelog
 
 ## [Unreleased]
-- KOT社員同期を `KOT_SYNC_DIVISION_CODES` で指定した部署に限定し、全社取得件数と同期対象件数を表示するよう変更。
 
 ### Added
 
@@ -11,12 +10,10 @@
 - CSV生成失敗時のSQLiteロールバックと既存CSV保持
 - KOT Keyの書込専用入力（APIレスポンス・一覧・編集値には非表示）
 - 社員管理サービス、API、Repositoryのテスト
-
 - Web管理UI向けの社員SQLite管理テーブル
 - `employeeKey.csv`から社員情報を初期取込するRepository
 - 社員の有効状態、無効理由、備考、KOT存在状態を保持する管理項目
 - 社員SQLite管理基盤のテスト
-
 - 管理者1名向けのユーザー名・パスワード認証
 - Argon2によるパスワードハッシュ検証
 - HttpOnly・SameSite=StrictのCookieセッション
@@ -25,19 +22,6 @@
 - 管理者ログイン画面
 - パスワードハッシュ生成コマンド
 - 認証・Cookie・期限・試行制限のテスト
-
-### Security
-
-- 認証失敗時の応答を統一し、ユーザー名の存在を判別できないようにした
-- セッションIDは平文保存せず、秘密鍵によるHMACダイジェストで保持
-- Web認証情報を`.env`からのみ読み込む
-
-### Changed
-
-- SQLiteスキーマバージョンを2へ更新
-
-### Added
-
 - FastAPIによるWeb管理UI基盤
 - Web専用設定ローダー（KOT・Slackトークン不要）
 - `/api/system/health`および`/api/version`
@@ -45,12 +29,26 @@
 - FastAPIからのビルド済みSPA配信
 - `division-overtime-web.service`
 - Web設定・API・静的配信のテスト5件
+- KING OF TIME従業員一覧を手動取得し、SQLite社員マスタとの差分をプレビューするAPIとWeb UI
+- 新規・更新・無効化候補を選択して反映し、`employeeKey.csv`を安全に再生成する処理
+- KOT同期履歴テーブルと、成功時の反映件数記録
+- KOT同期プレビューの表示フィルタ、変更理由、行強調、一括選択支援
 
 ### Changed
 
+- SQLiteスキーマバージョンを2へ更新
 - Web用Python依存関係を`web`オプションとして追加
 - インストールスクリプトでWeb依存関係を導入
 - READMEへWeb開発・ビルド・systemd手順を追加
+- KOT社員同期を`KOT_SYNC_DIVISION_CODES`で指定した部署に限定
+- KOT同期プレビューに全社取得件数と同期対象件数を表示
+
+### Security
+
+- 認証失敗時の応答を統一し、ユーザー名の存在を判別できないようにした
+- セッションIDは平文保存せず、秘密鍵によるHMACダイジェストで保持
+- Web認証情報を`.env`からのみ読み込む
+- KOT Keyは同期プレビュー、APIレスポンス、画面に含めず、サーバー内部の短時間プレビューだけで保持
 
 ## [1.0.2] - 2026-07-22
 
@@ -129,17 +127,3 @@
 - `.env`、`config/production.toml`、実社員CSV、SQLite DB、旧資産をGit管理対象外とした
 - systemd serviceへ`NoNewPrivileges`、`ProtectSystem`、`ProtectHome`、書込先制限を設定
 - healthは外部APIとSlackを呼び出さず、正常通知によるノイズを発生させない
-
-## Unreleased
-
-### Added
-
-- KING OF TIME従業員一覧を手動取得し、SQLite社員マスタとの差分をプレビューするAPIとWeb UIを追加。
-- 新規・更新・無効化候補を選択して反映し、`employeeKey.csv`を安全に再生成する処理を追加。
-- KOT同期履歴テーブルを追加し、成功時の反映件数を記録。
-
-### Security
-
-- KOT Keyは同期プレビュー、APIレスポンス、画面に含めず、サーバー内部の短時間プレビューだけで保持。
-
-- KOT同期プレビューに表示フィルタ、変更理由、行強調、一括選択支援を追加。
