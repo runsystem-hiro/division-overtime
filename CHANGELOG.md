@@ -4,6 +4,8 @@
 
 ### Added
 
+- KOT社員同期の二重実行防止、API利用禁止時間帯の制御、最終実行結果表示
+
 - 社員管理画面の検索操作、保存結果表示、SQLiteと`employeeKey.csv`の整合性ステータス表示
 
 - SQLiteの有効社員と`employeeKey.csv`を読み取り専用で比較する整合性確認コマンド

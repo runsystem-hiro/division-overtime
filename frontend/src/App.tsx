@@ -49,6 +49,21 @@ type SyncPreview = {
   targetDivisionCodes: string[];
 };
 
+type KotSyncStatus = {
+  running: boolean;
+  blocked: boolean;
+  lastRun: {
+    executed_at: string;
+    actor: string;
+    fetched_count: number;
+    created_count: number;
+    updated_count: number;
+    disabled_count: number;
+    unchanged_count: number;
+    status: string;
+  } | null;
+};
+
 type EmployeeConsistency = {
   status: "ok" | "mismatch";
   databaseEmployees: number;
@@ -115,6 +130,7 @@ export function App() {
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [selectedSyncCodes, setSelectedSyncCodes] = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<KotSyncStatus | null>(null);
   const [syncActions, setSyncActions] = useState({
     create: true,
     update: true,
@@ -155,6 +171,17 @@ export function App() {
     }
   }, []);
 
+
+  const loadKotSyncStatus = useCallback(async () => {
+    const response = await fetch("/api/kot-sync/status", { credentials: "same-origin" });
+    if (response.status === 503) {
+      setSyncStatus(null);
+      return;
+    }
+    if (!response.ok) throw new Error(await responseError(response));
+    setSyncStatus((await response.json()) as KotSyncStatus);
+  }, []);
+
   const loadEmployees = useCallback(async () => {
     setLoadingEmployees(true);
     const params = new URLSearchParams({ enabled: enabledFilter });
@@ -184,12 +211,13 @@ export function App() {
       }),
       loadEmployees(),
       loadConsistency(),
+      loadKotSyncStatus(),
     ])
       .then(([healthResponse]) => setHealth(healthResponse))
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "情報を取得できませんでした");
       });
-  }, [loadConsistency, loadEmployees, user]);
+  }, [loadConsistency, loadEmployees, loadKotSyncStatus, user]);
 
   const counts = useMemo(() => ({
     all: employees.length,
@@ -301,6 +329,7 @@ export function App() {
     const preview = (await response.json()) as SyncPreview;
     setSyncPreview(preview);
     setSelectedSyncCodes([]);
+    await loadKotSyncStatus();
   }
 
   async function applyKotPreview() {
@@ -334,7 +363,7 @@ export function App() {
     setNotice("KOT社員差分を反映し、employeeKey.csvを再生成しました。");
     setSyncPreview(null);
     setSelectedSyncCodes([]);
-    await Promise.all([loadEmployees(), loadConsistency()]);
+    await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
   }
 
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
@@ -486,9 +515,14 @@ export function App() {
             <p className="eyebrow">KING OF TIME</p>
             <h2>社員同期</h2>
             <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>
+            {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}
+            {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
+            {syncStatus?.lastRun && (
+              <p className="muted">最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
+            )}
           </div>
-          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={syncing}>
-            {syncing ? "取得中…" : "KOTから取得"}
+          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={syncing || syncStatus?.running || syncStatus?.blocked}>
+            {syncing || syncStatus?.running ? "実行中…" : "KOTから取得"}
           </button>
         </div>
         {syncPreview && (

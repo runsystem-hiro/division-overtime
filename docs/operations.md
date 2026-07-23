@@ -523,3 +523,15 @@ sudo systemctl daemon-reload
 7. 必要に応じてserviceを手動実行
 
 実送信を再試行する前に、DBの`notification_attempts`を確認して重複送信を防ぐ。
+
+
+## WebからのKOT社員同期
+
+1. 社員管理画面へログインする
+2. KOT社員同期欄で禁止時間帯でないことを確認する
+3. 「KOTから取得」で差分をプレビューする
+4. 対象を選択して反映する
+5. SQLite / employeeKey.csv の整合性が「一致」であることを確認する
+6. 最終実行日時と新規・更新・無効化件数を確認する
+
+実行中の再実行はHTTP 409で拒否される。08:30〜10:00および17:30〜18:30はHTTP 423で拒否される。同期前バックアップとCSVの原子的再生成は既存のKOT同期サービスが行う。threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する。
