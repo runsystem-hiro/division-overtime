@@ -48,6 +48,8 @@
 
 ### Changed
 
+- SQLiteの有効社員を通知用に読み込む`SqliteEmployeeSource`を追加し、CSVとの結果一致をテスト
+
 - 通知処理の社員CSV読み込みを`CsvEmployeeSource`へ分離し、参照先は従来どおり`employeeKey.csv`を維持
 
 - SQLiteスキーマバージョンを2へ更新

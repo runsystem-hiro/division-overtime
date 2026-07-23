@@ -418,6 +418,8 @@ git pull
 
 threshold・weekly・healthの通知処理は、`CsvEmployeeSource`を通じて引き続き`data/employeeKey.csv`を参照します。今回の分離は将来の段階的移行に備えた内部構造の整理であり、通知対象・通知条件・送信内容・実行時刻は変更しません。
 
+`SqliteEmployeeSource`も実装済みで、SQLiteの有効社員を社員コード順に通知用`Employee`へ変換できます。ただし、本番通知ではまだ使用せず、CSVとの結果一致テストに限定しています。
+
 ## 社員データ整合性確認
 
 SQLiteの有効社員データと、既存通知処理が参照する`data/employeeKey.csv`を読み取り専用で比較します。通知処理の参照先はCSVのままです。
