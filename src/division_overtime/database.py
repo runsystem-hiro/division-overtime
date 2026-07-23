@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Database:
@@ -87,8 +87,39 @@ class Database:
                 );
                 CREATE INDEX IF NOT EXISTS idx_notification_status
                     ON notification_attempts(status, updated_at);
+                CREATE TABLE IF NOT EXISTS employees (
+                    code TEXT PRIMARY KEY,
+                    kot_key TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    first_name TEXT NOT NULL,
+                    division_code TEXT NOT NULL,
+                    division_name TEXT NOT NULL DEFAULT '',
+                    email TEXT,
+                    personal_target_minutes INTEGER
+                        CHECK(personal_target_minutes IS NULL OR personal_target_minutes >= 0),
+                    is_enabled INTEGER NOT NULL DEFAULT 1 CHECK(is_enabled IN (0, 1)),
+                    disabled_reason TEXT,
+                    note TEXT,
+                    kot_group_codes TEXT,
+                    kot_group_names TEXT,
+                    kot_exists INTEGER NOT NULL DEFAULT 1 CHECK(kot_exists IN (0, 1)),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    last_synced_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_employees_division
+                    ON employees(division_code, is_enabled);
                 """
             )
+            current_row = conn.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+            current_version = int(current_row["value"]) if current_row else 0
+            if current_version > SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Database schema version {current_version} is newer than "
+                    f"supported version {SCHEMA_VERSION}"
+                )
             conn.execute(
                 "INSERT INTO schema_meta(key, value) VALUES('schema_version', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
