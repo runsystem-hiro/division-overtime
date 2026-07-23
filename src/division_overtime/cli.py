@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+from datetime import datetime
 from pathlib import Path
 
 from .config import ConfigError, load_config
 from .database import Database
+from .employee_repository import EmployeeRepository
 from .employees import EmployeeDataError, load_employees
 from .service import run
 
@@ -20,8 +22,27 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("health")
     db_parser = sub.add_parser("database")
     db_parser.add_argument("action", choices=["init", "status"])
+    employees_parser = sub.add_parser("employees")
+    employees_parser.add_argument("action", choices=["import-csv"])
+    employees_parser.add_argument("--apply", action="store_true")
     sub.add_parser("validate-config")
     return parser
+
+
+def _import_employees(db: Database, employee_csv: Path, apply: bool) -> int:
+    employees = load_employees(employee_csv)
+    if not apply:
+        print(f"employee_csv_import=preview employees={len(employees)}")
+        print("database_changes=none")
+        return 0
+    if not db.is_initialized():
+        raise RuntimeError(
+            "Database is not initialized. Run 'division-overtime --root . database init' first."
+        )
+    repository = EmployeeRepository(db)
+    repository.upsert_many(employees, datetime.now().astimezone())
+    print(f"employee_csv_import=applied employees={len(employees)}")
+    return 0
 
 
 def main() -> int:
@@ -41,6 +62,8 @@ def main() -> int:
                 print(f"database={db.path}")
                 print(f"integrity_check={db.integrity_check()}")
             return 0
+        if args.command == "employees" and args.action == "import-csv":
+            return _import_employees(db, config.employee_csv, args.apply)
         if args.command == "validate-config":
             employees = load_employees(config.employee_csv)
             print(f"configuration=ok employees={len(employees)}")
@@ -51,7 +74,14 @@ def main() -> int:
             print(f"employee_csv_exists={config.employee_csv.exists()}")
             return 0 if config.employee_csv.exists() and db.integrity_check() == "ok" else 1
         return 2
-    except (ConfigError, EmployeeDataError, FileNotFoundError, KeyError, ValueError) as exc:
+    except (
+        ConfigError,
+        EmployeeDataError,
+        FileNotFoundError,
+        KeyError,
+        RuntimeError,
+        ValueError,
+    ) as exc:
         logging.error("Configuration error: %s", exc)
         return 2
 

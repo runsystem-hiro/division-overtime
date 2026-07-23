@@ -126,6 +126,27 @@ class Database:
                 (str(SCHEMA_VERSION),),
             )
 
+    def is_initialized(self) -> bool:
+        if not self.path.exists():
+            return False
+        with self.connect() as conn:
+            table = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
+            ).fetchone()
+            if table is None:
+                return False
+            version = conn.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+            employees = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
+            ).fetchone()
+        return (
+            version is not None
+            and int(version["value"]) == SCHEMA_VERSION
+            and employees is not None
+        )
+
     def integrity_check(self) -> str:
         with self.connect() as conn:
             return str(conn.execute("PRAGMA integrity_check").fetchone()[0])
