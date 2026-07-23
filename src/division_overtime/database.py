@@ -22,6 +22,20 @@ class Database:
         conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
+    def backup_to(self, destination: Path) -> None:
+        """Create a consistent SQLite backup using the SQLite backup API."""
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        with self.connect() as source, sqlite3.connect(destination) as target:
+            source.backup(target)
+
+        with sqlite3.connect(destination) as conn:
+            result = str(conn.execute("PRAGMA integrity_check").fetchone()[0])
+
+        if result != "ok":
+            destination.unlink(missing_ok=True)
+            raise RuntimeError(f"SQLite backup integrity check failed: {result}")
+
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
         conn = self.connect()
