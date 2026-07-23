@@ -440,6 +440,14 @@ SQLiteの有効社員データと、既存通知処理が参照する`data/emplo
 
 JSONには件数、SQLite側のみ・CSV側のみの社員コード、内容不一致の社員コードと差分項目名を含めます。KOT Key、メールアドレス、氏名などの値は出力しません。
 
+整合性結果を履歴へ追記する場合:
+
+```bash
+.venv/bin/division-overtime --root . employees record-consistency
+```
+
+結果は`data/employee-consistency-history.jsonl`へ1実行1行で追記されます。履歴には社員コードと差分項目名だけを保存し、KOT Key、氏名、メールアドレスなどの実値は保存しません。systemdによる自動実行は後続Issueで追加します。
+
 ## 終了コード
 
 - `0`: 正常

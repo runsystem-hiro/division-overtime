@@ -268,3 +268,75 @@ def test_employee_data_consistency_json_reports_error(tmp_path: Path, capsys):
     assert payload["csvOnlyEmployeeCodes"] == []
     assert payload["mismatchedEmployees"] == []
     assert "Database is not initialized" in payload["error"]
+
+
+def test_record_employee_consistency_appends_jsonl(tmp_path: Path, employee_csv: Path, capsys):
+    import json
+
+    from division_overtime.cli import _record_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    history_path = tmp_path / "history" / "employee-consistency-history.jsonl"
+
+    first = _record_employee_consistency(db, employee_csv, history_path)
+    second = _record_employee_consistency(db, employee_csv, history_path)
+
+    assert first == 0
+    assert second == 0
+    records = [json.loads(line) for line in history_path.read_text(encoding="utf-8").splitlines()]
+    assert len(records) == 2
+    assert records[0]["status"] == "ok"
+    assert records[0]["databaseEmployees"] == 1
+    assert records[0]["csvEmployees"] == 1
+    assert records[0]["recordedAt"]
+    assert records[1]["recordedAt"]
+    assert capsys.readouterr().out == (
+        f"employee_data_consistency_recorded status=ok path={history_path}\n"
+        f"employee_data_consistency_recorded status=ok path={history_path}\n"
+    )
+
+
+def test_record_employee_consistency_records_mismatch_without_secrets(tmp_path: Path, capsys):
+    import json
+
+    from division_overtime.cli import _record_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text(
+        "社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分\n"
+        "00001,secret-csv,田中,太郎,changed@example.com,300,営業部,1200\n",
+        encoding="utf-8",
+    )
+    history_path = tmp_path / "employee-consistency-history.jsonl"
+
+    result = _record_employee_consistency(db, csv_path, history_path)
+
+    assert result == 1
+    content = history_path.read_text(encoding="utf-8")
+    payload = json.loads(content)
+    assert payload["status"] == "mismatch"
+    assert payload["mismatchedEmployees"] == [
+        {"employeeCode": "00001", "fields": ["kot_key", "email"]}
+    ]
+    assert "secret-csv" not in content
+    assert "changed@example.com" not in content
+
+
+def test_record_employee_consistency_records_error(tmp_path: Path):
+    import json
+
+    from division_overtime.cli import _record_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    csv_path = tmp_path / "employeeKey.csv"
+    history_path = tmp_path / "nested" / "employee-consistency-history.jsonl"
+
+    result = _record_employee_consistency(db, csv_path, history_path)
+
+    assert result == 1
+    payload = json.loads(history_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "error"
+    assert "Database is not initialized" in payload["error"]

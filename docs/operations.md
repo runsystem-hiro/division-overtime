@@ -276,6 +276,24 @@ exit_code=1
 - 不一致時は通知処理の参照先を切り替えず、社員管理画面またはKOT同期で原因を解消して再確認する
 - threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する
 
+## 社員データ整合性履歴の記録
+
+手動確認結果をJSONL履歴へ追記する。通知処理やsystemd timerからは呼び出さず、明示実行時だけ記録する。
+
+```bash
+cd /home/pi/division-overtime
+.venv/bin/division-overtime --root . employees record-consistency
+echo "consistency_record_exit=$?"
+```
+
+保存先は`data/employee-consistency-history.jsonl`で、実行ごとに1行追記する。既存履歴は上書きしない。`status`は`ok`、`mismatch`、`error`のいずれかで、一致時は終了コード`0`、不一致または実行失敗時は`1`を返す。KOT Key、氏名、メールアドレスなどの実値は保存しない。
+
+履歴確認:
+
+```bash
+tail -n 20 data/employee-consistency-history.jsonl
+```
+
 ## shadow readの運用確認
 
 threshold・weekly実行時は、通知処理が正として使用する`data/employeeKey.csv`と、SQLiteの有効社員を比較するshadow readを実行する。比較結果はログ出力だけに使用し、通知対象、通知条件、通知本文、通知先、送信可否には影響させない。SQLiteの読み込みや比較に失敗した場合も、CSVによる通知処理を継続する。health処理は社員データを読み込まないため対象外とする。
