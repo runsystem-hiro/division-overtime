@@ -84,3 +84,23 @@ def test_employee_repository_imports_csv(tmp_path):
 
     assert imported == 1
     assert repository.count() == 1
+
+
+def test_employee_repository_lists_only_enabled_employees_in_code_order(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+    db.initialize()
+    repository = EmployeeRepository(db)
+    now = datetime(2026, 7, 23, 9, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+    repository.upsert_many(
+        [
+            Employee("00002", "key-2", "佐藤", "次郎", "", "300"),
+            Employee("00001", "key-1", "田中", "太郎", "", "300"),
+        ],
+        now,
+    )
+    with db.transaction() as conn:
+        conn.execute("UPDATE employees SET is_enabled=0 WHERE code='00002'")
+
+    employees = repository.list_enabled()
+
+    assert [employee.code for employee in employees] == ["00001"]
