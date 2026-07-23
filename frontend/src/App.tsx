@@ -37,6 +37,7 @@ type SyncDifference = {
   current: Record<string, unknown> | null;
   proposed: Record<string, unknown> | null;
   warnings: string[];
+  changedFields: string[];
 };
 
 type SyncPreview = {
@@ -101,6 +102,14 @@ export function App() {
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [selectedSyncCodes, setSelectedSyncCodes] = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [syncActions, setSyncActions] = useState({
+    create: true,
+    update: true,
+    disable: true,
+    unchanged: false,
+  });
+  const [showNoAttendance, setShowNoAttendance] = useState(false);
+  const [showOnLeave, setShowOnLeave] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
     const response = await fetch("/api/auth/me", { credentials: "same-origin" });
@@ -152,6 +161,35 @@ export function App() {
     enabled: employees.filter((employee) => employee.isEnabled).length,
     disabled: employees.filter((employee) => !employee.isEnabled).length,
   }), [employees]);
+
+  const visibleSyncDifferences = useMemo(() => {
+    if (!syncPreview) return [];
+    return syncPreview.differences.filter((item) => {
+      if (!syncActions[item.action]) return false;
+      if (!showNoAttendance && item.warnings.includes("勤怠管理なし")) return false;
+      if (!showOnLeave && item.warnings.includes("休職中")) return false;
+      return true;
+    });
+  }, [showNoAttendance, showOnLeave, syncActions, syncPreview]);
+
+  const selectableVisibleCodes = useMemo(
+    () => visibleSyncDifferences
+      .filter((item) => item.action !== "unchanged")
+      .map((item) => item.code),
+    [visibleSyncDifferences],
+  );
+
+  const hiddenSelectedCount = selectedSyncCodes.filter(
+    (code) => !selectableVisibleCodes.includes(code),
+  ).length;
+
+  const warningCounts = useMemo(() => {
+    const differences = syncPreview?.differences ?? [];
+    return {
+      noAttendance: differences.filter((item) => item.warnings.includes("勤怠管理なし")).length,
+      onLeave: differences.filter((item) => item.warnings.includes("休職中")).length,
+    };
+  }, [syncPreview]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -232,7 +270,19 @@ export function App() {
 
   async function applyKotPreview() {
     if (!syncPreview || selectedSyncCodes.length === 0) return;
-    if (!window.confirm(`${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`)) return;
+    const selected = syncPreview.differences.filter((item) =>
+      selectedSyncCodes.includes(item.code),
+    );
+    const detail = {
+      create: selected.filter((item) => item.action === "create").length,
+      update: selected.filter((item) => item.action === "update").length,
+      disable: selected.filter((item) => item.action === "disable").length,
+    };
+    const message = [
+      `${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`,
+      `新規 ${detail.create}件 / 更新 ${detail.update}件 / 無効化 ${detail.disable}件`,
+    ].join("\n");
+    if (!window.confirm(message)) return;
     setSyncing(true);
     setError(null);
     const response = await fetch("/api/kot-sync/apply", {
@@ -374,32 +424,105 @@ export function App() {
             <div className="sync-counts">
               <span>全社取得 {syncPreview.fetchedCount}</span>
               <span>同期対象 {syncPreview.targetCount}</span>
+              <span>表示中 {visibleSyncDifferences.length}</span>
               <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
               <span>新規 {syncPreview.counts.create ?? 0}</span>
               <span>更新 {syncPreview.counts.update ?? 0}</span>
               <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
               <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
+              <span>勤怠管理なし {warningCounts.noAttendance}</span>
+              <span>休職中 {warningCounts.onLeave}</span>
+            </div>
+            <div className="sync-filters" aria-label="KOT同期プレビューフィルタ">
+              {(["create", "update", "disable", "unchanged"] as const).map((action) => (
+                <label key={action}>
+                  <input
+                    type="checkbox"
+                    checked={syncActions[action]}
+                    onChange={(event) => setSyncActions({
+                      ...syncActions,
+                      [action]: event.target.checked,
+                    })}
+                  />
+                  {action}
+                </label>
+              ))}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showNoAttendance}
+                  onChange={(event) => setShowNoAttendance(event.target.checked)}
+                />
+                勤怠管理なしを表示
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showOnLeave}
+                  onChange={(event) => setShowOnLeave(event.target.checked)}
+                />
+                休職中を表示
+              </label>
+            </div>
+            <div className="sync-selection-tools">
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => setSelectedSyncCodes(Array.from(new Set([
+                  ...selectedSyncCodes,
+                  ...selectableVisibleCodes,
+                ])))}
+                disabled={selectableVisibleCodes.length === 0}
+              >
+                表示中を選択
+              </button>
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => setSelectedSyncCodes(
+                  selectedSyncCodes.filter((code) => !selectableVisibleCodes.includes(code)),
+                )}
+                disabled={selectableVisibleCodes.length === 0}
+              >
+                表示中を解除
+              </button>
+              {hiddenSelectedCount > 0 && (
+                <span className="warning-text">非表示の選択 {hiddenSelectedCount}件</span>
+              )}
             </div>
             <div className="table-wrap">
               <table className="sync-table">
-                <thead><tr><th>反映</th><th>社員番号</th><th>判定</th><th>変更前</th><th>変更後</th><th>注意</th></tr></thead>
+                <thead><tr><th>反映</th><th>社員番号</th><th>判定</th><th>変更前</th><th>変更後</th><th>変更項目</th><th>注意</th></tr></thead>
                 <tbody>
-                  {syncPreview.differences.map((item) => {
+                  {visibleSyncDifferences.map((item) => {
                     const selectable = item.action !== "unchanged";
                     const checked = selectedSyncCodes.includes(item.code);
                     const current = item.current as Record<string, string> | null;
                     const proposed = item.proposed as Record<string, string> | null;
+                    const changedLabels: Record<string, string> = {
+                      lastName: "氏",
+                      firstName: "名",
+                      email: "メール",
+                      divisionCode: "部署コード",
+                      divisionName: "部署名",
+                      kotExists: "KOT存在状態",
+                      kotKey: "KOT Key変更あり",
+                    };
                     return (
-                      <tr key={item.code}>
+                      <tr key={item.code} className={`sync-row sync-row-${item.action}`}>
                         <td><input type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={(event) => setSelectedSyncCodes(event.target.checked ? [...selectedSyncCodes, item.code] : selectedSyncCodes.filter((code) => code !== item.code))} /></td>
                         <td className="mono">{item.code}</td>
-                        <td>{item.action}</td>
+                        <td><span className={`sync-badge sync-badge-${item.action}`}>{item.action}</span></td>
                         <td>{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
                         <td>{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
+                        <td>{item.changedFields.map((field) => changedLabels[field] ?? field).join("、") || "—"}</td>
                         <td>{item.warnings.join("、") || "—"}</td>
                       </tr>
                     );
                   })}
+                  {visibleSyncDifferences.length === 0 && (
+                    <tr><td colSpan={7} className="empty-row">条件に一致する差分はありません。</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

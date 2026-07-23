@@ -39,6 +39,7 @@ def _diff(diff: SyncDifference) -> dict[str, object]:
         "current": diff.current,
         "proposed": diff.proposed,
         "warnings": list(diff.warnings),
+        "changedFields": list(diff.changed_fields),
     }
 
 
