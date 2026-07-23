@@ -4,6 +4,11 @@
 
 ### Added
 
+- Web管理UI向けの社員SQLite管理テーブル
+- `employeeKey.csv`から社員情報を初期取込するRepository
+- 社員の有効状態、無効理由、備考、KOT存在状態を保持する管理項目
+- 社員SQLite管理基盤のテスト
+
 - 管理者1名向けのユーザー名・パスワード認証
 - Argon2によるパスワードハッシュ検証
 - HttpOnly・SameSite=StrictのCookieセッション
@@ -18,6 +23,10 @@
 - 認証失敗時の応答を統一し、ユーザー名の存在を判別できないようにした
 - セッションIDは平文保存せず、秘密鍵によるHMACダイジェストで保持
 - Web認証情報を`.env`からのみ読み込む
+
+### Changed
+
+- SQLiteスキーマバージョンを2へ更新
 
 ### Added
 

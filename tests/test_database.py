@@ -58,3 +58,19 @@ def test_transaction_rolls_back_on_error(tmp_path):
     with db.connect() as conn:
         row = conn.execute("SELECT value FROM schema_meta WHERE key='rollback-test'").fetchone()
     assert row is None
+
+
+def test_database_initialization_creates_employee_schema_version_2(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+    db.initialize()
+
+    with db.connect() as conn:
+        version = conn.execute(
+            "SELECT value FROM schema_meta WHERE key='schema_version'"
+        ).fetchone()[0]
+        table = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
+        ).fetchone()
+
+    assert version == "2"
+    assert table["name"] == "employees"
