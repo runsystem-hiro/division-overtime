@@ -30,6 +30,21 @@ type Employee = {
   updatedAt: string;
 };
 
+
+type SyncDifference = {
+  code: string;
+  action: "create" | "update" | "disable" | "unchanged";
+  current: Record<string, unknown> | null;
+  proposed: Record<string, unknown> | null;
+  warnings: string[];
+};
+
+type SyncPreview = {
+  previewId: string;
+  counts: Record<string, number>;
+  differences: SyncDifference[];
+};
+
 type EmployeeForm = {
   code: string;
   employeeKey: string;
@@ -80,6 +95,9 @@ export function App() {
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>(undefined);
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
+  const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
+  const [selectedSyncCodes, setSelectedSyncCodes] = useState<string[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
     const response = await fetch("/api/auth/me", { credentials: "same-origin" });
@@ -191,6 +209,48 @@ export function App() {
     setNotice(null);
   }
 
+  async function loadKotPreview() {
+    setSyncing(true);
+    setError(null);
+    setNotice(null);
+    const response = await fetch("/api/kot-sync/preview", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    setSyncing(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    const preview = (await response.json()) as SyncPreview;
+    setSyncPreview(preview);
+    setSelectedSyncCodes(preview.differences
+      .filter((item) => item.action !== "unchanged")
+      .map((item) => item.code));
+  }
+
+  async function applyKotPreview() {
+    if (!syncPreview || selectedSyncCodes.length === 0) return;
+    if (!window.confirm(`${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`)) return;
+    setSyncing(true);
+    setError(null);
+    const response = await fetch("/api/kot-sync/apply", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ previewId: syncPreview.previewId, employeeCodes: selectedSyncCodes }),
+    });
+    setSyncing(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    setNotice("KOT社員差分を反映し、employeeKey.csvを再生成しました。");
+    setSyncPreview(null);
+    setSelectedSyncCodes([]);
+    await loadEmployees();
+  }
+
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -294,6 +354,57 @@ export function App() {
           </table>
         </div>
         {loadingEmployees && <p className="muted loading-line">読み込み中…</p>}
+      </section>
+
+
+      <section className="employee-card sync-card">
+        <div className="sync-heading">
+          <div>
+            <p className="eyebrow">KING OF TIME</p>
+            <h2>社員同期</h2>
+            <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>
+          </div>
+          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={syncing}>
+            {syncing ? "取得中…" : "KOTから取得"}
+          </button>
+        </div>
+        {syncPreview && (
+          <>
+            <div className="sync-counts">
+              <span>新規 {syncPreview.counts.create ?? 0}</span>
+              <span>更新 {syncPreview.counts.update ?? 0}</span>
+              <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
+              <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
+            </div>
+            <div className="table-wrap">
+              <table className="sync-table">
+                <thead><tr><th>反映</th><th>社員番号</th><th>判定</th><th>変更前</th><th>変更後</th><th>注意</th></tr></thead>
+                <tbody>
+                  {syncPreview.differences.map((item) => {
+                    const selectable = item.action !== "unchanged";
+                    const checked = selectedSyncCodes.includes(item.code);
+                    const current = item.current as Record<string, string> | null;
+                    const proposed = item.proposed as Record<string, string> | null;
+                    return (
+                      <tr key={item.code}>
+                        <td><input type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={(event) => setSelectedSyncCodes(event.target.checked ? [...selectedSyncCodes, item.code] : selectedSyncCodes.filter((code) => code !== item.code))} /></td>
+                        <td className="mono">{item.code}</td>
+                        <td>{item.action}</td>
+                        <td>{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
+                        <td>{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
+                        <td>{item.warnings.join("、") || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="sync-actions">
+              <span className="muted">選択 {selectedSyncCodes.length}件</span>
+              <button className="button-primary" type="button" disabled={syncing || selectedSyncCodes.length === 0} onClick={applyKotPreview}>選択した差分を反映</button>
+            </div>
+          </>
+        )}
       </section>
 
       {editing !== undefined && (
