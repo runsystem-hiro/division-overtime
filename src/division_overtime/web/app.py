@@ -6,9 +6,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from division_overtime.database import Database
+from division_overtime.employee_management import EmployeeManagementService
 from division_overtime.web.auth import AuthService
 from division_overtime.web.config import WebConfig, load_web_config
 from division_overtime.web.routes.auth import router as auth_router
+from division_overtime.web.routes.employees import router as employees_router
 from division_overtime.web.routes.system import router as system_router
 
 
@@ -22,6 +25,11 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
         redoc_url=None,
     )
     app.state.web_config = web_config
+    database = Database(web_config.database_path)
+    database.initialize()
+    app.state.employee_management_service = EmployeeManagementService(
+        database, web_config.employee_csv
+    )
     app.state.auth_service = AuthService(
         admin_username=web_config.admin_username,
         admin_password_hash=web_config.admin_password_hash,
@@ -33,6 +41,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     )
     app.include_router(auth_router)
     app.include_router(system_router)
+    app.include_router(employees_router)
 
     assets_dir = web_config.frontend_dist / "assets"
     if assets_dir.is_dir():

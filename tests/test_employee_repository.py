@@ -104,3 +104,20 @@ def test_employee_repository_lists_only_enabled_employees_in_code_order(tmp_path
     employees = repository.list_enabled()
 
     assert [employee.code for employee in employees] == ["00001"]
+
+
+def test_employee_repository_lists_managed_without_kot_key(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+    db.initialize()
+    repository = EmployeeRepository(db)
+    now = datetime(2026, 7, 23, 9, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+    repository.upsert_many(
+        [Employee("00001", "secret-key", "田中", "太郎", "", "300", "営業部")],
+        now,
+    )
+
+    employees = repository.list_managed(query="田中", enabled=True)
+
+    assert len(employees) == 1
+    assert employees[0].code == "00001"
+    assert not hasattr(employees[0], "employee_key")
