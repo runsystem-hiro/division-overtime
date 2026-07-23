@@ -4,6 +4,13 @@
 
 ### Added
 
+- 認証済み社員一覧・詳細・追加・更新API
+- 社員一覧、検索、状態絞り込み、追加・編集画面
+- 社員保存時のSQLite更新と`employeeKey.csv`原子的再生成
+- CSV生成失敗時のSQLiteロールバックと既存CSV保持
+- KOT Keyの書込専用入力（APIレスポンス・一覧・編集値には非表示）
+- 社員管理サービス、API、Repositoryのテスト
+
 - Web管理UI向けの社員SQLite管理テーブル
 - `employeeKey.csv`から社員情報を初期取込するRepository
 - 社員の有効状態、無効理由、備考、KOT存在状態を保持する管理項目
