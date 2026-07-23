@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -140,3 +138,114 @@ def test_preview_reports_changed_fields_without_exposing_key(tmp_path: Path):
     assert "kotKey" in difference.changed_fields
     assert "new-key" not in repr(difference.current)
     assert "new-key" not in repr(difference.proposed)
+
+
+def test_apply_creates_database_and_csv_backup(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    csv = tmp_path / "employeeKey.csv"
+    csv.write_text("original-csv", encoding="utf-8")
+    backup_root = tmp_path / "backups"
+    service = KotEmployeeSyncService(
+        db,
+        csv,
+        FakeClient(),
+        ("300", "301"),
+        backup_root=backup_root,
+    )
+    preview_id, _ = service.preview()
+    now = datetime(2026, 7, 23, 13, 30, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
+
+    service.apply(preview_id, ["00001"], "hiro", now)
+
+    backup_dirs = list(backup_root.iterdir())
+    assert len(backup_dirs) == 1
+    backup_dir = backup_dirs[0]
+    database_backup = backup_dir / "db.sqlite3"
+    csv_backup = backup_dir / "employeeKey.csv"
+
+    assert database_backup.exists()
+    assert csv_backup.read_text(encoding="utf-8") == "original-csv"
+    with Database(database_backup).connect() as conn:
+        assert (
+            conn.execute("SELECT kot_key FROM employees WHERE code='00001'").fetchone()[0]
+            == "old-key"
+        )
+
+
+def test_apply_backup_allows_missing_csv(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    csv = tmp_path / "employeeKey.csv"
+    backup_root = tmp_path / "backups"
+    service = KotEmployeeSyncService(
+        db,
+        csv,
+        FakeClient(),
+        ("300", "301"),
+        backup_root=backup_root,
+    )
+    preview_id, _ = service.preview()
+
+    service.apply(
+        preview_id,
+        ["00001"],
+        "hiro",
+        datetime(2026, 7, 23, 13, 30, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    backup_dir = next(backup_root.iterdir())
+    assert (backup_dir / "db.sqlite3").exists()
+    assert not (backup_dir / "employeeKey.csv").exists()
+
+
+def test_apply_stops_before_update_when_backup_fails(tmp_path: Path, monkeypatch):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    csv = tmp_path / "employeeKey.csv"
+    csv.write_text("original", encoding="utf-8")
+    service = KotEmployeeSyncService(
+        db,
+        csv,
+        FakeClient(),
+        ("300", "301"),
+        backup_root=tmp_path / "backups",
+    )
+    preview_id, _ = service.preview()
+
+    def fail_backup(destination: Path) -> None:
+        raise OSError("backup storage unavailable")
+
+    monkeypatch.setattr(db, "backup_to", fail_backup)
+
+    try:
+        service.apply(
+            preview_id,
+            ["00001"],
+            "hiro",
+            datetime.now(ZoneInfo("Asia/Tokyo")),
+        )
+    except Exception as exc:
+        assert "backup failed" in str(exc).lower()
+    else:
+        raise AssertionError("apply must fail when backup creation fails")
+
+    assert csv.read_text(encoding="utf-8") == "original"
+    with db.connect() as conn:
+        assert (
+            conn.execute("SELECT kot_key FROM employees WHERE code='00001'").fetchone()[0]
+            == "old-key"
+        )
+        assert conn.execute("SELECT COUNT(*) FROM kot_sync_runs").fetchone()[0] == 0

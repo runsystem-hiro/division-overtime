@@ -223,6 +223,92 @@ sqlite3 -header -column var/division_overtime.sqlite3 \
    GROUP BY recipient, status, attempt_count;"
 ```
 
+## KOT同期バックアップと復旧
+
+### バックアップ作成
+
+管理画面で「選択した差分を反映」を実行すると、SQLite更新前に自動バックアップを作成する。
+
+```text
+var/backups/kot-sync/YYYYMMDD_HHMMSS_ffffff/
+├── division_overtime.sqlite3
+└── employeeKey.csv  # 反映前に存在する場合のみ
+```
+
+バックアップDBはSQLite Backup APIで作成し、`PRAGMA integrity_check`が`ok`になった場合だけ同期反映を続行する。バックアップに失敗した場合、SQLite社員情報と`data/employeeKey.csv`は変更しない。
+
+バックアップ確認:
+
+```bash
+cd /home/pi/division-overtime
+find var/backups/kot-sync -maxdepth 2 -type f -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort
+```
+
+バックアップDBの整合性確認:
+
+```bash
+BACKUP_DIR="var/backups/kot-sync/<対象日時>"
+sqlite3 "$BACKUP_DIR/division_overtime.sqlite3" 'PRAGMA integrity_check;'
+```
+
+期待値:
+
+```text
+ok
+```
+
+### 復旧手順
+
+DBとCSVは必ず同じバックアップ世代から復旧する。復旧中はWebから社員情報が更新されないようにWebサービスだけを停止する。threshold、weekly、healthのtimerは停止しない。
+
+```bash
+cd /home/pi/division-overtime
+BACKUP_DIR="var/backups/kot-sync/<対象日時>"
+
+sudo systemctl stop division-overtime-web.service
+
+cp -a var/division_overtime.sqlite3 \
+  "var/division_overtime.sqlite3.before-restore-$(date +%Y%m%d_%H%M%S)"
+
+if [ -f data/employeeKey.csv ]; then
+  cp -a data/employeeKey.csv \
+    "data/employeeKey.csv.before-restore-$(date +%Y%m%d_%H%M%S)"
+fi
+
+cp -a "$BACKUP_DIR/division_overtime.sqlite3" var/division_overtime.sqlite3
+
+if [ -f "$BACKUP_DIR/employeeKey.csv" ]; then
+  cp -a "$BACKUP_DIR/employeeKey.csv" data/employeeKey.csv
+else
+  rm -f data/employeeKey.csv
+fi
+
+chmod 600 var/division_overtime.sqlite3
+if [ -f data/employeeKey.csv ]; then
+  chmod 600 data/employeeKey.csv
+fi
+
+sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
+sudo systemctl start division-overtime-web.service
+curl -fsS http://127.0.0.1:8000/api/system/health
+echo
+```
+
+復旧後に次を確認する。
+
+```bash
+systemctl is-active \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer \
+  division-overtime-web.service
+```
+
+- SQLite整合性が`ok`
+- Web API healthが`status: ok`
+- 4サービスが`active`
+- 社員一覧と`employeeKey.csv`の内容が対象バックアップ世代と一致
+
 ## 更新手順
 
 Windows側でRuff・pytest・差分確認・pushを完了した後、Piで実行する。

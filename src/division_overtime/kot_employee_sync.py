@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+import shutil
 import tempfile
 import threading
 import time
@@ -167,6 +168,7 @@ class KotEmployeeSyncService:
         employee_csv: Path,
         client: KotEmployeeSource,
         target_division_codes: tuple[str, ...],
+        backup_root: Path | None = None,
     ) -> None:
         normalized_codes = tuple(
             dict.fromkeys(code.strip() for code in target_division_codes if code.strip())
@@ -177,6 +179,7 @@ class KotEmployeeSyncService:
         self.employee_csv = employee_csv
         self.client = client
         self.target_division_codes = normalized_codes
+        self.backup_root = backup_root or database.path.parent / "backups" / "kot-sync"
         self.repository = EmployeeRepository(database)
         self._previews: dict[str, _Preview] = {}
         self._lock = threading.Lock()
@@ -255,6 +258,25 @@ class KotEmployeeSyncService:
             "targetDivisionCodes": list(self.target_division_codes),
         }
 
+    def _create_apply_backup(self, now: datetime) -> Path:
+        backup_name = now.strftime("%Y%m%d_%H%M%S_%f")
+        backup_dir = self.backup_root / backup_name
+        database_backup = backup_dir / self.database.path.name
+        csv_backup = backup_dir / self.employee_csv.name
+
+        if backup_dir.exists():
+            raise KotEmployeeSyncError(f"Backup destination already exists: {backup_dir}")
+
+        try:
+            backup_dir.mkdir(parents=True)
+            self.database.backup_to(database_backup)
+            if self.employee_csv.exists():
+                shutil.copy2(self.employee_csv, csv_backup)
+            return backup_dir
+        except Exception as exc:
+            shutil.rmtree(backup_dir, ignore_errors=True)
+            raise KotEmployeeSyncError(f"KOT sync backup failed: {exc}") from exc
+
     def apply(
         self,
         preview_id: str,
@@ -271,6 +293,9 @@ class KotEmployeeSyncService:
         allowed = {diff.code for diff in preview.differences if diff.action != "unchanged"}
         if not selected or not selected <= allowed:
             raise KotEmployeeSyncError("Select one or more valid differences")
+
+        self._create_apply_backup(now)
+
         original_csv = self.employee_csv.read_bytes() if self.employee_csv.exists() else None
         csv_replaced = False
         temp_path: Path | None = None
