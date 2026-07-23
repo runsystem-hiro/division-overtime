@@ -267,6 +267,108 @@ exit_code=1
 - 不一致時は通知処理の参照先を切り替えず、社員管理画面またはKOT同期で原因を解消して再確認する
 - threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する
 
+## shadow readの運用確認
+
+threshold・weekly実行時は、通知処理が正として使用する`data/employeeKey.csv`と、SQLiteの有効社員を比較するshadow readを実行する。比較結果はログ出力だけに使用し、通知対象、通知条件、通知本文、通知先、送信可否には影響させない。SQLiteの読み込みや比較に失敗した場合も、CSVによる通知処理を継続する。health処理は社員データを読み込まないため対象外とする。
+
+### 手動確認
+
+KING OF TIME API利用禁止時間帯を避けて実行する。`--dry-run`でもKING OF TIME APIへアクセスする。
+
+```bash
+cd /home/pi/division-overtime
+
+.venv/bin/division-overtime --root . run threshold --dry-run 2>&1 |
+  grep employee_shadow_read
+
+.venv/bin/division-overtime --root . run weekly --dry-run 2>&1 |
+  grep employee_shadow_read
+```
+
+一致時の例:
+
+```text
+employee_shadow_read=ok csv_employees=14 sqlite_employees=14
+```
+
+定期実行のログを確認する場合:
+
+```bash
+journalctl \
+  -u division-overtime-threshold.service \
+  --since "7 days ago" \
+  --no-pager |
+  grep employee_shadow_read
+
+journalctl \
+  -u division-overtime-weekly.service \
+  --since "30 days ago" \
+  --no-pager |
+  grep employee_shadow_read
+```
+
+### 確認タイミング
+
+次のタイミングで、最初に`employees check-consistency`を実行し、その後にthresholdまたはweeklyのshadow readを確認する。
+
+- Raspberry Piへのデプロイ後
+- KOT社員同期の反映後
+- 社員の追加、更新、無効化後
+- `employeeKey.csv`の手動変更後
+- SQLiteまたはCSVのバックアップ復旧後
+- shadow readの不一致または比較失敗を検出した場合
+
+### 不一致時の一次対応
+
+不一致ログには社員コードと差分種別だけを出力し、KOT Key、メールアドレス、社員名などの値は出力しない。
+
+主な差分種別と確認事項:
+
+- CSV側のみ: SQLiteへの取込漏れ、SQLite側の無効化、CSVだけの手動更新
+- SQLite側のみ: CSV再生成失敗、SQLiteだけの直接更新、古いCSVの復旧
+- 内容不一致: 部署コード、メールアドレス、個人別残業上限分、KOT Keyなどの片側更新
+- 比較失敗: SQLiteの読み込み、DB状態、ファイル権限、ディスク容量
+
+一次対応では、次の順序で状態を確認する。
+
+```bash
+cd /home/pi/division-overtime
+
+date
+git log -3 --oneline
+
+.venv/bin/division-overtime --root . employees check-consistency
+echo "consistency_exit=$?"
+
+systemctl is-active \
+  division-overtime-threshold.timer \
+  division-overtime-weekly.timer \
+  division-overtime-health.timer \
+  division-overtime-web.service
+
+journalctl \
+  -u division-overtime-threshold.service \
+  -u division-overtime-weekly.service \
+  --since "24 hours ago" \
+  --no-pager
+```
+
+原因を特定してCSVとSQLiteの一致を回復するまで、CSVを正とする現在の運用を維持する。shadow readの不一致や失敗だけを理由に通知処理を停止したり、SQLiteへ切り替えたりしない。
+
+### SQLite切替前の最低条件
+
+通知処理の参照先をSQLiteへ切り替える場合は、別Issueと小さなPRで実施し、最低限、次の条件を満たすことを確認する。
+
+- thresholdとweeklyの双方で一定期間shadow readが継続一致している
+- KOT社員同期後もCSVとSQLiteが一致する
+- 社員の追加、更新、無効化後も一致する
+- 部署コード、メールアドレス、個人別残業上限分、KOT Keyに変換差異がない
+- SQLite障害時のCSVフォールバック方針が決まっている
+- デプロイ手順とロールバック手順が整備されている
+- dry-run、テスト、Raspberry Pi実機検証が成功している
+
+一定期間一致したことだけを理由に自動的に切り替えない。切替時も既存通知を止めない設計と、CSVへ戻せるロールバック手順を必須とする。
+
 ## KOT同期バックアップと復旧
 
 ### バックアップ作成
