@@ -10,7 +10,7 @@ import jpholiday
 
 from .config import AppConfig
 from .database import Database
-from .employees import load_employees
+from .employee_source import CsvEmployeeSource
 from .king_of_time import KingOfTimeClient
 from .message_formatter import format_department_message, format_self_message
 from .models import OvertimeSnapshot
@@ -33,7 +33,7 @@ def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
             logger.info("Japanese public holiday: threshold notification skipped")
             db.finish_run(run_id, datetime.now(config.timezone), "succeeded")
             return 0
-        employees = load_employees(config.employee_csv)
+        employees = CsvEmployeeSource(config.employee_csv).list_employees()
         client = KingOfTimeClient(
             config.kot_base_url,
             config.kot_endpoint,
