@@ -45,6 +45,7 @@ class SyncDifference:
     current: dict[str, object] | None
     proposed: dict[str, object] | None
     warnings: tuple[str, ...]
+    changed_fields: tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -212,20 +213,23 @@ class KotEmployeeSyncService:
                 action = "disable" if kot.resignation_date else "create"
                 differences.append(SyncDifference(code, action, None, proposed, warnings))
                 continue
-            changed = any(
-                (
-                    local.last_name != kot.last_name,
-                    local.first_name != kot.first_name,
-                    local.email != kot.email,
-                    local.division_code != kot.division_code,
-                    local.division_name != kot.division_name,
-                    not local.kot_exists,
-                    current_keys.get(code) != kot.key,
-                )
+            changed_fields = self._changed_fields(
+                local,
+                kot,
+                current_keys.get(code),
             )
-            action = "disable" if kot.resignation_date else ("update" if changed else "unchanged")
+            action = (
+                "disable" if kot.resignation_date else ("update" if changed_fields else "unchanged")
+            )
             differences.append(
-                SyncDifference(code, action, self._local_dict(local), proposed, warnings)
+                SyncDifference(
+                    code,
+                    action,
+                    self._local_dict(local),
+                    proposed,
+                    warnings,
+                    changed_fields,
+                )
             )
         preview_id = secrets.token_urlsafe(24)
         with self._lock:
@@ -487,6 +491,27 @@ class KotEmployeeSyncService:
         self._previews = {
             key: value for key, value in self._previews.items() if value.created_at >= cutoff
         }
+
+    @staticmethod
+    def _changed_fields(
+        local: ManagedEmployee,
+        kot: KotEmployee,
+        current_key: str | None,
+    ) -> tuple[str, ...]:
+        changed: list[str] = []
+        comparisons = (
+            ("lastName", local.last_name, kot.last_name),
+            ("firstName", local.first_name, kot.first_name),
+            ("email", local.email, kot.email),
+            ("divisionCode", local.division_code, kot.division_code),
+            ("divisionName", local.division_name, kot.division_name),
+        )
+        changed.extend(name for name, current, proposed in comparisons if current != proposed)
+        if not local.kot_exists:
+            changed.append("kotExists")
+        if current_key != kot.key:
+            changed.append("kotKey")
+        return tuple(changed)
 
     @staticmethod
     def _warnings(employee: KotEmployee) -> list[str]:
