@@ -110,3 +110,54 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
     csv_text = (tmp_path / "data/employeeKey.csv").read_text(encoding="utf-8-sig")
     assert "00002,key-2,佐藤,花子" in csv_text
     assert "開発本部" in csv_text
+
+
+def test_employee_consistency_api_requires_authentication(tmp_path):
+    client = TestClient(create_app(_config(tmp_path)))
+
+    response = client.get("/api/employees/consistency")
+
+    assert response.status_code == 401
+
+
+def test_employee_consistency_api_reports_match_without_secrets(tmp_path):
+    client = _client(tmp_path)
+
+    response = client.get("/api/employees/consistency")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "databaseEmployees": 1,
+        "csvEmployees": 1,
+        "databaseOnlyCodes": [],
+        "csvOnlyCodes": [],
+        "fieldDifferences": [],
+    }
+    assert "secret-key" not in response.text
+
+
+def test_employee_consistency_api_reports_codes_and_field_names_only(tmp_path):
+    client = _client(tmp_path)
+    csv_path = tmp_path / "data/employeeKey.csv"
+    csv_path.write_text(
+        "社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分\n"
+        "00001,different-secret,田中,太郎,changed@example.com,300,営業部,\n"
+        "00002,csv-only,佐藤,花子,b@example.com,301,開発部,\n",
+        encoding="utf-8",
+    )
+
+    response = client.get("/api/employees/consistency")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "mismatch",
+        "databaseEmployees": 1,
+        "csvEmployees": 2,
+        "databaseOnlyCodes": [],
+        "csvOnlyCodes": ["00002"],
+        "fieldDifferences": [{"code": "00001", "fields": ["kot_key", "email"]}],
+    }
+    assert "secret-key" not in response.text
+    assert "different-secret" not in response.text
+    assert "csv-only" not in response.text
