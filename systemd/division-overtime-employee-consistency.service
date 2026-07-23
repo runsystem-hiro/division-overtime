@@ -1,0 +1,17 @@
+[Unit]
+Description=Division Overtime employee consistency history recording
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/division-overtime
+EnvironmentFile=/home/pi/division-overtime/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime employees record-consistency
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/division-overtime/data
