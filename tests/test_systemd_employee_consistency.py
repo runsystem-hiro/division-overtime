@@ -4,7 +4,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYSTEMD_DIR = PROJECT_ROOT / "systemd"
 
 
-def test_employee_consistency_service_is_read_only_except_data() -> None:
+def test_employee_consistency_service_limits_writes_to_data_and_var() -> None:
     service = (SYSTEMD_DIR / "division-overtime-employee-consistency.service").read_text(
         encoding="utf-8"
     )
@@ -18,7 +18,9 @@ def test_employee_consistency_service_is_read_only_except_data() -> None:
     ) in service
     assert "ProtectSystem=strict" in service
     assert "ProtectHome=read-only" in service
-    assert "ReadWritePaths=/home/pi/division-overtime/data" in service
+    assert (
+        "ReadWritePaths=/home/pi/division-overtime/data /home/pi/division-overtime/var"
+    ) in service
 
 
 def test_employee_consistency_timer_runs_daily_and_is_persistent() -> None:

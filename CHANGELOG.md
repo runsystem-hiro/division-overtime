@@ -50,6 +50,7 @@
 
 ### Fixed
 
+- 社員データ整合性serviceのsystemd sandboxでSQLite DB配置先の`var`ディレクトリを許可
 - KOT同期バックアップの整合性確認後にSQLiteの`-wal`・`-shm`を残さないよう修正
 
 ### Changed

@@ -14,4 +14,4 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/pi/division-overtime/data
+ReadWritePaths=/home/pi/division-overtime/data /home/pi/division-overtime/var
