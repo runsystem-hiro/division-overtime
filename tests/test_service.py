@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import replace
 from datetime import datetime
@@ -298,3 +299,26 @@ def test_notification_service_uses_csv_employee_source(
 
     assert run(config, "threshold", dry_run=True) == 0
     assert calls == [config.employee_csv]
+
+
+def test_shadow_read_failure_does_not_stop_notification_processing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    config = make_config(tmp_path)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    class FailingSqliteEmployeeSource:
+        def __init__(self, repository):
+            pass
+
+        def list_employees(self):
+            raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(
+        "division_overtime.service.SqliteEmployeeSource", FailingSqliteEmployeeSource
+    )
+
+    with caplog.at_level(logging.WARNING, logger="division_overtime.employee_shadow"):
+        assert run(config, "threshold", dry_run=True) == 0
+
+    assert "employee_shadow_read=failed error_type=RuntimeError" in caplog.text

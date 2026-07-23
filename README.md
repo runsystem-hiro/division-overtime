@@ -416,9 +416,9 @@ git pull
 
 ## 通知処理の社員データ参照
 
-threshold・weekly・healthの通知処理は、`CsvEmployeeSource`を通じて引き続き`data/employeeKey.csv`を参照します。今回の分離は将来の段階的移行に備えた内部構造の整理であり、通知対象・通知条件・送信内容・実行時刻は変更しません。
+threshold・weeklyの通知処理は、`CsvEmployeeSource`を通じて引き続き`data/employeeKey.csv`を参照します。health処理は社員データを読み込みません。今回の分離は将来の段階的移行に備えた内部構造の整理であり、通知対象・通知条件・送信内容・実行時刻は変更しません。
 
-`SqliteEmployeeSource`も実装済みで、SQLiteの有効社員を社員コード順に通知用`Employee`へ変換できます。ただし、本番通知ではまだ使用せず、CSVとの結果一致テストに限定しています。
+`SqliteEmployeeSource`も実装済みで、SQLiteの有効社員を社員コード順に通知用`Employee`へ変換できます。threshold・weekly実行時にはSQLiteをshadow readし、CSVとの一致件数または社員コード単位の差分種別をログへ記録します。通知対象・本文・送信先の判定にはCSVだけを使用し、shadow readが失敗しても通知処理は継続します。KOT Keyやメールアドレスの値は比較ログへ出しません。
 
 ## 社員データ整合性確認
 
