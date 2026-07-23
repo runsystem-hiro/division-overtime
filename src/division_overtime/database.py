@@ -22,6 +22,15 @@ class Database:
         conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
+    def connect_readonly(self) -> sqlite3.Connection:
+        uri = f"file:{self.path.resolve().as_posix()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA query_only=ON")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
+
     def backup_to(self, destination: Path) -> None:
         """Create and verify a consistent SQLite backup."""
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -165,6 +174,27 @@ class Database:
         if not self.path.exists():
             return False
         with self.connect() as conn:
+            table = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
+            ).fetchone()
+            if table is None:
+                return False
+            version = conn.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+            employees = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
+            ).fetchone()
+        return (
+            version is not None
+            and int(version["value"]) == SCHEMA_VERSION
+            and employees is not None
+        )
+
+    def is_initialized_readonly(self) -> bool:
+        if not self.path.exists():
+            return False
+        with self.connect_readonly() as conn:
             table = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
             ).fetchone()

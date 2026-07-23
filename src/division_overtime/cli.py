@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .config import ConfigError, load_config
 from .database import Database
+from .employee_consistency import check_employee_data_consistency
 from .employee_repository import EmployeeRepository
 from .employees import EmployeeDataError, load_employees, write_employees
 from .service import run
@@ -24,7 +25,9 @@ def _parser() -> argparse.ArgumentParser:
     db_parser = sub.add_parser("database")
     db_parser.add_argument("action", choices=["init", "status"])
     employees_parser = sub.add_parser("employees")
-    employees_parser.add_argument("action", choices=["import-csv", "export-csv"])
+    employees_parser.add_argument(
+        "action", choices=["import-csv", "export-csv", "check-consistency"]
+    )
     employees_parser.add_argument("--apply", action="store_true")
     sub.add_parser("validate-config")
     return parser
@@ -83,6 +86,24 @@ def _export_employees(db: Database, employee_csv: Path, apply: bool) -> int:
     return 0
 
 
+def _check_employee_consistency(db: Database, employee_csv: Path) -> int:
+    result = check_employee_data_consistency(db, employee_csv)
+    print(
+        "employee_data_consistency="
+        f"{'ok' if result.is_consistent else 'mismatch'} "
+        f"database_employees={result.database_count} csv_employees={result.csv_count}"
+    )
+    for code in result.database_only_codes:
+        print(f"database_only employee_code={code}")
+    for code in result.csv_only_codes:
+        print(f"csv_only employee_code={code}")
+    for difference in result.field_differences:
+        print(
+            f"field_mismatch employee_code={difference.code} fields={','.join(difference.fields)}"
+        )
+    return 0 if result.is_consistent else 1
+
+
 def main() -> int:
     args = _parser().parse_args()
     try:
@@ -104,6 +125,8 @@ def main() -> int:
             return _import_employees(db, config.employee_csv, args.apply)
         if args.command == "employees" and args.action == "export-csv":
             return _export_employees(db, config.employee_csv, args.apply)
+        if args.command == "employees" and args.action == "check-consistency":
+            return _check_employee_consistency(db, config.employee_csv)
         if args.command == "validate-config":
             employees = load_employees(config.employee_csv)
             print(f"configuration=ok employees={len(employees)}")
