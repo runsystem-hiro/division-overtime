@@ -58,3 +58,70 @@ def test_employee_csv_import_apply_upserts_employees(tmp_path: Path, employee_cs
         "personal_target_minutes": 1200,
     }
     assert capsys.readouterr().out == "employee_csv_import=applied employees=1\n"
+
+
+def _seed_employee(db: Database, *, enabled: bool = True) -> None:
+    db.initialize()
+    with db.transaction() as conn:
+        conn.execute(
+            """
+            INSERT INTO employees(
+                code, kot_key, last_name, first_name, division_code,
+                division_name, email, personal_target_minutes,
+                is_enabled, created_at, updated_at
+            )
+            VALUES('00001', 'key', '田中', '太郎', '300',
+                   '営業部', 't@example.com', 1200, ?, 'now', 'now')
+            """,
+            (int(enabled),),
+        )
+
+
+def test_employee_csv_export_preview_does_not_change_csv(tmp_path: Path, capsys):
+    from division_overtime.cli import _export_employees
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text("existing", encoding="utf-8")
+
+    result = _export_employees(db, csv_path, apply=False)
+
+    assert result == 0
+    assert csv_path.read_text(encoding="utf-8") == "existing"
+    assert capsys.readouterr().out == (
+        "employee_csv_export=preview employees=1\ncsv_changes=none\n"
+    )
+
+
+def test_employee_csv_export_apply_replaces_csv_atomically(tmp_path: Path, capsys):
+    from division_overtime.cli import _export_employees
+    from division_overtime.employees import load_employees
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text("existing", encoding="utf-8")
+
+    result = _export_employees(db, csv_path, apply=True)
+
+    assert result == 0
+    employees = load_employees(csv_path)
+    assert len(employees) == 1
+    assert employees[0].code == "00001"
+    assert capsys.readouterr().out == "employee_csv_export=applied employees=1\n"
+    assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
+
+
+def test_employee_csv_export_rejects_zero_enabled_employees(tmp_path: Path):
+    from division_overtime.cli import _export_employees
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db, enabled=False)
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(Exception, match="No enabled employees"):
+        _export_employees(db, csv_path, apply=True)
+
+    assert csv_path.read_text(encoding="utf-8") == "existing"

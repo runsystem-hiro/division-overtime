@@ -64,6 +64,38 @@ class EmployeeRepository:
                 values,
             )
 
+    def list_enabled(self) -> list[Employee]:
+        with self.database.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    code,
+                    kot_key,
+                    last_name,
+                    first_name,
+                    email,
+                    division_code,
+                    division_name,
+                    personal_target_minutes
+                FROM employees
+                WHERE is_enabled=1
+                ORDER BY code
+                """
+            ).fetchall()
+        return [
+            Employee(
+                code=row["code"],
+                employee_key=row["kot_key"],
+                last_name=row["last_name"],
+                first_name=row["first_name"],
+                email=row["email"] or "",
+                division_code=row["division_code"],
+                division_name=row["division_name"],
+                personal_target_minutes=row["personal_target_minutes"],
+            )
+            for row in rows
+        ]
+
     def count(self) -> int:
         with self.database.connect() as conn:
             return int(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0])
