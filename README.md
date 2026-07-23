@@ -406,6 +406,10 @@ git pull
 .venv/bin/division-overtime --root . run weekly --dry-run
 ```
 
+## 社員管理画面の整合性表示
+
+社員管理画面では、SQLiteの有効社員と`data/employeeKey.csv`の整合性を読み取り専用で確認し、「一致」「不一致」「確認失敗」を表示します。不一致時に表示するのは社員コードと差分項目名だけで、KOT Keyの値はAPI・画面のどちらにも表示しません。
+
 ## 社員データ整合性確認
 
 SQLiteの有効社員データと、既存通知処理が参照する`data/employeeKey.csv`を読み取り専用で比較します。通知処理の参照先はCSVのままです。

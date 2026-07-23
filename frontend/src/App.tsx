@@ -49,6 +49,15 @@ type SyncPreview = {
   targetDivisionCodes: string[];
 };
 
+type EmployeeConsistency = {
+  status: "ok" | "mismatch";
+  databaseEmployees: number;
+  csvEmployees: number;
+  databaseOnlyCodes: string[];
+  csvOnlyCodes: string[];
+  fieldDifferences: { code: string; fields: string[] }[];
+};
+
 type EmployeeForm = {
   code: string;
   employeeKey: string;
@@ -91,8 +100,12 @@ export function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [health, setHealth] = useState<Health | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [enabledFilter, setEnabledFilter] = useState("all");
+  const [consistency, setConsistency] = useState<EmployeeConsistency | null>(null);
+  const [consistencyError, setConsistencyError] = useState<string | null>(null);
+  const [loadingConsistency, setLoadingConsistency] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -119,6 +132,27 @@ export function App() {
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     setUser((await response.json()) as CurrentUser);
+  }, []);
+
+  const loadConsistency = useCallback(async () => {
+    setLoadingConsistency(true);
+    setConsistencyError(null);
+    try {
+      const response = await fetch("/api/employees/consistency", {
+        credentials: "same-origin",
+      });
+      if (response.status === 401) {
+        setUser(null);
+        return;
+      }
+      if (!response.ok) throw new Error(await responseError(response));
+      setConsistency((await response.json()) as EmployeeConsistency);
+    } catch (reason: unknown) {
+      setConsistency(null);
+      setConsistencyError(reason instanceof Error ? reason.message : "整合性を確認できませんでした");
+    } finally {
+      setLoadingConsistency(false);
+    }
   }, []);
 
   const loadEmployees = useCallback(async () => {
@@ -149,12 +183,13 @@ export function App() {
         return response.json() as Promise<Health>;
       }),
       loadEmployees(),
+      loadConsistency(),
     ])
       .then(([healthResponse]) => setHealth(healthResponse))
       .catch((reason: unknown) => {
         setError(reason instanceof Error ? reason.message : "情報を取得できませんでした");
       });
-  }, [loadEmployees, user]);
+  }, [loadConsistency, loadEmployees, user]);
 
   const counts = useMemo(() => ({
     all: employees.length,
@@ -299,7 +334,7 @@ export function App() {
     setNotice("KOT社員差分を反映し、employeeKey.csvを再生成しました。");
     setSyncPreview(null);
     setSelectedSyncCodes([]);
-    await loadEmployees();
+    await Promise.all([loadEmployees(), loadConsistency()]);
   }
 
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
@@ -326,9 +361,14 @@ export function App() {
       setError(await responseError(response));
       return;
     }
+    const saved = (await response.json()) as Employee;
     setEditing(undefined);
-    setNotice("社員情報と employeeKey.csv を更新しました。");
-    await loadEmployees();
+    setNotice(
+      isCreate
+        ? `社員 ${saved.code} ${saved.fullName} を追加し、employeeKey.csvを再生成しました。`
+        : `社員 ${saved.code} ${saved.fullName} を更新し、employeeKey.csvを再生成しました。`,
+    );
+    await Promise.all([loadEmployees(), loadConsistency()]);
   }
 
   if (checkingAuth) {
@@ -369,22 +409,54 @@ export function App() {
       </section>
 
       <section className="summary-grid" aria-label="集計">
-        <article><span>表示件数</span><strong>{counts.all}</strong></article>
-        <article><span>有効</span><strong>{counts.enabled}</strong></article>
-        <article><span>無効</span><strong>{counts.disabled}</strong></article>
+        <article><span>検索結果</span><strong>{counts.all}</strong></article>
+        <article><span>結果内の有効</span><strong>{counts.enabled}</strong></article>
+        <article><span>結果内の無効</span><strong>{counts.disabled}</strong></article>
         <article><span>Web状態</span><strong>{health?.status === "ok" ? "正常" : "確認中"}</strong></article>
+        <article>
+          <span>社員データ整合性</span>
+          <strong className={consistency?.status === "mismatch" ? "status-danger" : "status-ok"}>
+            {loadingConsistency ? "確認中" : consistency?.status === "ok" ? "一致" : consistency?.status === "mismatch" ? "不一致" : "確認失敗"}
+          </strong>
+        </article>
       </section>
 
       <section className="employee-card">
-        <div className="toolbar">
-          <label className="search-field">検索<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="社員番号・氏名・部署" /></label>
+        <form className="toolbar" onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); }}>
+          <label className="search-field">検索<input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="社員番号・氏名・部署" /></label>
           <label>状態<select value={enabledFilter} onChange={(event) => setEnabledFilter(event.target.value)}>
             <option value="all">すべて</option><option value="enabled">有効</option><option value="disabled">無効</option>
           </select></label>
-          <button className="button-secondary" type="button" onClick={() => loadEmployees()}>再読込</button>
-        </div>
+          <button className="button-primary" type="submit">検索</button>
+          <button className="button-secondary" type="button" onClick={() => { setQueryInput(""); setQuery(""); setEnabledFilter("all"); }}>条件クリア</button>
+          <button className="button-secondary" type="button" onClick={() => Promise.all([loadEmployees(), loadConsistency()])}>再読込</button>
+        </form>
         {notice && <p className="success-message" role="status">{notice}</p>}
         {error && editing === undefined && <p className="error-message" role="alert">{error}</p>}
+        <div className={`consistency-panel ${consistency?.status === "mismatch" ? "consistency-panel-danger" : ""}`}>
+          <div>
+            <strong>SQLite / employeeKey.csv</strong>
+            {consistency?.status === "ok" && <p>整合しています（SQLite {consistency.databaseEmployees}件 / CSV {consistency.csvEmployees}件）。</p>}
+            {consistency?.status === "mismatch" && (
+              <p>
+                不一致があります（SQLiteのみ {consistency.databaseOnlyCodes.length}件 / CSVのみ {consistency.csvOnlyCodes.length}件 / 項目差分 {consistency.fieldDifferences.length}件）。
+              </p>
+            )}
+            {consistencyError && <p>確認失敗: {consistencyError}</p>}
+            {!consistency && !consistencyError && <p>整合性を確認しています。</p>}
+          </div>
+          <button className="button-secondary" type="button" onClick={loadConsistency} disabled={loadingConsistency}>
+            {loadingConsistency ? "確認中…" : "再確認"}
+          </button>
+          {consistency?.status === "mismatch" && (
+            <details className="consistency-details">
+              <summary>差分対象を表示</summary>
+              {consistency.databaseOnlyCodes.length > 0 && <p>SQLiteのみ: {consistency.databaseOnlyCodes.join(", ")}</p>}
+              {consistency.csvOnlyCodes.length > 0 && <p>CSVのみ: {consistency.csvOnlyCodes.join(", ")}</p>}
+              {consistency.fieldDifferences.map((item) => <p key={item.code}>項目差分 {item.code}: {item.fields.join(", ")}</p>)}
+            </details>
+          )}
+        </div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>社員番号</th><th>氏名</th><th>部署</th><th>メール</th><th>上限分</th><th>状態</th><th /></tr></thead>

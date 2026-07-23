@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, field_validator
 
+from division_overtime.employee_consistency import check_employee_data_consistency
 from division_overtime.employee_management import (
     EmployeeChange,
     EmployeeConflictError,
@@ -36,6 +37,20 @@ class EmployeeResponse(BaseModel):
     kotExists: bool
     createdAt: str
     updatedAt: str
+
+
+class EmployeeFieldDifferenceResponse(BaseModel):
+    code: str
+    fields: list[str]
+
+
+class EmployeeConsistencyResponse(BaseModel):
+    status: Literal["ok", "mismatch"]
+    databaseEmployees: int
+    csvEmployees: int
+    databaseOnlyCodes: list[str]
+    csvOnlyCodes: list[str]
+    fieldDifferences: list[EmployeeFieldDifferenceResponse]
 
 
 class EmployeeWriteRequest(BaseModel):
@@ -129,6 +144,31 @@ def list_employees(
         _response(employee)
         for employee in service.list_employees(query=query, enabled=enabled_value)
     ]
+
+
+@router.get("/consistency", response_model=EmployeeConsistencyResponse)
+def get_employee_consistency(
+    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
+) -> EmployeeConsistencyResponse:
+    try:
+        result = check_employee_data_consistency(service.database, service.employee_csv)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Employee data consistency could not be checked.",
+        ) from exc
+    return EmployeeConsistencyResponse(
+        status="ok" if result.is_consistent else "mismatch",
+        databaseEmployees=result.database_count,
+        csvEmployees=result.csv_count,
+        databaseOnlyCodes=list(result.database_only_codes),
+        csvOnlyCodes=list(result.csv_only_codes),
+        fieldDifferences=[
+            EmployeeFieldDifferenceResponse(code=item.code, fields=list(item.fields))
+            for item in result.field_differences
+        ],
+    )
 
 
 @router.get("/{code}", response_model=EmployeeResponse)
