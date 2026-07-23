@@ -117,3 +117,26 @@ def test_empty_target_divisions_are_rejected(tmp_path: Path):
         assert "division code" in str(exc)
     else:
         raise AssertionError("empty target divisions must be rejected")
+
+
+def test_preview_reports_changed_fields_without_exposing_key(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    difference = next(item for item in differences if item.code == "00001")
+    assert difference.action == "update"
+    assert "kotKey" in difference.changed_fields
+    assert "new-key" not in repr(difference.current)
+    assert "new-key" not in repr(difference.proposed)
