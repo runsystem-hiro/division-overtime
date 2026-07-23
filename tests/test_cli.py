@@ -200,3 +200,71 @@ def test_employee_data_consistency_is_read_only(tmp_path: Path, employee_csv: Pa
     with db.connect() as conn:
         after_row = dict(conn.execute("SELECT * FROM employees WHERE code='00001'").fetchone())
     assert after_row == before_row
+
+
+def test_employee_data_consistency_json_returns_machine_readable_result(tmp_path: Path, capsys):
+    import json
+
+    from division_overtime.cli import _check_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    with db.transaction() as conn:
+        conn.execute(
+            """
+            INSERT INTO employees(
+                code, kot_key, last_name, first_name, division_code,
+                division_name, email, personal_target_minutes,
+                is_enabled, created_at, updated_at
+            )
+            VALUES('00002', 'secret-db-only', '鈴木', '花子', '300',
+                   '営業部', 's@example.com', NULL, 1, 'now', 'now')
+            """
+        )
+
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text(
+        "社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分\n"
+        "00001,secret-csv,田中,太郎,changed@example.com,300,営業部,1200\n"
+        "00003,secret-csv-only,佐藤,次郎,sato@example.com,300,営業部,\n",
+        encoding="utf-8",
+    )
+
+    result = _check_employee_consistency(db, csv_path, json_output=True)
+
+    assert result == 1
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert payload == {
+        "status": "mismatch",
+        "databaseEmployees": 2,
+        "csvEmployees": 2,
+        "databaseOnlyEmployeeCodes": ["00002"],
+        "csvOnlyEmployeeCodes": ["00003"],
+        "mismatchedEmployees": [{"employeeCode": "00001", "fields": ["kot_key", "email"]}],
+    }
+    assert "secret-db-only" not in output
+    assert "secret-csv" not in output
+    assert "secret-csv-only" not in output
+    assert "changed@example.com" not in output
+
+
+def test_employee_data_consistency_json_reports_error(tmp_path: Path, capsys):
+    import json
+
+    from division_overtime.cli import _check_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    csv_path = tmp_path / "employeeKey.csv"
+
+    result = _check_employee_consistency(db, csv_path, json_output=True)
+
+    assert result == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "error"
+    assert payload["databaseEmployees"] is None
+    assert payload["csvEmployees"] is None
+    assert payload["databaseOnlyEmployeeCodes"] == []
+    assert payload["csvOnlyEmployeeCodes"] == []
+    assert payload["mismatchedEmployees"] == []
+    assert "Database is not initialized" in payload["error"]
