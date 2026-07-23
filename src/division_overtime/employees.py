@@ -59,3 +59,49 @@ def load_employees(path: Path) -> list[Employee]:
                 )
             )
     return employees
+
+
+CSV_FIELDNAMES = [
+    "社員番号",
+    "キー",
+    "氏",
+    "名",
+    "メールアドレス",
+    "部署コード",
+    "部署名",
+    "個人別残業上限分",
+]
+
+
+def write_employees(path: Path, employees: list[Employee]) -> None:
+    if not employees:
+        raise EmployeeDataError("Cannot write an empty employee CSV")
+    with path.open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        for employee in employees:
+            required_values = {
+                "社員番号": employee.code,
+                "キー": employee.employee_key,
+                "氏": employee.last_name,
+                "名": employee.first_name,
+                "部署コード": employee.division_code,
+            }
+            missing = [name for name, value in required_values.items() if not value.strip()]
+            if missing:
+                raise EmployeeDataError(
+                    f"Employee {employee.code or '<unknown>'} has empty required fields: "
+                    + ", ".join(missing)
+                )
+            writer.writerow(
+                {
+                    **required_values,
+                    "メールアドレス": employee.email,
+                    "部署名": employee.division_name,
+                    "個人別残業上限分": (
+                        ""
+                        if employee.personal_target_minutes is None
+                        else employee.personal_target_minutes
+                    ),
+                }
+            )
