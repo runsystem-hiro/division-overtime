@@ -82,3 +82,5 @@ legacy/
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+
+data/employee-consistency-history.jsonl
