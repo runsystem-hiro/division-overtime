@@ -268,10 +268,13 @@ class KotEmployeeSyncService:
             raise KotEmployeeSyncError(f"Backup destination already exists: {backup_dir}")
 
         try:
-            backup_dir.mkdir(parents=True)
+            backup_dir.mkdir(parents=True, mode=0o700)
+            backup_dir.chmod(0o700)
             self.database.backup_to(database_backup)
+            database_backup.chmod(0o600)
             if self.employee_csv.exists():
                 shutil.copy2(self.employee_csv, csv_backup)
+                csv_backup.chmod(0o600)
             return backup_dir
         except Exception as exc:
             shutil.rmtree(backup_dir, ignore_errors=True)
