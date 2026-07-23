@@ -35,7 +35,7 @@
 - KOT同期プレビューの表示フィルタ、変更理由、行強調、一括選択支援
 - KOT同期反映前のSQLite・`employeeKey.csv`永続バックアップ
 - SQLite Backup APIと整合性確認による安全なバックアップ処理
-- KOT同期バックアップからの復旧手順
+- KOT同期バックアップからSQLite・`employeeKey.csv`を安全に復旧する運用手順
 
 ### Fixed
 
