@@ -55,10 +55,12 @@ def preview(
         name: sum(item.action == name for item in differences)
         for name in ("create", "update", "disable", "unchanged")
     }
+    metadata = service.preview_metadata(preview_id)
     return {
         "previewId": preview_id,
         "counts": counts,
         "differences": [_diff(item) for item in differences],
+        **metadata,
     }
 
 

@@ -52,6 +52,8 @@ class _Preview:
     created_at: float
     employees: dict[str, KotEmployee]
     differences: list[SyncDifference]
+    fetched_count: int
+    target_count: int
 
 
 class KotEmployeeClient:
@@ -158,17 +160,37 @@ def parse_kot_employees(payload: list[object]) -> list[KotEmployee]:
 class KotEmployeeSyncService:
     PREVIEW_TTL_SECONDS = 900
 
-    def __init__(self, database: Database, employee_csv: Path, client: KotEmployeeSource) -> None:
+    def __init__(
+        self,
+        database: Database,
+        employee_csv: Path,
+        client: KotEmployeeSource,
+        target_division_codes: tuple[str, ...],
+    ) -> None:
+        normalized_codes = tuple(
+            dict.fromkeys(code.strip() for code in target_division_codes if code.strip())
+        )
+        if not normalized_codes:
+            raise KotEmployeeSyncError("At least one KOT sync division code is required")
         self.database = database
         self.employee_csv = employee_csv
         self.client = client
+        self.target_division_codes = normalized_codes
         self.repository = EmployeeRepository(database)
         self._previews: dict[str, _Preview] = {}
         self._lock = threading.Lock()
 
     def preview(self) -> tuple[str, list[SyncDifference]]:
-        kot_employees = self.client.fetch()
-        current = {employee.code: employee for employee in self.repository.list_managed()}
+        fetched_employees = self.client.fetch()
+        target_codes = set(self.target_division_codes)
+        kot_employees = [
+            employee for employee in fetched_employees if employee.division_code in target_codes
+        ]
+        current = {
+            employee.code: employee
+            for employee in self.repository.list_managed()
+            if employee.division_code in target_codes
+        }
         with self.database.connect() as conn:
             current_keys = {
                 row["code"]: row["kot_key"]
@@ -208,8 +230,26 @@ class KotEmployeeSyncService:
         preview_id = secrets.token_urlsafe(24)
         with self._lock:
             self._prune()
-            self._previews[preview_id] = _Preview(time.time(), remote, differences)
+            self._previews[preview_id] = _Preview(
+                time.time(),
+                remote,
+                differences,
+                fetched_count=len(fetched_employees),
+                target_count=len(kot_employees),
+            )
         return preview_id, differences
+
+    def preview_metadata(self, preview_id: str) -> dict[str, object]:
+        with self._lock:
+            self._prune()
+            preview = self._previews.get(preview_id)
+        if preview is None:
+            raise KotEmployeeSyncError("Preview expired or does not exist; fetch again")
+        return {
+            "fetchedCount": preview.fetched_count,
+            "targetCount": preview.target_count,
+            "targetDivisionCodes": list(self.target_division_codes),
+        }
 
     def apply(
         self,

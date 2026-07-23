@@ -43,6 +43,9 @@ type SyncPreview = {
   previewId: string;
   counts: Record<string, number>;
   differences: SyncDifference[];
+  fetchedCount: number;
+  targetCount: number;
+  targetDivisionCodes: string[];
 };
 
 type EmployeeForm = {
@@ -224,9 +227,7 @@ export function App() {
     }
     const preview = (await response.json()) as SyncPreview;
     setSyncPreview(preview);
-    setSelectedSyncCodes(preview.differences
-      .filter((item) => item.action !== "unchanged")
-      .map((item) => item.code));
+    setSelectedSyncCodes([]);
   }
 
   async function applyKotPreview() {
@@ -371,6 +372,9 @@ export function App() {
         {syncPreview && (
           <>
             <div className="sync-counts">
+              <span>全社取得 {syncPreview.fetchedCount}</span>
+              <span>同期対象 {syncPreview.targetCount}</span>
+              <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
               <span>新規 {syncPreview.counts.create ?? 0}</span>
               <span>更新 {syncPreview.counts.update ?? 0}</span>
               <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>

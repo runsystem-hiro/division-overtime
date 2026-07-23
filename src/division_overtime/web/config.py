@@ -38,6 +38,7 @@ class WebConfig:
     kot_read_timeout: float
     kot_retry_count: int
     kot_retry_backoff: float
+    kot_sync_division_codes: tuple[str, ...] = ("156", "158", "300")
 
 
 def _required_env(name: str) -> str:
@@ -67,6 +68,14 @@ def _bool_env(name: str, default: bool) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise WebConfigError(f"{name} must be true or false")
+
+
+def _division_codes_env(name: str, default: str) -> tuple[str, ...]:
+    raw = os.getenv(name, default)
+    values = tuple(dict.fromkeys(value.strip() for value in raw.split(",") if value.strip()))
+    if not values:
+        raise WebConfigError(f"{name} must contain at least one division code")
+    return values
 
 
 def load_web_config(root: Path | None = None) -> WebConfig:
@@ -139,4 +148,5 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         kot_read_timeout=float(raw.get("king_of_time", {}).get("read_timeout_seconds", 30)),
         kot_retry_count=int(raw.get("king_of_time", {}).get("retry_count", 3)),
         kot_retry_backoff=float(raw.get("king_of_time", {}).get("retry_backoff_seconds", 2)),
+        kot_sync_division_codes=_division_codes_env("KOT_SYNC_DIVISION_CODES", "156,158,300"),
     )

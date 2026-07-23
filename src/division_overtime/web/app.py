@@ -44,6 +44,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
                 retry_count=web_config.kot_retry_count,
                 retry_backoff=web_config.kot_retry_backoff,
             ),
+            web_config.kot_sync_division_codes,
         )
     app.state.auth_service = AuthService(
         admin_username=web_config.admin_username,
