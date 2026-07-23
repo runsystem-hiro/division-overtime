@@ -245,6 +245,15 @@ cd /home/pi/division-overtime
 echo "exit_code=$?"
 ```
 
+監視や運用スクリプトで利用する場合はJSON形式で出力する。
+
+```bash
+.venv/bin/division-overtime --root . employees check-consistency --json
+echo "exit_code=$?"
+```
+
+JSONには社員数、SQLite側のみ・CSV側のみの社員コード、内容不一致の社員コードと差分項目名だけを含める。KOT Key、メールアドレス、氏名などの値は出力しない。
+
 一致時の例:
 
 ```text
