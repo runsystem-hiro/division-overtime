@@ -84,6 +84,7 @@ systemctl list-timers --all | grep division-overtime
 systemctl status division-overtime-threshold.timer --no-pager
 systemctl status division-overtime-weekly.timer --no-pager
 systemctl status division-overtime-health.timer --no-pager
+systemctl status division-overtime-employee-consistency.timer --no-pager
 ```
 
 正常状態:
@@ -103,7 +104,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now \
   division-overtime-threshold.timer \
   division-overtime-weekly.timer \
-  division-overtime-health.timer
+  division-overtime-health.timer \
+  division-overtime-employee-consistency.timer
 ```
 
 ## サービスの手動実行
@@ -278,7 +280,7 @@ exit_code=1
 
 ## 社員データ整合性履歴の記録
 
-手動確認結果をJSONL履歴へ追記する。通知処理やsystemd timerからは呼び出さず、明示実行時だけ記録する。
+社員データ整合性結果をJSONL履歴へ追記する。手動実行に加えて、通知処理とは独立したsystemd timerが毎日03:15に実行する。
 
 ```bash
 cd /home/pi/division-overtime
@@ -293,6 +295,33 @@ echo "consistency_record_exit=$?"
 ```bash
 tail -n 20 data/employee-consistency-history.jsonl
 ```
+
+### 日次timer
+
+`division-overtime-employee-consistency.timer`は毎日03:15に実行する。`Persistent=true`のため、Raspberry Pi停止中に実行時刻を過ぎた場合は次回起動後に補完実行する。
+
+```bash
+systemctl status division-overtime-employee-consistency.timer --no-pager
+systemctl list-timers --all | grep division-overtime-employee-consistency
+```
+
+serviceの手動実行とログ確認:
+
+```bash
+before_count=$(wc -l < data/employee-consistency-history.jsonl 2>/dev/null || echo 0)
+sudo systemctl start division-overtime-employee-consistency.service
+after_count=$(wc -l < data/employee-consistency-history.jsonl)
+
+echo "before_count=$before_count"
+echo "after_count=$after_count"
+systemctl show division-overtime-employee-consistency.service \
+  -p Result \
+  -p ExecMainCode \
+  -p ExecMainStatus
+journalctl -u division-overtime-employee-consistency.service -n 50 --no-pager
+```
+
+一致時は`after_count`が`before_count + 1`、`Result=success`、`ExecMainStatus=0`となる。既存のthreshold、weekly、health timerとWebサービスが`active`のままであることも確認する。
 
 ## shadow readの運用確認
 

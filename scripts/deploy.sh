@@ -4,6 +4,8 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 WEB_SERVICE="division-overtime-web.service"
+EMPLOYEE_CONSISTENCY_SERVICE="division-overtime-employee-consistency.service"
+EMPLOYEE_CONSISTENCY_TIMER="division-overtime-employee-consistency.timer"
 HEALTH_URL="http://127.0.0.1:8000/api/system/health"
 
 cd "$PROJECT_ROOT"
@@ -48,6 +50,14 @@ npm --prefix frontend run build
 
 echo "==> Verify application"
 ./scripts/verify.sh
+
+echo "==> Install employee consistency systemd units"
+sudo install -m 0644 \
+    "systemd/$EMPLOYEE_CONSISTENCY_SERVICE" \
+    "systemd/$EMPLOYEE_CONSISTENCY_TIMER" \
+    /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now "$EMPLOYEE_CONSISTENCY_TIMER"
 
 echo "==> Restart Web service"
 sudo systemctl restart "$WEB_SERVICE"
