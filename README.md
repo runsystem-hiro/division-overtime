@@ -581,7 +581,7 @@ systemctl status division-overtime-web.service --no-pager
 初期アクセスURL:
 
 ```text
-http://4b64bit:8000/
+http://<Raspberry-Piのホスト名>:8000/
 ```
 
 Webサービスを停止しても、既存のthreshold、weekly、healthサービスおよびtimerには影響しません。
