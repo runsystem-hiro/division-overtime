@@ -4,6 +4,7 @@
 
 ### Added
 
+- SQLiteの有効社員と`employeeKey.csv`を読み取り専用で比較する整合性確認コマンド
 - 認証済み社員一覧・詳細・追加・更新API
 - 社員一覧、検索、状態絞り込み、追加・編集画面
 - 社員保存時のSQLite更新と`employeeKey.csv`原子的再生成

@@ -406,10 +406,20 @@ git pull
 .venv/bin/division-overtime --root . run weekly --dry-run
 ```
 
+## 社員データ整合性確認
+
+SQLiteの有効社員データと、既存通知処理が参照する`data/employeeKey.csv`を読み取り専用で比較します。通知処理の参照先はCSVのままです。
+
+```bash
+.venv/bin/division-overtime --root . employees check-consistency
+```
+
+一致時は件数と`employee_data_consistency=ok`を表示し、終了コード`0`を返します。不一致時はSQLite側のみ、CSV側のみ、または項目差分の社員コードと差分項目名を表示し、終了コード`1`を返します。KOT Keyは差分の有無だけを判定し、値は表示しません。
+
 ## 終了コード
 
 - `0`: 正常
-- `1`: 実行失敗
+- `1`: 社員データ不一致、または実行失敗
 - `2`: 設定不備
 - `4`: Slack送信失敗
 

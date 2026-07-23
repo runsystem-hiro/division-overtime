@@ -235,6 +235,38 @@ sqlite3 -header -column var/division_overtime.sqlite3 \
    GROUP BY recipient, status, attempt_count;"
 ```
 
+## SQLiteとemployeeKey.csvの整合性確認
+
+通知処理の参照先をSQLiteへ切り替える前段として、SQLiteの有効社員と`data/employeeKey.csv`が一致していることを読み取り専用で確認する。
+
+```bash
+cd /home/pi/division-overtime
+.venv/bin/division-overtime --root . employees check-consistency
+echo "exit_code=$?"
+```
+
+一致時の例:
+
+```text
+employee_data_consistency=ok database_employees=10 csv_employees=10
+exit_code=0
+```
+
+不一致時は終了コード`1`となり、次の形式で差分概要を表示する。
+
+```text
+employee_data_consistency=mismatch database_employees=10 csv_employees=9
+database_only employee_code=00001
+csv_only employee_code=00002
+field_mismatch employee_code=00003 fields=kot_key,email
+exit_code=1
+```
+
+- KOT Keyを含む各項目の実値は表示しない
+- SQLiteとCSVは変更しない
+- 不一致時は通知処理の参照先を切り替えず、社員管理画面またはKOT同期で原因を解消して再確認する
+- threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する
+
 ## KOT同期バックアップと復旧
 
 ### バックアップ作成
