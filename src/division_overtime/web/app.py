@@ -8,10 +8,12 @@ from fastapi.staticfiles import StaticFiles
 
 from division_overtime.database import Database
 from division_overtime.employee_management import EmployeeManagementService
+from division_overtime.kot_employee_sync import KotEmployeeClient, KotEmployeeSyncService
 from division_overtime.web.auth import AuthService
 from division_overtime.web.config import WebConfig, load_web_config
 from division_overtime.web.routes.auth import router as auth_router
 from division_overtime.web.routes.employees import router as employees_router
+from division_overtime.web.routes.kot_sync import router as kot_sync_router
 from division_overtime.web.routes.system import router as system_router
 
 
@@ -30,6 +32,19 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.state.employee_management_service = EmployeeManagementService(
         database, web_config.employee_csv
     )
+    if web_config.kot_token:
+        app.state.kot_employee_sync_service = KotEmployeeSyncService(
+            database,
+            web_config.employee_csv,
+            KotEmployeeClient(
+                base_url=web_config.kot_base_url,
+                token=web_config.kot_token,
+                connect_timeout=web_config.kot_connect_timeout,
+                read_timeout=web_config.kot_read_timeout,
+                retry_count=web_config.kot_retry_count,
+                retry_backoff=web_config.kot_retry_backoff,
+            ),
+        )
     app.state.auth_service = AuthService(
         admin_username=web_config.admin_username,
         admin_password_hash=web_config.admin_password_hash,
@@ -42,6 +57,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(system_router)
     app.include_router(employees_router)
+    app.include_router(kot_sync_router)
 
     assets_dir = web_config.frontend_dist / "assets"
     if assets_dir.is_dir():

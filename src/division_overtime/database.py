@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class Database:
@@ -109,6 +109,18 @@ class Database:
                 );
                 CREATE INDEX IF NOT EXISTS idx_employees_division
                     ON employees(division_code, is_enabled);
+                CREATE TABLE IF NOT EXISTS kot_sync_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    executed_at TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    fetched_count INTEGER NOT NULL,
+                    created_count INTEGER NOT NULL,
+                    updated_count INTEGER NOT NULL,
+                    disabled_count INTEGER NOT NULL,
+                    unchanged_count INTEGER NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('succeeded','failed')),
+                    error_summary TEXT
+                );
                 """
             )
             current_row = conn.execute(

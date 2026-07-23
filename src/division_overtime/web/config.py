@@ -32,6 +32,12 @@ class WebConfig:
     login_max_attempts: int
     login_window_seconds: int
     login_lockout_seconds: int
+    kot_base_url: str
+    kot_token: str
+    kot_connect_timeout: float
+    kot_read_timeout: float
+    kot_retry_count: int
+    kot_retry_backoff: float
 
 
 def _required_env(name: str) -> str:
@@ -125,4 +131,12 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         login_max_attempts=_positive_int_env("WEB_LOGIN_MAX_ATTEMPTS", "5"),
         login_window_seconds=_positive_int_env("WEB_LOGIN_WINDOW_SECONDS", "900"),
         login_lockout_seconds=_positive_int_env("WEB_LOGIN_LOCKOUT_SECONDS", "900"),
+        kot_base_url=str(
+            raw.get("king_of_time", {}).get("base_url", "https://api.kingtime.jp/v1.0")
+        ).rstrip("/"),
+        kot_token=os.getenv("KINGOFTIME_TOKEN", "").strip(),
+        kot_connect_timeout=float(raw.get("king_of_time", {}).get("connect_timeout_seconds", 5)),
+        kot_read_timeout=float(raw.get("king_of_time", {}).get("read_timeout_seconds", 30)),
+        kot_retry_count=int(raw.get("king_of_time", {}).get("retry_count", 3)),
+        kot_retry_backoff=float(raw.get("king_of_time", {}).get("retry_backoff_seconds", 2)),
     )

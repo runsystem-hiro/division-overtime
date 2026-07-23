@@ -60,7 +60,7 @@ def test_transaction_rolls_back_on_error(tmp_path):
     assert row is None
 
 
-def test_database_initialization_creates_employee_schema_version_2(tmp_path):
+def test_database_initialization_creates_employee_schema_version_3(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
 
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_2(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "2"
+    assert version == "3"
     assert table["name"] == "employees"
 
 

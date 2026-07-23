@@ -66,3 +66,12 @@ tbody tr:hover { background: rgb(96 165 250 / 4%); }
   .wide { grid-column: auto; }
   .modal { padding: 22px 18px; }
 }
+.sync-card { margin-top: 18px; }
+.sync-heading, .sync-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.sync-heading { margin-bottom: 18px; }
+.sync-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.sync-counts span { padding: 7px 10px; border: 1px solid #334155; border-radius: 999px; color: #cbd5e1; font-size: .8rem; }
+.sync-table { min-width: 1050px; }
+.sync-table input[type="checkbox"] { width: auto; }
+.sync-actions { margin-top: 16px; }
+@media (max-width: 760px) { .sync-heading, .sync-actions { align-items: stretch; flex-direction: column; } }
