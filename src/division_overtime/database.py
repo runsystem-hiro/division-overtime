@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -23,18 +23,27 @@ class Database:
         return conn
 
     def backup_to(self, destination: Path) -> None:
-        """Create a consistent SQLite backup using the SQLite backup API."""
+        """Create and verify a consistent SQLite backup."""
         destination.parent.mkdir(parents=True, exist_ok=True)
 
-        with self.connect() as source, sqlite3.connect(destination) as target:
-            source.backup(target)
+        try:
+            with (
+                closing(self.connect()) as source,
+                closing(sqlite3.connect(destination)) as target,
+            ):
+                source.backup(target)
 
-        with sqlite3.connect(destination) as conn:
-            result = str(conn.execute("PRAGMA integrity_check").fetchone()[0])
+            with closing(sqlite3.connect(destination)) as conn:
+                result = str(conn.execute("PRAGMA integrity_check").fetchone()[0])
 
-        if result != "ok":
+            if result != "ok":
+                raise RuntimeError(f"SQLite backup integrity check failed: {result}")
+        except Exception:
             destination.unlink(missing_ok=True)
-            raise RuntimeError(f"SQLite backup integrity check failed: {result}")
+            raise
+        finally:
+            for suffix in ("-wal", "-shm"):
+                destination.with_name(f"{destination.name}{suffix}").unlink(missing_ok=True)
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:

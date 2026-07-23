@@ -37,6 +37,10 @@
 - SQLite Backup APIと整合性確認による安全なバックアップ処理
 - KOT同期バックアップからの復旧手順
 
+### Fixed
+
+- KOT同期バックアップの整合性確認後にSQLiteの`-wal`・`-shm`を残さないよう修正
+
 ### Changed
 
 - SQLiteスキーマバージョンを2へ更新
@@ -62,6 +66,10 @@
 - 指定外かつ強制本人通知閾値未満の社員本人には通知しない
 - 管理者向けweekly通知は、担当範囲の全社員分を維持
 
+### Fixed
+
+- KOT同期バックアップの整合性確認後にSQLiteの`-wal`・`-shm`を残さないよう修正
+
 ### Changed
 
 - 本人通知の目的を旧版運用に合わせて整理
@@ -79,6 +87,10 @@
 - WindowsおよびRaspberry Piで49件のテスト成功
 
 ## [1.0.1] - 2026-07-22
+
+### Fixed
+
+- KOT同期バックアップの整合性確認後にSQLiteの`-wal`・`-shm`を残さないよう修正
 
 ### Changed
 
@@ -117,6 +129,10 @@
 - Ruffおよびpytest構成
 - WindowsとRaspberry Piの両環境での検証手順
 - 旧版を`legacy/pre-modernization`ブランチへ退避する移行方式
+
+### Fixed
+
+- KOT同期バックアップの整合性確認後にSQLiteの`-wal`・`-shm`を残さないよう修正
 
 ### Changed
 
