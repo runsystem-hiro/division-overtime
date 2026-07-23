@@ -74,3 +74,13 @@ def test_database_initialization_creates_employee_schema_version_2(tmp_path):
 
     assert version == "2"
     assert table["name"] == "employees"
+
+
+def test_database_reports_initialization_state(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+
+    assert db.is_initialized() is False
+
+    db.initialize()
+
+    assert db.is_initialized() is True
