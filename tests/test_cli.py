@@ -125,3 +125,78 @@ def test_employee_csv_export_rejects_zero_enabled_employees(tmp_path: Path):
         _export_employees(db, csv_path, apply=True)
 
     assert csv_path.read_text(encoding="utf-8") == "existing"
+
+
+def test_employee_data_consistency_returns_zero_when_data_matches(
+    tmp_path: Path, employee_csv: Path, capsys
+):
+    from division_overtime.cli import _check_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+
+    result = _check_employee_consistency(db, employee_csv)
+
+    assert result == 0
+    assert capsys.readouterr().out == (
+        "employee_data_consistency=ok database_employees=1 csv_employees=1\n"
+    )
+
+
+def test_employee_data_consistency_reports_missing_and_changed_records(tmp_path: Path, capsys):
+    from division_overtime.cli import _check_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    with db.transaction() as conn:
+        conn.execute(
+            """
+            INSERT INTO employees(
+                code, kot_key, last_name, first_name, division_code,
+                division_name, email, personal_target_minutes,
+                is_enabled, created_at, updated_at
+            )
+            VALUES('00002', 'secret-db-only', '鈴木', '花子', '300',
+                   '営業部', 's@example.com', NULL, 1, 'now', 'now')
+            """
+        )
+
+    csv_path = tmp_path / "employeeKey.csv"
+    csv_path.write_text(
+        "社員番号,キー,氏,名,メールアドレス,部署コード,部署名,個人別残業上限分\n"
+        "00001,secret-csv,田中,太郎,changed@example.com,300,営業部,1200\n"
+        "00003,secret-csv-only,佐藤,次郎,sato@example.com,300,営業部,\n",
+        encoding="utf-8",
+    )
+
+    result = _check_employee_consistency(db, csv_path)
+
+    assert result == 1
+    output = capsys.readouterr().out
+    assert output == (
+        "employee_data_consistency=mismatch database_employees=2 csv_employees=2\n"
+        "database_only employee_code=00002\n"
+        "csv_only employee_code=00003\n"
+        "field_mismatch employee_code=00001 fields=kot_key,email\n"
+    )
+    assert "secret-db-only" not in output
+    assert "secret-csv" not in output
+    assert "secret-csv-only" not in output
+
+
+def test_employee_data_consistency_is_read_only(tmp_path: Path, employee_csv: Path):
+    from division_overtime.cli import _check_employee_consistency
+
+    db = Database(tmp_path / "test.sqlite3")
+    _seed_employee(db)
+    before_csv = employee_csv.read_bytes()
+    with db.connect() as conn:
+        before_row = dict(conn.execute("SELECT * FROM employees WHERE code='00001'").fetchone())
+
+    result = _check_employee_consistency(db, employee_csv)
+
+    assert result == 0
+    assert employee_csv.read_bytes() == before_csv
+    with db.connect() as conn:
+        after_row = dict(conn.execute("SELECT * FROM employees WHERE code='00001'").fetchone())
+    assert after_row == before_row
