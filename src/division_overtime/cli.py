@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import tempfile
 from datetime import datetime
@@ -29,6 +30,7 @@ def _parser() -> argparse.ArgumentParser:
         "action", choices=["import-csv", "export-csv", "check-consistency"]
     )
     employees_parser.add_argument("--apply", action="store_true")
+    employees_parser.add_argument("--json", action="store_true", dest="json_output")
     sub.add_parser("validate-config")
     return parser
 
@@ -86,8 +88,52 @@ def _export_employees(db: Database, employee_csv: Path, apply: bool) -> int:
     return 0
 
 
-def _check_employee_consistency(db: Database, employee_csv: Path) -> int:
-    result = check_employee_data_consistency(db, employee_csv)
+def _check_employee_consistency(
+    db: Database, employee_csv: Path, *, json_output: bool = False
+) -> int:
+    try:
+        result = check_employee_data_consistency(db, employee_csv)
+    except (EmployeeDataError, FileNotFoundError, RuntimeError, ValueError) as exc:
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "databaseEmployees": None,
+                        "csvEmployees": None,
+                        "databaseOnlyEmployeeCodes": [],
+                        "csvOnlyEmployeeCodes": [],
+                        "mismatchedEmployees": [],
+                        "error": str(exc),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 1
+        raise
+
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "status": "ok" if result.is_consistent else "mismatch",
+                    "databaseEmployees": result.database_count,
+                    "csvEmployees": result.csv_count,
+                    "databaseOnlyEmployeeCodes": list(result.database_only_codes),
+                    "csvOnlyEmployeeCodes": list(result.csv_only_codes),
+                    "mismatchedEmployees": [
+                        {
+                            "employeeCode": difference.code,
+                            "fields": list(difference.fields),
+                        }
+                        for difference in result.field_differences
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0 if result.is_consistent else 1
+
     print(
         "employee_data_consistency="
         f"{'ok' if result.is_consistent else 'mismatch'} "
@@ -126,7 +172,9 @@ def main() -> int:
         if args.command == "employees" and args.action == "export-csv":
             return _export_employees(db, config.employee_csv, args.apply)
         if args.command == "employees" and args.action == "check-consistency":
-            return _check_employee_consistency(db, config.employee_csv)
+            return _check_employee_consistency(
+                db, config.employee_csv, json_output=args.json_output
+            )
         if args.command == "validate-config":
             employees = load_employees(config.employee_csv)
             print(f"configuration=ok employees={len(employees)}")

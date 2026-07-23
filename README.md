@@ -432,6 +432,14 @@ SQLiteの有効社員データと、既存通知処理が参照する`data/emplo
 
 一致時は件数と`employee_data_consistency=ok`を表示し、終了コード`0`を返します。不一致時はSQLite側のみ、CSV側のみ、または項目差分の社員コードと差分項目名を表示し、終了コード`1`を返します。KOT Keyは差分の有無だけを判定し、値は表示しません。
 
+監視や運用スクリプトから利用する場合はJSON形式で出力できます。
+
+```bash
+.venv/bin/division-overtime --root . employees check-consistency --json
+```
+
+JSONには件数、SQLite側のみ・CSV側のみの社員コード、内容不一致の社員コードと差分項目名を含めます。KOT Key、メールアドレス、氏名などの値は出力しません。
+
 ## 終了コード
 
 - `0`: 正常
