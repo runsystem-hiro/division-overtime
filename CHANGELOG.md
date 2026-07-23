@@ -48,6 +48,8 @@
 
 ### Changed
 
+- 通知処理の社員CSV読み込みを`CsvEmployeeSource`へ分離し、参照先は従来どおり`employeeKey.csv`を維持
+
 - SQLiteスキーマバージョンを2へ更新
 - Web用Python依存関係を`web`オプションとして追加
 - インストールスクリプトでWeb依存関係を導入

@@ -276,3 +276,25 @@ def test_weekly_self_notification_is_sent_above_force_threshold(
 
     recipients = {recipient for recipient, _ in SuccessfulMessenger.calls}
     assert recipients == {"manager@example.com", "tanaka@example.com"}
+
+
+def test_notification_service_uses_csv_employee_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config = make_config(tmp_path)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+    calls: list[Path] = []
+
+    class TrackingCsvEmployeeSource:
+        def __init__(self, path: Path):
+            calls.append(path)
+
+        def list_employees(self):
+            from division_overtime.employees import load_employees
+
+            return load_employees(config.employee_csv)
+
+    monkeypatch.setattr("division_overtime.service.CsvEmployeeSource", TrackingCsvEmployeeSource)
+
+    assert run(config, "threshold", dry_run=True) == 0
+    assert calls == [config.employee_csv]
