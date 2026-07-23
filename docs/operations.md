@@ -45,6 +45,18 @@ var/division_overtime.sqlite3
 chmod 600 .env config/production.toml data/employeeKey.csv
 ```
 
+### KOT同期バックアップの権限
+
+KOT同期反映前に新規作成するバックアップは、既定umaskに依存せず次の権限に設定する。
+
+```text
+var/backups/kot-sync/<timestamp>/  0700
+division_overtime.sqlite3          0600
+employeeKey.csv                    0600
+```
+
+既存バックアップの権限は自動変更しない。必要に応じて運用者が個別に確認する。
+
 ## Dry run
 
 ```bash

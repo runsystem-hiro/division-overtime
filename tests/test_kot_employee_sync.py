@@ -1,6 +1,10 @@
+import os
+import stat
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from division_overtime.database import Database
 from division_overtime.employee_repository import EmployeeRepository
@@ -175,6 +179,42 @@ def test_apply_creates_database_and_csv_backup(tmp_path: Path):
             conn.execute("SELECT kot_key FROM employees WHERE code='00001'").fetchone()[0]
             == "old-key"
         )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions are not available")
+def test_apply_backup_uses_owner_only_permissions(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    csv = tmp_path / "employeeKey.csv"
+    csv.write_text("original-csv", encoding="utf-8")
+    backup_root = tmp_path / "backups"
+    service = KotEmployeeSyncService(
+        db,
+        csv,
+        FakeClient(),
+        ("300", "301"),
+        backup_root=backup_root,
+    )
+    preview_id, _ = service.preview()
+
+    service.apply(
+        preview_id,
+        ["00001"],
+        "hiro",
+        datetime(2026, 7, 23, 13, 30, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    backup_dir = next(backup_root.iterdir())
+    database_backup = backup_dir / "db.sqlite3"
+    csv_backup = backup_dir / "employeeKey.csv"
+
+    assert stat.S_IMODE(backup_dir.stat().st_mode) == 0o700
+    assert stat.S_IMODE(database_backup.stat().st_mode) == 0o600
+    assert stat.S_IMODE(csv_backup.stat().st_mode) == 0o600
 
 
 def test_apply_backup_allows_missing_csv(tmp_path: Path):
