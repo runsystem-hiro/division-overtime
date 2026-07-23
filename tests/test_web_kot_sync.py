@@ -57,6 +57,7 @@ def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path):
         kot_read_timeout=30,
         kot_retry_count=1,
         kot_retry_backoff=0,
+        kot_sync_division_codes=("156", "158", "300"),
     )
     app = create_app(config)
     db = Database(config.database_path)
@@ -65,7 +66,7 @@ def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path):
         datetime.now(ZoneInfo("Asia/Tokyo")),
     )
     app.state.kot_employee_sync_service = KotEmployeeSyncService(
-        db, config.employee_csv, FakeClient()
+        db, config.employee_csv, FakeClient(), ("300", "301")
     )
     client = TestClient(app)
     assert client.post("/api/kot-sync/preview").status_code == 401

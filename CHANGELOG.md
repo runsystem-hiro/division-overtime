@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- KOT社員同期を `KOT_SYNC_DIVISION_CODES` で指定した部署に限定し、全社取得件数と同期対象件数を表示するよう変更。
 
 ### Added
 
