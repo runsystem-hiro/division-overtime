@@ -128,3 +128,15 @@
 - `.env`、`config/production.toml`、実社員CSV、SQLite DB、旧資産をGit管理対象外とした
 - systemd serviceへ`NoNewPrivileges`、`ProtectSystem`、`ProtectHome`、書込先制限を設定
 - healthは外部APIとSlackを呼び出さず、正常通知によるノイズを発生させない
+
+## Unreleased
+
+### Added
+
+- KING OF TIME従業員一覧を手動取得し、SQLite社員マスタとの差分をプレビューするAPIとWeb UIを追加。
+- 新規・更新・無効化候補を選択して反映し、`employeeKey.csv`を安全に再生成する処理を追加。
+- KOT同期履歴テーブルを追加し、成功時の反映件数を記録。
+
+### Security
+
+- KOT Keyは同期プレビュー、APIレスポンス、画面に含めず、サーバー内部の短時間プレビューだけで保持。

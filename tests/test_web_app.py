@@ -29,6 +29,12 @@ def _config(root: Path, *, max_attempts: int = 5, max_age: int = 28800) -> WebCo
         login_max_attempts=max_attempts,
         login_window_seconds=900,
         login_lockout_seconds=900,
+        kot_base_url="https://api.kingtime.jp/v1.0",
+        kot_token="",
+        kot_connect_timeout=5.0,
+        kot_read_timeout=30.0,
+        kot_retry_count=1,
+        kot_retry_backoff=0.0,
     )
 
 
