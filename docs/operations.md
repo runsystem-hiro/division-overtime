@@ -682,7 +682,6 @@ sudo systemctl daemon-reload
 
 実送信を再試行する前に、DBの`notification_attempts`を確認して重複送信を防ぐ。
 
-
 ## WebからのKOT社員同期
 
 1. 社員管理画面へログインする
@@ -693,3 +692,51 @@ sudo systemctl daemon-reload
 6. 最終実行日時と新規・更新・無効化件数を確認する
 
 実行中の再実行はHTTP 409で拒否される。08:30〜10:00および17:30〜18:30はHTTP 423で拒否される。同期前バックアップとCSVの原子的再生成は既存のKOT同期サービスが行う。threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する。
+
+## v2.0.0 デプロイと復旧
+
+リリース前後の総合確認は[`docs/release-checklist.md`](release-checklist.md)を使用する。
+
+通常の本番反映:
+
+```bash
+cd /home/pi/division-overtime
+./scripts/deploy.sh
+```
+
+デプロイはWebサービスだけを再起動する。threshold、weekly、health、employee-consistencyのservice / timerは独立しており、Web停止中も既存スケジュールを維持する。
+
+デプロイ後:
+
+```bash
+curl -fsS http://127.0.0.1:8000/api/system/health
+systemctl list-timers --all | grep division-overtime
+.venv/bin/division-overtime --root . employees check-consistency
+```
+
+### 社員削除バックアップからの復旧
+
+復旧前にWebを停止し、現状のDBとCSVを別名で退避する。
+
+```bash
+cd /home/pi/division-overtime
+sudo systemctl stop division-overtime-web.service
+stamp="$(date +%Y%m%d_%H%M%S)"
+cp -a var/division_overtime.sqlite3 "var/division_overtime.sqlite3.before-restore-$stamp"
+cp -a data/employeeKey.csv "data/employeeKey.csv.before-restore-$stamp"
+```
+
+対象世代を確認して復旧する。
+
+```bash
+backup="var/backups/employee-delete/<timestamp>"
+cp -a "$backup/division_overtime.sqlite3" var/division_overtime.sqlite3
+cp -a "$backup/employeeKey.csv" data/employeeKey.csv
+chmod 600 var/division_overtime.sqlite3 data/employeeKey.csv
+sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
+.venv/bin/division-overtime --root . employees check-consistency
+sudo systemctl start division-overtime-web.service
+curl -fsS http://127.0.0.1:8000/api/system/health
+```
+
+バックアップにCSVが存在しない世代は、DB復旧後に社員管理処理でCSVを再生成する。整合性確認が成功するまで通知設定の変更やKOT同期反映を行わない。
