@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -12,6 +13,8 @@ from typing import Literal
 from .models import Employee
 
 logger = logging.getLogger(__name__)
+
+EMPLOYEE_CSV_BACKUP_RETENTION = 30
 
 
 class EmployeeDataError(RuntimeError):
@@ -25,6 +28,7 @@ class EmployeeCsvGenerationResult:
     employee_count: int
     output_path: Path
     backup_path: Path | None
+    removed_backup_count: int
 
 
 def _optional_non_negative_int(value: str | None, employee_code: str) -> int | None:
@@ -124,6 +128,25 @@ def write_employees(path: Path, employees: list[Employee]) -> None:
             )
 
 
+def _prune_employee_csv_backups(
+    backup_dir: Path, source_path: Path, retention: int = EMPLOYEE_CSV_BACKUP_RETENTION
+) -> int:
+    if retention < 1:
+        raise ValueError("Employee CSV backup retention must be at least 1")
+    pattern = re.compile(
+        rf"^{re.escape(source_path.stem)}_\d{{8}}_\d{{12}}{re.escape(source_path.suffix)}$"
+    )
+    backups = sorted(
+        candidate
+        for candidate in backup_dir.iterdir()
+        if candidate.is_file() and pattern.fullmatch(candidate.name)
+    )
+    expired = backups[:-retention]
+    for backup in expired:
+        backup.unlink()
+    return len(expired)
+
+
 def generate_employee_csv(
     path: Path, employees: list[Employee], *, generated_at: datetime | None = None
 ) -> EmployeeCsvGenerationResult:
@@ -131,6 +154,8 @@ def generate_employee_csv(
     generated_at = generated_at or datetime.now().astimezone()
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
+    backup_path: Path | None = None
+    removed_backup_count = 0
     try:
         with tempfile.NamedTemporaryFile(
             mode="wb",
@@ -146,7 +171,6 @@ def generate_employee_csv(
         if len(validated) != len(employees):
             raise EmployeeDataError("Generated employee CSV validation count mismatch")
 
-        backup_path: Path | None = None
         if path.exists():
             backup_dir = path.parent / "backups" / "employee-csv"
             backup_dir.mkdir(parents=True, exist_ok=True)
@@ -157,6 +181,16 @@ def generate_employee_csv(
             backup_path.chmod(0o600)
 
         temp_path.replace(path)
+        if backup_path is not None:
+            try:
+                removed_backup_count = _prune_employee_csv_backups(backup_path.parent, path)
+            except Exception:
+                logger.warning(
+                    "employee_csv_backup_prune=failed backup_dir=%s retention=%d",
+                    backup_path.parent,
+                    EMPLOYEE_CSV_BACKUP_RETENTION,
+                    exc_info=True,
+                )
     except Exception:
         logger.exception("employee_csv_generation=failed output_path=%s", path)
         raise
@@ -170,13 +204,15 @@ def generate_employee_csv(
         employee_count=len(employees),
         output_path=path,
         backup_path=backup_path,
+        removed_backup_count=removed_backup_count,
     )
     logger.info(
         "employee_csv_generation=success generated_at=%s employees=%d output_path=%s "
-        "backup_path=%s",
+        "backup_path=%s removed_backups=%d",
         result.generated_at.isoformat(),
         result.employee_count,
         result.output_path,
         result.backup_path,
+        result.removed_backup_count,
     )
     return result
