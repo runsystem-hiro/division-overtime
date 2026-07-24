@@ -263,7 +263,7 @@ def test_apply_returns_backup_path_and_hides_secrets(tmp_path: Path, monkeypatch
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["counts"] == {"created": 0, "updated": 1, "disabled": 0}
+    assert body["counts"] == {"created": 0, "updated": 1, "reactivated": 0, "disabled": 0}
     backup_path = Path(body["backupPath"])
     assert backup_path.parent == backup_root
     assert (backup_path / "db.sqlite3").exists()
@@ -273,3 +273,63 @@ def test_apply_returns_backup_path_and_hides_secrets(tmp_path: Path, monkeypatch
     assert status.json()["lastRun"]["backup_path"] == str(backup_path)
     assert "hidden-key" not in response.text
     assert "hidden-key" not in status.text
+
+
+def test_api_supports_reactivate_preview_apply_and_status(tmp_path: Path, monkeypatch):
+    config = WebConfig(
+        root=tmp_path,
+        timezone=ZoneInfo("Asia/Tokyo"),
+        database_path=tmp_path / "db.sqlite3",
+        employee_csv=tmp_path / "employeeKey.csv",
+        frontend_dist=tmp_path / "dist",
+        host="0.0.0.0",
+        port=8000,
+        log_level="INFO",
+        admin_username="hiro",
+        admin_password_hash=PasswordHasher().hash("pass"),
+        session_secret="s" * 48,
+        session_cookie_name="session",
+        session_cookie_secure=False,
+        session_max_age_seconds=28800,
+        login_max_attempts=5,
+        login_window_seconds=900,
+        login_lockout_seconds=900,
+        kot_base_url="https://api.kingtime.jp/v1.0",
+        kot_token="",
+        kot_connect_timeout=5,
+        kot_read_timeout=30,
+        kot_retry_count=1,
+        kot_retry_backoff=0,
+        kot_sync_division_codes=("300",),
+    )
+    monkeypatch.setattr("division_overtime.web.routes.kot_sync._is_api_blocked", lambda _now: False)
+    app = create_app(config)
+    db = Database(config.database_path)
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old", "田中", "太郎", "local@example.com", "300", "営業部", 1500)],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    with db.transaction() as conn:
+        conn.execute(
+            "UPDATE employees SET is_enabled=0, disabled_reason='手動無効化' WHERE code='00001'"
+        )
+    app.state.kot_employee_sync_service = KotEmployeeSyncService(
+        db, config.employee_csv, FakeClient(), ("300",)
+    )
+    client = TestClient(app)
+    client.post("/api/auth/login", json={"username": "hiro", "password": "pass"})
+
+    preview = client.post("/api/kot-sync/preview")
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["counts"]["reactivate"] == 1
+    assert body["differences"][0]["action"] == "reactivate"
+
+    applied = client.post(
+        "/api/kot-sync/apply",
+        json={"previewId": body["previewId"], "employeeCodes": ["00001"]},
+    )
+    assert applied.status_code == 200
+    assert applied.json()["counts"]["reactivated"] == 1
+    status = client.get("/api/kot-sync/status").json()
+    assert status["lastRun"]["reactivated_count"] == 1

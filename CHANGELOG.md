@@ -1,6 +1,7 @@
 # Changelog
 
 ## [Unreleased]
+- KOT同期で無効社員の明示的な再有効化と、適用前バックアップの30世代管理に対応。
 
 ### Fixed
 

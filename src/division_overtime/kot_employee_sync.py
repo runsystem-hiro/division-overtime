@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import secrets
 import shutil
 import tempfile
@@ -161,6 +162,7 @@ def parse_kot_employees(payload: list[object]) -> list[KotEmployee]:
 
 class KotEmployeeSyncService:
     PREVIEW_TTL_SECONDS = 900
+    BACKUP_RETENTION = 30
 
     def __init__(
         self,
@@ -190,9 +192,10 @@ class KotEmployeeSyncService:
         kot_employees = [
             employee for employee in fetched_employees if employee.division_code in target_codes
         ]
+        all_current = {employee.code: employee for employee in self.repository.list_managed()}
         current = {
-            employee.code: employee
-            for employee in self.repository.list_managed()
+            code: employee
+            for code, employee in all_current.items()
             if employee.division_code in target_codes
         }
         with self.database.connect() as conn:
@@ -203,7 +206,7 @@ class KotEmployeeSyncService:
         remote = {employee.code: employee for employee in kot_employees}
         differences: list[SyncDifference] = []
         for code in sorted(current.keys() | remote.keys()):
-            local = current.get(code)
+            local = all_current.get(code)
             kot = remote.get(code)
             if kot is None and local is not None:
                 if not local.is_enabled:
@@ -220,6 +223,21 @@ class KotEmployeeSyncService:
                 differences.append(SyncDifference(code, action, None, proposed, warnings))
                 continue
             if kot.resignation_date and not local.is_enabled:
+                continue
+            if not kot.resignation_date and not local.is_enabled:
+                warnings = tuple(
+                    dict.fromkeys((*warnings, *self._reactivation_warnings(local, kot)))
+                )
+                differences.append(
+                    SyncDifference(
+                        code,
+                        "reactivate",
+                        self._local_dict(local),
+                        proposed,
+                        warnings,
+                        self._changed_fields(local, kot, current_keys.get(code)),
+                    )
+                )
                 continue
             changed_fields = self._changed_fields(
                 local,
@@ -307,7 +325,7 @@ class KotEmployeeSyncService:
         original_csv = self.employee_csv.read_bytes() if self.employee_csv.exists() else None
         csv_replaced = False
         temp_path: Path | None = None
-        counts = {"created": 0, "updated": 0, "disabled": 0}
+        counts = {"created": 0, "updated": 0, "disabled": 0, "reactivated": 0}
         try:
             with self.database.transaction() as conn:
                 for diff in preview.differences:
@@ -395,6 +413,43 @@ class KotEmployeeSyncService:
                             )
                         counts["disabled"] += 1
                         continue
+                    if diff.action == "reactivate":
+                        assert kot is not None
+                        conn.execute(
+                            """
+                            UPDATE employees
+                            SET
+                                kot_key=?,
+                                last_name=?,
+                                first_name=?,
+                                division_code=?,
+                                division_name=?,
+                                email=COALESCE(NULLIF(?, ''), email),
+                                is_enabled=1,
+                                disabled_reason=NULL,
+                                kot_group_codes=?,
+                                kot_group_names=?,
+                                kot_exists=1,
+                                updated_at=?,
+                                last_synced_at=?
+                            WHERE code=?
+                            """,
+                            (
+                                kot.key,
+                                kot.last_name,
+                                kot.first_name,
+                                kot.division_code,
+                                kot.division_name,
+                                kot.email,
+                                ",".join(kot.group_codes),
+                                ",".join(kot.group_names),
+                                now.isoformat(),
+                                now.isoformat(),
+                                kot.code,
+                            ),
+                        )
+                        counts["reactivated"] += 1
+                        continue
                     assert kot is not None
                     existing = conn.execute(
                         "SELECT code FROM employees WHERE code=?",
@@ -466,12 +521,13 @@ class KotEmployeeSyncService:
                         created_count,
                         updated_count,
                         disabled_count,
+                        reactivated_count,
                         unchanged_count,
                         status,
                         error_summary,
                         backup_path
                     ) VALUES(
-                        ?, ?, ?, ?, ?, ?, ?, 'succeeded', NULL, ?
+                        ?, ?, ?, ?, ?, ?, ?, ?, 'succeeded', NULL, ?
                     )
                     """,
                     (
@@ -481,6 +537,7 @@ class KotEmployeeSyncService:
                         counts["created"],
                         counts["updated"],
                         counts["disabled"],
+                        counts["reactivated"],
                         unchanged_count,
                         str(backup_path),
                     ),
@@ -495,6 +552,10 @@ class KotEmployeeSyncService:
         finally:
             if temp_path:
                 temp_path.unlink(missing_ok=True)
+
+        with contextlib.suppress(OSError):
+            self._prune_backups()
+
         with self._lock:
             self._previews.pop(preview_id, None)
         return {**counts, "backupPath": str(backup_path)}
@@ -510,6 +571,7 @@ class KotEmployeeSyncService:
                     created_count,
                     updated_count,
                     disabled_count,
+                    reactivated_count,
                     unchanged_count,
                     status,
                     error_summary,
@@ -521,6 +583,41 @@ class KotEmployeeSyncService:
                 (limit,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def _prune_backups(self) -> None:
+        if not self.backup_root.exists():
+            return
+        candidates = sorted(
+            (
+                path
+                for path in self.backup_root.iterdir()
+                if path.is_dir() and self._is_managed_backup_dir(path.name)
+            ),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+        for stale in candidates[self.BACKUP_RETENTION :]:
+            try:
+                shutil.rmtree(stale)
+            except OSError:
+                continue
+
+    @staticmethod
+    def _is_managed_backup_dir(name: str) -> bool:
+        try:
+            datetime.strptime(name, "%Y%m%d_%H%M%S_%f")
+        except ValueError:
+            return False
+        return True
+
+    @staticmethod
+    def _reactivation_warnings(local: ManagedEmployee, kot: KotEmployee) -> tuple[str, ...]:
+        warnings: list[str] = ["通知対象へ再有効化"]
+        if not (local.email or kot.email):
+            warnings.append("メールアドレス未設定")
+        if local.personal_target_minutes is None:
+            warnings.append("個人上限分未設定")
+        return tuple(warnings)
 
     def _prune(self) -> None:
         cutoff = time.time() - self.PREVIEW_TTL_SECONDS

@@ -33,7 +33,7 @@ type Employee = {
 
 type SyncDifference = {
   code: string;
-  action: "create" | "update" | "disable" | "unchanged";
+  action: "create" | "update" | "reactivate" | "disable" | "unchanged";
   current: Record<string, unknown> | null;
   proposed: Record<string, unknown> | null;
   warnings: string[];
@@ -59,6 +59,7 @@ type KotSyncStatus = {
     created_count: number;
     updated_count: number;
     disabled_count: number;
+    reactivated_count: number;
     unchanged_count: number;
     status: string;
     backup_path: string | null;
@@ -70,6 +71,7 @@ type KotSyncApplyResult = {
   counts: {
     created: number;
     updated: number;
+    reactivated: number;
     disabled: number;
   };
   backupPath: string;
@@ -157,6 +159,7 @@ export function App() {
   const [syncActions, setSyncActions] = useState({
     create: true,
     update: true,
+    reactivate: true,
     disable: true,
     unchanged: false,
   });
@@ -363,12 +366,14 @@ export function App() {
     const detail = {
       create: selected.filter((item) => item.action === "create").length,
       update: selected.filter((item) => item.action === "update").length,
+      reactivate: selected.filter((item) => item.action === "reactivate").length,
       disable: selected.filter((item) => item.action === "disable").length,
     };
     const message = [
       `${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`,
-      `新規 ${detail.create}件 / 更新 ${detail.update}件 / 無効化 ${detail.disable}件`,
-    ].join("\n");
+      `新規 ${detail.create}件 / 更新 ${detail.update}件 / 再有効化 ${detail.reactivate}件 / 無効化 ${detail.disable}件`,
+      detail.reactivate > 0 ? "再有効化した社員は通知対象へ戻ります。" : "",
+    ].filter(Boolean).join("\n");
     if (!window.confirm(message)) return;
     setSyncing(true);
     setError(null);
@@ -384,7 +389,7 @@ export function App() {
       return;
     }
     const result = (await response.json()) as KotSyncApplyResult;
-    setNotice(`KOT社員差分を反映し、employeeKey.csvを再生成しました。反映前バックアップを ${result.backupPath} へ保存しました。`);
+    setNotice(`KOT社員差分を反映し、employeeKey.csvを再生成しました。再有効化 ${result.counts.reactivated}件。反映前バックアップを ${result.backupPath} へ保存しました。`);
     setSyncPreview(null);
     setSelectedSyncCodes([]);
     await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
@@ -544,7 +549,7 @@ export function App() {
             {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
             {syncStatus?.lastRun && (
               <div className="muted">
-                <p>最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
+                <p>最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 再有効化 {syncStatus.lastRun.reactivated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
                 {syncStatus.lastRun.backup_path && <p>バックアップ: {syncStatus.lastRun.backup_path}</p>}
               </div>
             )}
@@ -562,13 +567,14 @@ export function App() {
               <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
               <span>新規 {syncPreview.counts.create ?? 0}</span>
               <span>更新 {syncPreview.counts.update ?? 0}</span>
+              <span>再有効化候補 {syncPreview.counts.reactivate ?? 0}</span>
               <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
               <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
               <span>勤怠管理なし {warningCounts.noAttendance}</span>
               <span>休職中 {warningCounts.onLeave}</span>
             </div>
             <div className="sync-filters" aria-label="KOT同期プレビューフィルタ">
-              {(["create", "update", "disable", "unchanged"] as const).map((action) => (
+              {(["create", "update", "reactivate", "disable", "unchanged"] as const).map((action) => (
                 <label key={action}>
                   <input
                     type="checkbox"
