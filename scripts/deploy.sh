@@ -7,6 +7,7 @@ WEB_SERVICE="division-overtime-web.service"
 EMPLOYEE_CONSISTENCY_SERVICE="division-overtime-employee-consistency.service"
 EMPLOYEE_CONSISTENCY_TIMER="division-overtime-employee-consistency.timer"
 HEALTH_URL="http://127.0.0.1:8000/api/system/health"
+EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"
 
 cd "$PROJECT_ROOT"
 
@@ -67,8 +68,17 @@ for attempt in {1..15}; do
     if curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json; then
         cat /tmp/division-overtime-web-health.json
         echo
+        ACTUAL_VERSION="$(
+            "$VENV_PYTHON" -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' \
+                /tmp/division-overtime-web-health.json
+        )"
+        if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "ERROR: deployed version mismatch: expected=$EXPECTED_VERSION actual=$ACTUAL_VERSION" >&2
+            rm -f /tmp/division-overtime-web-health.json
+            exit 1
+        fi
         rm -f /tmp/division-overtime-web-health.json
-        echo "Deployment completed."
+        echo "Deployment completed. version=$ACTUAL_VERSION"
         exit 0
     fi
     sleep 1

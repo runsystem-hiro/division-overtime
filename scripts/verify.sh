@@ -6,6 +6,7 @@ VENV_BIN="$PROJECT_ROOT/.venv/bin"
 
 cd "$PROJECT_ROOT"
 
+"$VENV_BIN/python" scripts/check_version.py --root "$PROJECT_ROOT"
 "$VENV_BIN/ruff" check .
 "$VENV_BIN/ruff" format --check .
 "$VENV_BIN/pytest" -q

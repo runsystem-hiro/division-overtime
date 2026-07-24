@@ -290,7 +290,8 @@ export function App() {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
-    const loginForm = new FormData(event.currentTarget);
+    const loginFormElement = event.currentTarget;
+    const loginForm = new FormData(loginFormElement);
     const response = await fetch("/api/auth/login", {
       method: "POST",
       credentials: "same-origin",
@@ -308,7 +309,7 @@ export function App() {
       return;
     }
     setUser((await response.json()) as CurrentUser);
-    event.currentTarget.reset();
+    loginFormElement.reset();
   }
 
   async function handleLogout() {
