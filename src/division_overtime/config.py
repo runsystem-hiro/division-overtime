@@ -39,6 +39,7 @@ class AppConfig:
 
 
 _REPLACE_TABLE_PATHS = {("notifications", "department_recipients")}
+_SUPPORTED_ENVIRONMENTS = {"development", "production"}
 
 
 def _deep_merge(
@@ -58,15 +59,27 @@ def _deep_merge(
     return result
 
 
+def _environment_name() -> str:
+    environment = os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower()
+    if environment not in _SUPPORTED_ENVIRONMENTS:
+        raise ConfigError("DIVISION_OVERTIME_ENV must be development or production")
+    return environment
+
+
+def _load_toml_config(root: Path) -> dict[str, Any]:
+    with (root / "config/default.toml").open("rb") as handle:
+        raw = tomllib.load(handle)
+    override_path = root / "config" / f"{_environment_name()}.toml"
+    if override_path.exists():
+        with override_path.open("rb") as handle:
+            raw = _deep_merge(raw, tomllib.load(handle))
+    return raw
+
+
 def load_config(root: Path | None = None) -> AppConfig:
     root = (root or Path.cwd()).resolve()
     load_dotenv(root / ".env")
-    with (root / "config/default.toml").open("rb") as handle:
-        raw = tomllib.load(handle)
-    production = root / "config/production.toml"
-    if production.exists():
-        with production.open("rb") as handle:
-            raw = _deep_merge(raw, tomllib.load(handle))
+    raw = _load_toml_config(root)
 
     kot_token = os.getenv("KINGOFTIME_TOKEN", "").strip()
     slack_token = os.getenv("SLACK_BOT_TOKEN", "").strip()

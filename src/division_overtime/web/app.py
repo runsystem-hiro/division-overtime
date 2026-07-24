@@ -32,7 +32,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.state.employee_management_service = EmployeeManagementService(
         database, web_config.employee_csv
     )
-    if web_config.kot_token:
+    if web_config.kot_enabled and web_config.kot_token:
         app.state.kot_employee_sync_service = KotEmployeeSyncService(
             database,
             web_config.employee_csv,

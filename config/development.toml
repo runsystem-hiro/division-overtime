@@ -1,0 +1,21 @@
+# Local development settings. Secrets belong in .env.
+
+[app]
+database_path = "var/development/division_overtime.sqlite3"
+employee_csv = "data/development/employeeKey.csv"
+log_level = "DEBUG"
+
+[king_of_time]
+enabled = false
+
+[notifications]
+enable_self_notify = false
+self_notify_employee_codes = []
+
+[notifications.department_recipients]
+ALL = [
+  "h-tanaka@runsystem.co.jp",
+]
+
+"156" = []
+"158" = []
