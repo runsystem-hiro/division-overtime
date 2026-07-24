@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import tempfile
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,7 +7,7 @@ from pathlib import Path
 
 from .database import Database
 from .employee_repository import EmployeeRepository, ManagedEmployee
-from .employees import EmployeeDataError, load_employees, write_employees
+from .employees import EmployeeCsvGenerationResult, generate_employee_csv, load_employees
 
 
 class EmployeeManagementError(RuntimeError):
@@ -38,6 +37,12 @@ class EmployeeChange:
     employee_key: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class EmployeeSaveResult:
+    employee: ManagedEmployee
+    csv: EmployeeCsvGenerationResult
+
+
 class EmployeeManagementService:
     """Keep SQLite employee data and the legacy employee CSV synchronized."""
 
@@ -59,6 +64,11 @@ class EmployeeManagementService:
         return employee
 
     def create_employee(self, change: EmployeeChange, updated_at: datetime) -> ManagedEmployee:
+        return self.create_employee_with_result(change, updated_at).employee
+
+    def create_employee_with_result(
+        self, change: EmployeeChange, updated_at: datetime
+    ) -> EmployeeSaveResult:
         if not (change.employee_key or "").strip():
             raise EmployeeManagementError("KOT key is required when creating an employee.")
         return self._save(change, updated_at, create=True)
@@ -66,18 +76,22 @@ class EmployeeManagementService:
     def update_employee(
         self, code: str, change: EmployeeChange, updated_at: datetime
     ) -> ManagedEmployee:
+        return self.update_employee_with_result(code, change, updated_at).employee
+
+    def update_employee_with_result(
+        self, code: str, change: EmployeeChange, updated_at: datetime
+    ) -> EmployeeSaveResult:
         if code != change.code:
             raise EmployeeManagementError("Employee code cannot be changed.")
         return self._save(change, updated_at, create=False)
 
     def _save(
         self, change: EmployeeChange, updated_at: datetime, *, create: bool
-    ) -> ManagedEmployee:
+    ) -> EmployeeSaveResult:
         self._validate(change)
         with self._write_lock:
             original_csv = self.employee_csv.read_bytes() if self.employee_csv.exists() else None
             csv_replaced = False
-            temp_path: Path | None = None
             self.employee_csv.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with self.database.transaction() as conn:
@@ -100,26 +114,15 @@ class EmployeeManagementService:
                             "employee CSV was not changed."
                         )
 
-                    with tempfile.NamedTemporaryFile(
-                        mode="wb",
-                        prefix=f".{self.employee_csv.name}.",
-                        suffix=".tmp",
-                        dir=self.employee_csv.parent,
-                        delete=False,
-                    ) as handle:
-                        temp_path = Path(handle.name)
-
-                    write_employees(temp_path, enabled_employees)
-                    validated = load_employees(temp_path)
-                    if len(validated) != len(enabled_employees):
-                        raise EmployeeDataError("Generated employee CSV validation failed")
-                    temp_path.replace(self.employee_csv)
+                    csv_result = generate_employee_csv(
+                        self.employee_csv, enabled_employees, generated_at=updated_at
+                    )
                     csv_replaced = True
 
                 saved = self.repository.get_managed(change.code)
                 if saved is None:
                     raise EmployeeManagementError("Saved employee could not be reloaded.")
-                return saved
+                return EmployeeSaveResult(employee=saved, csv=csv_result)
             except Exception:
                 if csv_replaced:
                     if original_csv is None:
@@ -127,9 +130,6 @@ class EmployeeManagementService:
                     else:
                         self.employee_csv.write_bytes(original_csv)
                 raise
-            finally:
-                if temp_path is not None:
-                    temp_path.unlink(missing_ok=True)
 
     def get_csv_employee_count(self) -> int:
         """Return the number of employees currently written to the legacy CSV."""

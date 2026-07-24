@@ -67,7 +67,7 @@ def test_update_failure_rolls_back_database_and_preserves_csv(tmp_path, monkeypa
     def fail_write(*_args, **_kwargs):
         raise OSError("simulated CSV failure")
 
-    monkeypatch.setattr("division_overtime.employee_management.write_employees", fail_write)
+    monkeypatch.setattr("division_overtime.employees.write_employees", fail_write)
 
     with pytest.raises(OSError, match="simulated CSV failure"):
         service.update_employee(

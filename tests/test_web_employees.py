@@ -101,7 +101,12 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
     created = client.post("/api/employees", json=create_payload)
     assert created.status_code == 201
     assert created.json()["employee"]["code"] == "00002"
-    assert created.json()["csv"] == {"regenerated": True, "employeeCount": 2}
+    created_csv = created.json()["csv"]
+    assert created_csv["regenerated"] is True
+    assert created_csv["status"] == "success"
+    assert created_csv["employeeCount"] == 2
+    assert created_csv["outputPath"] == str(tmp_path / "data/employeeKey.csv")
+    assert created_csv["generatedAt"]
     assert "employeeKey" not in created.json()["employee"]
     assert "key-2" not in created.text
 
@@ -109,7 +114,12 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
     updated = client.put("/api/employees/00002", json=update_payload)
     assert updated.status_code == 200
     assert updated.json()["employee"]["divisionName"] == "開発本部"
-    assert updated.json()["csv"] == {"regenerated": True, "employeeCount": 2}
+    updated_csv = updated.json()["csv"]
+    assert updated_csv["regenerated"] is True
+    assert updated_csv["status"] == "success"
+    assert updated_csv["employeeCount"] == 2
+    assert updated_csv["outputPath"] == str(tmp_path / "data/employeeKey.csv")
+    assert updated_csv["generatedAt"]
     assert "key-2" not in updated.text
 
     csv_text = (tmp_path / "data/employeeKey.csv").read_text(encoding="utf-8-sig")

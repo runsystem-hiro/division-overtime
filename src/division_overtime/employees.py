@@ -1,13 +1,28 @@
 from __future__ import annotations
 
 import csv
+import logging
+import tempfile
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from .models import Employee
+
+logger = logging.getLogger(__name__)
 
 
 class EmployeeDataError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class EmployeeCsvGenerationResult:
+    status: Literal["success"]
+    generated_at: datetime
+    employee_count: int
+    output_path: Path
 
 
 def _optional_non_negative_int(value: str | None, employee_code: str) -> int | None:
@@ -105,3 +120,47 @@ def write_employees(path: Path, employees: list[Employee]) -> None:
                     ),
                 }
             )
+
+
+def generate_employee_csv(
+    path: Path, employees: list[Employee], *, generated_at: datetime | None = None
+) -> EmployeeCsvGenerationResult:
+    """Validate and atomically replace the legacy employee CSV."""
+    generated_at = generated_at or datetime.now().astimezone()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            dir=path.parent,
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+
+        write_employees(temp_path, employees)
+        validated = load_employees(temp_path)
+        if len(validated) != len(employees):
+            raise EmployeeDataError("Generated employee CSV validation count mismatch")
+        temp_path.replace(path)
+    except Exception:
+        logger.exception("employee_csv_generation=failed output_path=%s", path)
+        raise
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+    result = EmployeeCsvGenerationResult(
+        status="success",
+        generated_at=generated_at,
+        employee_count=len(employees),
+        output_path=path,
+    )
+    logger.info(
+        "employee_csv_generation=success generated_at=%s employees=%d output_path=%s",
+        result.generated_at.isoformat(),
+        result.employee_count,
+        result.output_path,
+    )
+    return result

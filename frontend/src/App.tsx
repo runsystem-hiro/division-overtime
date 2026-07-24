@@ -68,7 +68,10 @@ type EmployeeWriteResult = {
   employee: Employee;
   csv: {
     regenerated: true;
+    status: "success";
+    generatedAt: string;
     employeeCount: number;
+    outputPath: string;
   };
 };
 

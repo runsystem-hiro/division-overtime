@@ -4,6 +4,8 @@
 
 ### Added
 
+- `employeeKey.csv`生成結果（成否・生成日時・出力件数・出力先）をCLI・Web API・ログへ記録
+
 - 社員データ整合性履歴を毎日03:15に記録するsystemd service / timer
 
 - 社員データ整合性結果をJSONL履歴へ追記保存するCLIコマンド

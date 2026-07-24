@@ -109,7 +109,11 @@ def test_employee_csv_export_apply_replaces_csv_atomically(tmp_path: Path, capsy
     employees = load_employees(csv_path)
     assert len(employees) == 1
     assert employees[0].code == "00001"
-    assert capsys.readouterr().out == "employee_csv_export=applied employees=1\n"
+    output = capsys.readouterr().out
+    assert "employee_csv_export=applied status=success" in output
+    assert "employees=1" in output
+    assert f"output_path={csv_path}" in output
+    assert "generated_at=" in output
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
 
 
