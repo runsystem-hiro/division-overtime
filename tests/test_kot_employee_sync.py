@@ -239,6 +239,55 @@ def test_preview_keeps_enabled_employee_missing_from_kot_as_disable(tmp_path: Pa
     assert difference.action == "disable"
 
 
+def test_preview_omits_resigned_employee_missing_from_sqlite(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+
+    class ResignedClient:
+        def fetch(self):
+            return parse_kot_employees(
+                [
+                    {
+                        "code": "00009",
+                        "key": "retired-key",
+                        "lastName": "退職",
+                        "firstName": "社員",
+                        "divisionCode": "301",
+                        "divisionName": "開発部",
+                        "employeeGroups": [],
+                        "resignationDate": "2026-07-23",
+                    }
+                ]
+            )
+
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        ResignedClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    assert differences == []
+
+
+def test_preview_keeps_active_employee_missing_from_sqlite_as_create(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    difference = next(item for item in differences if item.code == "00001")
+    assert difference.action == "create"
+
+
 def test_empty_target_divisions_are_rejected(tmp_path: Path):
     db = Database(tmp_path / "db.sqlite3")
     db.initialize()

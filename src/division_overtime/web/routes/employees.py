@@ -10,6 +10,7 @@ from division_overtime.employee_consistency import check_employee_data_consisten
 from division_overtime.employee_management import (
     EmployeeChange,
     EmployeeConflictError,
+    EmployeeDeleteResult,
     EmployeeManagementError,
     EmployeeManagementService,
     EmployeeNotFoundError,
@@ -53,6 +54,12 @@ class EmployeeCsvWriteResponse(BaseModel):
 class EmployeeWriteResponse(BaseModel):
     employee: EmployeeResponse
     csv: EmployeeCsvWriteResponse
+
+
+class EmployeeDeleteResponse(BaseModel):
+    deletedEmployee: EmployeeResponse
+    csv: EmployeeCsvWriteResponse
+    backupPath: str
 
 
 class EmployeeFieldDifferenceResponse(BaseModel):
@@ -122,19 +129,20 @@ def _response(employee: ManagedEmployee) -> EmployeeResponse:
     )
 
 
-def _write_response(result: EmployeeSaveResult) -> EmployeeWriteResponse:
-    return EmployeeWriteResponse(
-        employee=_response(result.employee),
-        csv=EmployeeCsvWriteResponse(
-            regenerated=True,
-            status=result.csv.status,
-            generatedAt=result.csv.generated_at.isoformat(),
-            employeeCount=result.csv.employee_count,
-            outputPath=str(result.csv.output_path),
-            backupPath=(str(result.csv.backup_path) if result.csv.backup_path else None),
-            removedBackupCount=result.csv.removed_backup_count,
-        ),
+def _csv_response(result: EmployeeSaveResult | EmployeeDeleteResult) -> EmployeeCsvWriteResponse:
+    return EmployeeCsvWriteResponse(
+        regenerated=True,
+        status=result.csv.status,
+        generatedAt=result.csv.generated_at.isoformat(),
+        employeeCount=result.csv.employee_count,
+        outputPath=str(result.csv.output_path),
+        backupPath=(str(result.csv.backup_path) if result.csv.backup_path else None),
+        removedBackupCount=result.csv.removed_backup_count,
     )
+
+
+def _write_response(result: EmployeeSaveResult) -> EmployeeWriteResponse:
+    return EmployeeWriteResponse(employee=_response(result.employee), csv=_csv_response(result))
 
 
 def _change(payload: EmployeeWriteRequest) -> EmployeeChange:
@@ -243,5 +251,23 @@ def update_employee(
             code, _change(payload), datetime.now(config.timezone)
         )
         return _write_response(result)
+    except EmployeeManagementError as exc:
+        _raise_http_error(exc)
+
+
+@router.delete("/{code}", response_model=EmployeeDeleteResponse)
+def delete_employee(
+    code: str,
+    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
+    config: Annotated[WebConfig, Depends(get_web_config)],
+) -> EmployeeDeleteResponse:
+    try:
+        result = service.delete_employee_with_result(code, datetime.now(config.timezone))
+        return EmployeeDeleteResponse(
+            deletedEmployee=_response(result.employee),
+            csv=_csv_response(result),
+            backupPath=str(result.backup_path),
+        )
     except EmployeeManagementError as exc:
         _raise_http_error(exc)
