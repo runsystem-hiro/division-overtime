@@ -729,6 +729,8 @@ npm run build
 
 frontendはReact 19.2系を使用する。React更新時は`react`、`react-dom`、`@types/react`、`@types/react-dom`を同じPRで更新し、lint、test、build、npm auditを確認する。React CompilerやServer Componentsなどの新機能採用は別Issueとする。
 
+frontend buildにはVite 8.1系と`@vitejs/plugin-react` 6系を使用する。Vite更新時は開発サーバー、API proxy、Vitest、production buildの互換性を確認し、実験機能は別Issueで扱う。
+
 ## frontendの開発確認用dist配信
 
 WindowsとGitHub ActionsはNode.js 22を推奨する。Raspberry Pi本番はNode.js 20.19.2 / npm 9.2.0を継続利用し、正式リリースでは従来どおりPi上の`scripts/deploy.sh`でfrontendをbuildする。
