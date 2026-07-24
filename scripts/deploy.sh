@@ -7,7 +7,6 @@ WEB_SERVICE="division-overtime-web.service"
 EMPLOYEE_CONSISTENCY_SERVICE="division-overtime-employee-consistency.service"
 EMPLOYEE_CONSISTENCY_TIMER="division-overtime-employee-consistency.timer"
 HEALTH_URL="http://127.0.0.1:8000/api/system/health"
-EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"
 
 cd "$PROJECT_ROOT"
 
@@ -39,6 +38,7 @@ fi
 
 echo "==> Update source"
 git pull --ff-only
+EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"
 
 echo "==> Update Python dependencies"
 "$VENV_PYTHON" -m pip install -e '.[web,dev]'
