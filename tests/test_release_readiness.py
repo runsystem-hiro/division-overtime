@@ -185,3 +185,36 @@ def test_windows_uv_development_environment_is_documented() -> None:
         "Raspberry Piでは従来どおり",
     ]:
         assert text in readme
+
+
+def test_windows_local_verify_script_is_safe_and_documented() -> None:
+    script = (PROJECT_ROOT / "scripts/verify.ps1").read_text(encoding="utf-8")
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
+
+    required = [
+        '$ErrorActionPreference = "Stop"',
+        'Assert-Command -Name "uv"',
+        'Assert-Command -Name "npm"',
+        'Assert-Command -Name "git"',
+        '"sync", "--frozen", "--extra", "web", "--extra", "dev"',
+        '"run", "python", ".\\scripts\\check_version.py", "--root", "."',
+        '"run", "ruff", "check", "."',
+        '"run", "ruff", "format", "--check", "."',
+        '"run", "pytest", "-q"',
+        '"ci"',
+        '"run", "build"',
+        '"diff", "--check"',
+        "Set-Location $InitialLocation",
+        "Local verification completed successfully.",
+    ]
+    for text in required:
+        assert text in script
+
+    forbidden = ["git push", "git commit", "scripts/deploy.sh", "/api/system/health"]
+    for text in forbidden:
+        assert text not in script
+
+    for document in [readme, operations, checklist]:
+        assert ".\\scripts\\verify.ps1" in document

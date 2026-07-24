@@ -651,6 +651,16 @@ sudo systemctl start \
 
 ロールバック後も、Web API health、SQLite整合性、timer状態、社員一覧、CSV内容を同じ手順で確認する。
 
+## Windows側のPR前検証
+
+Windows側では、リポジトリルートから次の1コマンドを実行する。
+
+```powershell
+.\scripts\verify.ps1
+```
+
+このスクリプトはuv同期、バージョン整合性、Ruff、pytest、frontendの依存導入とbuild、`git diff --check`を順番に実行する。失敗した工程で停止し、終了時は呼び出し元ディレクトリへ戻る。commit、push、deploy、本番API接続は行わない。
+
 ## 更新手順
 
 Windows側でRuff・pytest・差分確認・pushを完了した後、Piで実行する。
