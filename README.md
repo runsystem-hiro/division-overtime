@@ -636,6 +636,8 @@ frontendの品質確認にはOxlintとVitest / Testing Libraryを使用します
 
 frontendはReact 19.2系を使用します。React Compiler、Server Components、Actionsなどの新機能はこの段階では導入せず、既存のSPA構成と認証フローを維持します。
 
+frontend buildにはVite 8.1系と`@vitejs/plugin-react` 6系を使用します。Vite 8の実験機能は有効化せず、既存の開発サーバー、API proxy、SPA build設定を維持します。
+
 `frontend/dist/index.html`が存在する場合、FastAPIがSPAと`/assets`を配信します。未ビルドの場合もAPIは起動し、`/`はHTTP 503と`frontend_not_built`を返します。
 
 ### 開発中のfrontend実機確認
