@@ -333,3 +333,20 @@ def test_frontend_uses_vite_8() -> None:
     assert frontend["devDependencies"]["@vitejs/plugin-react"].startswith("^6.")
     assert "Vite 8.1系" in readme
     assert "Vite 8.1系" in operations
+
+
+def test_frontend_uses_typescript_6() -> None:
+    frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+
+    assert frontend["devDependencies"]["typescript"].startswith("^6.0.")
+    assert "TypeScript 6.0系" in readme
+    assert "TypeScript 6.0系" in operations
+    assert "ignoreDeprecations" not in json.dumps(
+        [
+            json.loads((PROJECT_ROOT / "frontend/tsconfig.json").read_text(encoding="utf-8")),
+            json.loads((PROJECT_ROOT / "frontend/tsconfig.app.json").read_text(encoding="utf-8")),
+            json.loads((PROJECT_ROOT / "frontend/tsconfig.node.json").read_text(encoding="utf-8")),
+        ]
+    )
