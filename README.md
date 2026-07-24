@@ -740,6 +740,16 @@ KOTで在籍中かつSQLiteで無効の社員は `reactivate` 候補として表
 git clone https://github.com/runsystem-hiro/division-overtime.git
 cd division-overtime
 
+.\scripts\verify.ps1
+```
+
+`.\scripts\verify.ps1`は、uv同期、バージョン整合性、Ruff、pytest、frontend build、`git diff --check`を順番に実行します。失敗した工程で停止し、実行後は呼び出し元ディレクトリへ戻ります。
+
+個別の確認や問題の切り分けでは、従来どおり`uv sync`、`uv run`、`npm`を直接実行できます。`uv sync`はプロジェクト直下の`.venv`を作成・更新します。通常は仮想環境を手動で有効化せず、`uv run`でコマンドを実行します。
+
+個別実行する場合は次のコマンドを使用します。
+
+```powershell
 uv sync --frozen --extra web --extra dev
 uv run python .\scripts\check_version.py --root .
 uv run ruff check .
@@ -750,9 +760,9 @@ cd frontend
 npm ci
 npm run build
 cd ..
-```
 
-`uv sync`はプロジェクト直下の`.venv`を作成・更新します。通常は仮想環境を手動で有効化せず、`uv run`でコマンドを実行します。
+git diff --check
+```
 
 Web管理画面の開発では、本番データと分離した`config/development.toml`を使用します。
 既定環境は従来どおり`production`です。ローカル起動時だけ`.env`で次を指定します。
