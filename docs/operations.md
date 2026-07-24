@@ -731,6 +731,8 @@ frontendはReact 19.2系を使用する。React更新時は`react`、`react-dom`
 
 frontend buildにはVite 8.1系と`@vitejs/plugin-react` 6系を使用する。Vite更新時は開発サーバー、API proxy、Vitest、production buildの互換性を確認し、実験機能は別Issueで扱う。
 
+frontendの型チェックにはTypeScript 6.0系を使用する。TypeScript更新時は`tsconfig.json`、`tsconfig.app.json`、`tsconfig.node.json`の非推奨設定を確認し、`ignoreDeprecations`による一括抑制は行わない。TypeScript 7への更新は別Issueで扱う。
+
 ## frontendの開発確認用dist配信
 
 WindowsとGitHub ActionsはNode.js 22を推奨する。Raspberry Pi本番はNode.js 20.19.2 / npm 9.2.0を継続利用し、正式リリースでは従来どおりPi上の`scripts/deploy.sh`でfrontendをbuildする。
