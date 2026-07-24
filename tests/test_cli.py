@@ -113,6 +113,7 @@ def test_employee_csv_export_apply_replaces_csv_atomically(tmp_path: Path, capsy
     assert "employee_csv_export=applied status=success" in output
     assert "employees=1" in output
     assert f"output_path={csv_path}" in output
+    assert f"backup_path={tmp_path / 'backups' / 'employee-csv'}" in output
     assert "generated_at=" in output
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
 

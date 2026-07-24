@@ -107,6 +107,8 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
     assert created_csv["employeeCount"] == 2
     assert created_csv["outputPath"] == str(tmp_path / "data/employeeKey.csv")
     assert created_csv["generatedAt"]
+    assert created_csv["backupPath"]
+    assert Path(created_csv["backupPath"]).exists()
     assert "employeeKey" not in created.json()["employee"]
     assert "key-2" not in created.text
 
@@ -120,6 +122,8 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
     assert updated_csv["employeeCount"] == 2
     assert updated_csv["outputPath"] == str(tmp_path / "data/employeeKey.csv")
     assert updated_csv["generatedAt"]
+    assert updated_csv["backupPath"]
+    assert Path(updated_csv["backupPath"]).exists()
     assert "key-2" not in updated.text
 
     csv_text = (tmp_path / "data/employeeKey.csv").read_text(encoding="utf-8-sig")
