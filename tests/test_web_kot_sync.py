@@ -32,7 +32,7 @@ class FakeClient:
         )
 
 
-def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path):
+def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path, monkeypatch):
     config = WebConfig(
         root=tmp_path,
         timezone=ZoneInfo("Asia/Tokyo"),
@@ -59,6 +59,7 @@ def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path):
         kot_retry_backoff=0,
         kot_sync_division_codes=("156", "158", "300"),
     )
+    monkeypatch.setattr("division_overtime.web.routes.kot_sync._is_api_blocked", lambda _now: False)
     app = create_app(config)
     db = Database(config.database_path)
     EmployeeRepository(db).upsert_many(

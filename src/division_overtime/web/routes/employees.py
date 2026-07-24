@@ -39,6 +39,16 @@ class EmployeeResponse(BaseModel):
     updatedAt: str
 
 
+class EmployeeCsvWriteResponse(BaseModel):
+    regenerated: Literal[True]
+    employeeCount: int
+
+
+class EmployeeWriteResponse(BaseModel):
+    employee: EmployeeResponse
+    csv: EmployeeCsvWriteResponse
+
+
 class EmployeeFieldDifferenceResponse(BaseModel):
     code: str
     fields: list[str]
@@ -103,6 +113,16 @@ def _response(employee: ManagedEmployee) -> EmployeeResponse:
         kotExists=employee.kot_exists,
         createdAt=employee.created_at,
         updatedAt=employee.updated_at,
+    )
+
+
+def _write_response(employee: ManagedEmployee, csv_employee_count: int) -> EmployeeWriteResponse:
+    return EmployeeWriteResponse(
+        employee=_response(employee),
+        csv=EmployeeCsvWriteResponse(
+            regenerated=True,
+            employeeCount=csv_employee_count,
+        ),
     )
 
 
@@ -183,30 +203,30 @@ def get_employee(
         _raise_http_error(exc)
 
 
-@router.post("", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=EmployeeWriteResponse, status_code=status.HTTP_201_CREATED)
 def create_employee(
     payload: EmployeeWriteRequest,
     _: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
-) -> EmployeeResponse:
+) -> EmployeeWriteResponse:
     try:
         employee = service.create_employee(_change(payload), datetime.now(config.timezone))
-        return _response(employee)
+        return _write_response(employee, service.get_csv_employee_count())
     except EmployeeManagementError as exc:
         _raise_http_error(exc)
 
 
-@router.put("/{code}", response_model=EmployeeResponse)
+@router.put("/{code}", response_model=EmployeeWriteResponse)
 def update_employee(
     code: str,
     payload: EmployeeWriteRequest,
     _: Annotated[AuthenticatedUser, Depends(get_current_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
-) -> EmployeeResponse:
+) -> EmployeeWriteResponse:
     try:
         employee = service.update_employee(code, _change(payload), datetime.now(config.timezone))
-        return _response(employee)
+        return _write_response(employee, service.get_csv_employee_count())
     except EmployeeManagementError as exc:
         _raise_http_error(exc)

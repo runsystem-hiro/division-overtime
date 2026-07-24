@@ -55,6 +55,9 @@
 
 ### Changed
 
+- 社員追加・更新APIで、保存された社員情報と`employeeKey.csv`再生成件数を明示的に返すよう変更
+- 社員管理画面の保存完了メッセージに、CSVへ出力した有効社員件数を表示
+
 - threshold・weekly実行時にCSVとSQLiteの社員データをshadow readし、通知結果へ影響させず差分をログ出力
 
 - SQLiteの有効社員を通知用に読み込む`SqliteEmployeeSource`を追加し、CSVとの結果一致をテスト

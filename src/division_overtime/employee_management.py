@@ -131,6 +131,10 @@ class EmployeeManagementService:
                 if temp_path is not None:
                     temp_path.unlink(missing_ok=True)
 
+    def get_csv_employee_count(self) -> int:
+        """Return the number of employees currently written to the legacy CSV."""
+        return len(load_employees(self.employee_csv))
+
     @staticmethod
     def _validate(change: EmployeeChange) -> None:
         required = {
