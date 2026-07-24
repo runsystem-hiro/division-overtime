@@ -16,12 +16,17 @@ def get_auth_service(request: Request) -> AuthService:
     return request.app.state.auth_service
 
 
-def get_current_user(
+def get_optional_current_user(
     request: Request,
     config: Annotated[WebConfig, Depends(get_web_config)],
     auth: Annotated[AuthService, Depends(get_auth_service)],
+) -> AuthenticatedUser | None:
+    return auth.get_user(request.cookies.get(config.session_cookie_name))
+
+
+def get_current_user(
+    user: Annotated[AuthenticatedUser | None, Depends(get_optional_current_user)],
 ) -> AuthenticatedUser:
-    user = auth.get_user(request.cookies.get(config.session_cookie_name))
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
