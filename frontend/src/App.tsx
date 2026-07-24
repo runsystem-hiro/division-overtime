@@ -61,6 +61,7 @@ type KotSyncStatus = {
     disabled_count: number;
     unchanged_count: number;
     status: string;
+    backup_path: string | null;
   } | null;
 };
 
@@ -542,7 +543,10 @@ export function App() {
             {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}
             {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
             {syncStatus?.lastRun && (
-              <p className="muted">最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
+              <div className="muted">
+                <p>最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
+                {syncStatus.lastRun.backup_path && <p>バックアップ: {syncStatus.lastRun.backup_path}</p>}
+              </div>
             )}
           </div>
           <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={syncing || syncStatus?.running || syncStatus?.blocked}>
