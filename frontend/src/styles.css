@@ -82,14 +82,17 @@ tbody tr:hover { background: rgb(96 165 250 / 4%); }
 .warning-text { color: #fbbf24; font-size: .82rem; }
 .sync-row-create { background: rgb(37 99 235 / 8%); box-shadow: inset 3px 0 0 rgb(96 165 250 / 72%); }
 .sync-row-update { background: rgb(245 158 11 / 8%); box-shadow: inset 3px 0 0 rgb(245 158 11 / 72%); }
+.sync-row-reactivate { background: rgb(16 185 129 / 8%); box-shadow: inset 3px 0 0 rgb(52 211 153 / 72%); }
 .sync-row-disable { background: rgb(239 68 68 / 8%); box-shadow: inset 3px 0 0 rgb(248 113 113 / 72%); }
 .sync-row-unchanged { opacity: .82; }
 .sync-row-create:hover { background: rgb(37 99 235 / 13%); }
 .sync-row-update:hover { background: rgb(245 158 11 / 13%); }
+.sync-row-reactivate:hover { background: rgb(16 185 129 / 13%); }
 .sync-row-disable:hover { background: rgb(239 68 68 / 13%); }
 .sync-badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .72rem; font-weight: 800; }
 .sync-badge-create { color: #bfdbfe; background: rgb(30 64 175 / 55%); }
 .sync-badge-update { color: #fde68a; background: rgb(146 64 14 / 55%); }
+.sync-badge-reactivate { color: #a7f3d0; background: rgb(6 78 59 / 65%); }
 .sync-badge-disable { color: #fecaca; background: rgb(127 29 29 / 55%); }
 .sync-badge-unchanged { color: #d1d5db; background: #374151; }
 
