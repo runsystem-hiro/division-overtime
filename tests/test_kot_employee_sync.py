@@ -86,7 +86,10 @@ def test_apply_updates_database_and_csv_without_returning_key(tmp_path: Path):
             conn.execute("SELECT kot_key FROM employees WHERE code='00001'").fetchone()[0]
             == "new-key"
         )
-        assert conn.execute("SELECT COUNT(*) FROM kot_sync_runs").fetchone()[0] == 1
+        run = conn.execute(
+            "SELECT backup_path FROM kot_sync_runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        assert run["backup_path"] == str(counts["backupPath"])
 
 
 def test_preview_filters_to_configured_divisions_and_reports_counts(tmp_path: Path):

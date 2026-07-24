@@ -6,7 +6,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class Database:
@@ -151,10 +151,17 @@ class Database:
                     disabled_count INTEGER NOT NULL,
                     unchanged_count INTEGER NOT NULL,
                     status TEXT NOT NULL CHECK(status IN ('succeeded','failed')),
-                    error_summary TEXT
+                    error_summary TEXT,
+                    backup_path TEXT
                 );
                 """
             )
+            kot_sync_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(kot_sync_runs)")
+            }
+            if "backup_path" not in kot_sync_columns:
+                conn.execute("ALTER TABLE kot_sync_runs ADD COLUMN backup_path TEXT")
+
             current_row = conn.execute(
                 "SELECT value FROM schema_meta WHERE key='schema_version'"
             ).fetchone()

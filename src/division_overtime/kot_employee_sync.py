@@ -463,9 +463,10 @@ class KotEmployeeSyncService:
                         disabled_count,
                         unchanged_count,
                         status,
-                        error_summary
+                        error_summary,
+                        backup_path
                     ) VALUES(
-                        ?, ?, ?, ?, ?, ?, ?, 'succeeded', NULL
+                        ?, ?, ?, ?, ?, ?, ?, 'succeeded', NULL, ?
                     )
                     """,
                     (
@@ -476,6 +477,7 @@ class KotEmployeeSyncService:
                         counts["updated"],
                         counts["disabled"],
                         unchanged_count,
+                        str(backup_path),
                     ),
                 )
         except Exception:
@@ -505,7 +507,8 @@ class KotEmployeeSyncService:
                     disabled_count,
                     unchanged_count,
                     status,
-                    error_summary
+                    error_summary,
+                    backup_path
                 FROM kot_sync_runs
                 ORDER BY id DESC
                 LIMIT ?
