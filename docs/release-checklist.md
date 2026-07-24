@@ -19,6 +19,13 @@ threshold、weekly、healthの通知条件・実行時刻・本番`employeeKey.c
 ```powershell
 cd D:\_dev\division-overtime
 
+.\scripts\verify.ps1
+git status
+```
+
+問題の切り分けでは、次を個別実行する。
+
+```powershell
 uv sync --frozen --extra web --extra dev
 uv run python .\scripts\check_version.py --root .
 uv run ruff check .
@@ -31,12 +38,12 @@ npm run build
 cd ..
 
 git diff --check
-git status
 ```
 
 合格条件:
 
 - バージョン整合性が`version_check=ok version=2.0.2`
+- `.\scripts\verify.ps1`が全工程成功で完了
 - Ruff、pytest、frontend buildが成功
 - `git diff --check`が無出力
 - 作業ツリーがclean
