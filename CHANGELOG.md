@@ -2,13 +2,19 @@
 
 ## [Unreleased]
 
-- 開発環境のKOT本番API接続を停止し、Viteホットリロードを利用するローカル開発手順を追加
-- 開発環境専用のダミーKOT同期プレビューを追加し、全同期判定を本番APIなしで確認可能に変更
+## [2.0.2] - 2026-07-24
 
 ### Added
 
 - Windowsローカル用の`development.toml`とダミー社員データ生成スクリプトを追加
 - `DIVISION_OVERTIME_ENV`によるdevelopment/production設定切替を追加
+- Viteホットリロードを利用するローカルWeb開発手順を追加
+- 開発環境専用のダミーKOT同期プレビューを追加し、`create`、`update`、`reactivate`、`disable`、`unchanged`を本番APIなしで確認可能に変更
+
+### Changed
+
+- 開発環境ではKOT本番API接続を停止し、開発用SQLiteと`employeeKey.csv`だけを更新する構成へ変更
+- 公開バージョンを2.0.2へ更新
 
 ## [2.0.1] - 2026-07-24
 

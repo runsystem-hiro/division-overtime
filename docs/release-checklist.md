@@ -1,16 +1,18 @@
-# v2.0.1 リリースチェックリスト
+# v2.0.2 リリースチェックリスト
 
 ## リリース範囲
 
-v2.0.1は、v2.0.0の通知処理と社員管理仕様を変更しない小規模な品質改善リリースとする。
+v2.0.2は、本番通知処理と社員管理仕様を変更せず、WindowsローカルでのWeb UI開発を安全かつ効率的にする小規模リリースとする。
 
-- 初期認証確認を`GET /api/auth/status`へ変更し、未ログイン時の不要な401表示を解消
-- `GET /api/auth/me`の未ログイン401仕様は維持
-- README・運用文書・スクリプトのヘルスチェックURLを`/api/system/health`へ統一
-- 公開バージョンを2.0.1へ更新
-- CHANGELOG・回帰テストを更新
+- development/production設定切替を追加
+- 開発専用SQLite、`employeeKey.csv`、ダミー社員データを追加
+- Viteホットリロードを利用するローカル開発手順を追加
+- 開発環境ではKOT本番APIへの接続を停止
+- `create`、`update`、`reactivate`、`disable`、`unchanged`を再現するダミーKOT同期プレビューを追加
+- 公開バージョンを2.0.2へ更新
+- CHANGELOG、README、リリースチェックリスト、回帰テストを更新
 
-threshold、weekly、healthの通知条件・実行時刻・`employeeKey.csv`参照方式・SQLite社員データ・KOT同期判定は変更しない。
+threshold、weekly、healthの通知条件・実行時刻・本番`employeeKey.csv`参照方式・本番SQLite社員データ・本番KOT同期判定は変更しない。
 
 ## Windows側の事前検証
 
@@ -33,7 +35,7 @@ git status
 
 合格条件:
 
-- バージョン整合性が`version_check=ok version=2.0.1`
+- バージョン整合性が`version_check=ok version=2.0.2`
 - Ruff、pytest、frontend buildが成功
 - `git diff --check`が無出力
 - 作業ツリーがclean
@@ -52,8 +54,8 @@ git status --short
 合格例:
 
 ```text
-version_check=ok version=2.0.1
-Deployment completed. version=2.0.1
+version_check=ok version=2.0.2
+Deployment completed. version=2.0.2
 ```
 
 ## 実機確認
@@ -67,7 +69,7 @@ systemctl status division-overtime-web.service --no-pager
 ```
 
 - `status`が`ok`
-- `version`が`2.0.1`
+- `version`が`2.0.2`
 - `frontendBuilt`が`true`
 - Webサービスが`active (running)`
 
@@ -152,12 +154,12 @@ git fetch origin
 git merge --ff-only origin/main
 git status
 
-git tag -a v2.0.1 -m "division-overtime v2.0.1"
-git push origin v2.0.1
+git tag -a v2.0.2 -m "division-overtime v2.0.2"
+git push origin v2.0.2
 
-gh release create v2.0.1 `
-  --title "division-overtime v2.0.1" `
-  --notes-from-tag
+gh release create v2.0.2 `
+  --title "v2.0.2" `
+  --generate-notes
 ```
 
-リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.1`を指すことを確認する。
+リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.2`を指すことを確認する。
