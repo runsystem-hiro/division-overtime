@@ -79,7 +79,8 @@ def _export_employees(db: Database, employee_csv: Path, apply: bool) -> int:
         f"status={result.status} "
         f"generated_at={result.generated_at.isoformat()} "
         f"employees={result.employee_count} "
-        f"output_path={result.output_path}"
+        f"output_path={result.output_path} "
+        f"backup_path={result.backup_path or 'none'}"
     )
     return 0
 

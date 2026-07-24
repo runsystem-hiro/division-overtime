@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
@@ -23,6 +24,7 @@ class EmployeeCsvGenerationResult:
     generated_at: datetime
     employee_count: int
     output_path: Path
+    backup_path: Path | None
 
 
 def _optional_non_negative_int(value: str | None, employee_code: str) -> int | None:
@@ -143,6 +145,17 @@ def generate_employee_csv(
         validated = load_employees(temp_path)
         if len(validated) != len(employees):
             raise EmployeeDataError("Generated employee CSV validation count mismatch")
+
+        backup_path: Path | None = None
+        if path.exists():
+            backup_dir = path.parent / "backups" / "employee-csv"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_dir.chmod(0o700)
+            timestamp = generated_at.strftime("%Y%m%d_%H%M%S%f")
+            backup_path = backup_dir / f"{path.stem}_{timestamp}{path.suffix}"
+            shutil.copy2(path, backup_path)
+            backup_path.chmod(0o600)
+
         temp_path.replace(path)
     except Exception:
         logger.exception("employee_csv_generation=failed output_path=%s", path)
@@ -156,11 +169,14 @@ def generate_employee_csv(
         generated_at=generated_at,
         employee_count=len(employees),
         output_path=path,
+        backup_path=backup_path,
     )
     logger.info(
-        "employee_csv_generation=success generated_at=%s employees=%d output_path=%s",
+        "employee_csv_generation=success generated_at=%s employees=%d output_path=%s "
+        "backup_path=%s",
         result.generated_at.isoformat(),
         result.employee_count,
         result.output_path,
+        result.backup_path,
     )
     return result

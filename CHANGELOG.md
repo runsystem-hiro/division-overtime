@@ -4,6 +4,8 @@
 
 ### Added
 
+- `employeeKey.csv`置換前バックアップを`data/backups/employee-csv/`へ所有者限定権限で保存
+
 - `employeeKey.csv`生成結果（成否・生成日時・出力件数・出力先）をCLI・Web API・ログへ記録
 
 - 社員データ整合性履歴を毎日03:15に記録するsystemd service / timer
