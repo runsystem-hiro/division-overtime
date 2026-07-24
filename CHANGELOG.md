@@ -9,7 +9,10 @@
 
 ### Changed
 
-- `main`への反映をPull Request経由、`CI / verify`成功、squash merge必須とするGitHub運用へ変更
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
+- `main`への反映をPull Request経由、squash mergeとするGitHub運用へ変更
 - `main`へのforce pushとブランチ削除を禁止するRulesetに合わせてREADME、運用手順、リリースチェックリストを更新
 
 ## [2.0.2] - 2026-07-24
@@ -23,6 +26,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - 開発環境ではKOT本番API接続を停止し、開発用SQLiteと`employeeKey.csv`だけを更新する構成へ変更
 - 公開バージョンを2.0.2へ更新
 
@@ -40,6 +46,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - 公開バージョンを2.0.1へ更新
 - `GET /api/auth/me`は認証必須APIとして未ログイン時401を返す従来仕様を維持
 
@@ -121,6 +130,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - 社員追加・更新APIで、保存された社員情報と`employeeKey.csv`再生成件数を明示的に返すよう変更
 - 社員管理画面の保存完了メッセージに、CSVへ出力した有効社員件数を表示
 
@@ -157,6 +169,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - 本人通知の目的を旧版運用に合わせて整理
   - 指定社員は60%到達から段階通知
   - 指定外社員は95%以上で本人通知
@@ -179,6 +194,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - Slack通知文面を旧版互換のスタイルへ復元
 - 50%、60%、70%、80%、90%、100%のステータス段階を復元
 - 年月、前月比、目安まで、目安超過の表示を旧版へ統一
@@ -221,6 +239,9 @@
 
 ### Changed
 
+- CIをPull Request中心の補助確認へ変更し、main merge後の重複実行を停止
+- Python CIをuvとuv.lockへ移行し、uv・npmキャッシュ、並列ジョブ、古い実行の自動キャンセルを追加
+- CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - cron中心の旧構成からsystemd service / timerへ移行
 - ファイルベースの通知フラグをSQLiteへ統合
 - production側の部署別通知先を既定値へ追加せず、テーブル全体で置換
