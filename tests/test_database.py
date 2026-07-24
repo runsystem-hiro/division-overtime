@@ -60,7 +60,7 @@ def test_transaction_rolls_back_on_error(tmp_path):
     assert row is None
 
 
-def test_database_initialization_creates_employee_schema_version_4(tmp_path):
+def test_database_initialization_creates_employee_schema_version_5(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
 
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_4(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "4"
+    assert version == "5"
     assert table["name"] == "employees"
 
 
@@ -118,4 +118,45 @@ def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tm
         ).fetchone()[0]
 
     assert "backup_path" in columns
-    assert version == "4"
+    assert version == "5"
+
+
+def test_database_initialization_adds_reactivated_count_and_schema_version_5(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        """
+        CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO schema_meta(key, value) VALUES('schema_version', '4');
+        CREATE TABLE kot_sync_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            executed_at TEXT NOT NULL,
+            actor TEXT NOT NULL,
+            fetched_count INTEGER NOT NULL,
+            created_count INTEGER NOT NULL,
+            updated_count INTEGER NOT NULL,
+            disabled_count INTEGER NOT NULL,
+            unchanged_count INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            error_summary TEXT,
+            backup_path TEXT
+        );
+        INSERT INTO kot_sync_runs(
+            executed_at, actor, fetched_count, created_count, updated_count,
+            disabled_count, unchanged_count, status
+        ) VALUES('2026-07-24T12:00:00+09:00', 'hiro', 1, 0, 0, 0, 1, 'succeeded');
+        """
+    )
+    conn.close()
+
+    Database(path).initialize()
+
+    with Database(path).connect() as migrated:
+        columns = {row["name"] for row in migrated.execute("PRAGMA table_info(kot_sync_runs)")}
+        row = migrated.execute("SELECT reactivated_count FROM kot_sync_runs").fetchone()
+        version = migrated.execute(
+            "SELECT value FROM schema_meta WHERE key='schema_version'"
+        ).fetchone()[0]
+    assert "reactivated_count" in columns
+    assert row["reactivated_count"] == 0
+    assert version == "5"

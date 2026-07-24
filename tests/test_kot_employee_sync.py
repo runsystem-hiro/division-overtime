@@ -1,4 +1,5 @@
 import os
+import shutil
 import stat
 from datetime import datetime
 from pathlib import Path
@@ -419,3 +420,167 @@ def test_apply_stops_before_update_when_backup_fails(tmp_path: Path, monkeypatch
             == "old-key"
         )
         assert conn.execute("SELECT COUNT(*) FROM kot_sync_runs").fetchone()[0] == 0
+
+
+def test_preview_and_apply_reactivate_preserves_local_settings(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [
+            Employee(
+                "00001",
+                "old-key",
+                "旧姓",
+                "太郎",
+                "local@example.com",
+                "301",
+                "旧部署",
+                1500,
+            )
+        ],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    with db.transaction() as conn:
+        conn.execute(
+            "UPDATE employees SET is_enabled=0, disabled_reason='手動無効化', note='保持メモ' "
+            "WHERE code='00001'"
+        )
+
+    class ReactivationClient:
+        def fetch(self):
+            return parse_kot_employees(
+                [
+                    {
+                        "code": "00001",
+                        "key": "new-key",
+                        "lastName": "田中",
+                        "firstName": "太郎",
+                        "divisionCode": "301",
+                        "divisionName": "開発部",
+                        "employeeGroups": [{"code": "g1", "name": "開発"}],
+                    }
+                ]
+            )
+
+    csv = tmp_path / "employeeKey.csv"
+    service = KotEmployeeSyncService(db, csv, ReactivationClient(), ("301",))
+
+    preview_id, differences = service.preview()
+
+    assert [(item.code, item.action) for item in differences] == [("00001", "reactivate")]
+    assert "通知対象へ再有効化" in differences[0].warnings
+
+    result = service.apply(
+        preview_id,
+        ["00001"],
+        "hiro",
+        datetime(2026, 7, 24, 13, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    assert result["reactivated"] == 1
+    with db.connect() as conn:
+        employee = conn.execute("SELECT * FROM employees WHERE code='00001'").fetchone()
+        run = conn.execute("SELECT * FROM kot_sync_runs ORDER BY id DESC LIMIT 1").fetchone()
+    assert employee["is_enabled"] == 1
+    assert employee["disabled_reason"] is None
+    assert employee["email"] == "local@example.com"
+    assert employee["personal_target_minutes"] == 1500
+    assert employee["note"] == "保持メモ"
+    assert employee["kot_key"] == "new-key"
+    assert employee["last_name"] == "田中"
+    assert employee["division_name"] == "開発部"
+    assert employee["kot_group_codes"] == "g1"
+    assert run["reactivated_count"] == 1
+    assert "local@example.com" in csv.read_text(encoding="utf-8-sig")
+
+
+def test_reactivation_warns_when_notification_settings_are_missing(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    with db.transaction() as conn:
+        conn.execute("UPDATE employees SET is_enabled=0 WHERE code='00001'")
+    service = KotEmployeeSyncService(db, tmp_path / "employeeKey.csv", FakeClient(), ("301",))
+
+    _, differences = service.preview()
+
+    target = next(item for item in differences if item.code == "00001")
+    assert target.action == "reactivate"
+    assert "メールアドレス未設定" in target.warnings
+    assert "個人上限分未設定" in target.warnings
+
+
+def test_successful_apply_prunes_only_managed_backups_to_latest_30(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+    for index in range(31):
+        (backup_root / f"20260701_0000{index:02d}_000000").mkdir()
+    unmanaged = backup_root / "manual-keep"
+    unmanaged.mkdir()
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("300", "301"),
+        backup_root=backup_root,
+    )
+    preview_id, _ = service.preview()
+
+    service.apply(
+        preview_id,
+        ["00001"],
+        "hiro",
+        datetime(2026, 7, 24, 13, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    managed = [path for path in backup_root.iterdir() if service._is_managed_backup_dir(path.name)]
+    assert len(managed) == 30
+    assert unmanaged.exists()
+
+
+def test_backup_prune_failure_does_not_fail_successful_apply(tmp_path: Path, monkeypatch):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "300", "営業部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    backup_root = tmp_path / "backups"
+    backup_root.mkdir()
+    for index in range(30):
+        (backup_root / f"20260701_0000{index:02d}_000000").mkdir()
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("300", "301"),
+        backup_root=backup_root,
+    )
+    preview_id, _ = service.preview()
+    original_rmtree = shutil.rmtree
+
+    def fail_for_oldest(path: Path, *args, **kwargs):
+        if Path(path).name == "20260701_000000_000000":
+            raise OSError("cannot remove")
+        return original_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", fail_for_oldest)
+    result = service.apply(
+        preview_id,
+        ["00001"],
+        "hiro",
+        datetime(2026, 7, 24, 13, 0, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    assert result["updated"] == 1
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM kot_sync_runs").fetchone()[0] == 1
