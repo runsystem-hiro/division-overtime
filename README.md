@@ -695,3 +695,38 @@ KOT社員同期は全社社員を取得した後、`KOT_SYNC_DIVISION_CODES` に
 ### KOT同期の再有効化
 
 KOTで在籍中かつSQLiteで無効の社員は `reactivate` 候補として表示し、管理者が選択した場合だけ通知対象へ戻します。既存のメールアドレス・個人上限分・メモは保持し、KOT同期バックアップは最新30世代を維持します。
+
+## Windowsローカル開発環境
+
+Web管理画面の開発では、本番データと分離した`config/development.toml`を使用します。
+既定環境は従来どおり`production`です。ローカル起動時だけ`.env`で次を指定します。
+
+```dotenv
+DIVISION_OVERTIME_ENV=development
+```
+
+認証は本番と同じログイン画面・API・セッション処理を使用します。`WEB_ADMIN_USERNAME`と
+`WEB_ADMIN_PASSWORD_HASH`はローカルの`.env`へ設定し、秘密情報はGit管理しません。
+
+初回またはダミーデータを初期化するときは、次を実行します。
+
+```powershell
+$env:DIVISION_OVERTIME_ENV = "development"
+python .\scripts\seed_development_data.py --root .
+
+cd frontend
+npm ci
+npm run build
+cd ..
+
+python -m division_overtime.web
+```
+
+生成先は次のとおりです。
+
+- SQLite: `var/development/division_overtime.sqlite3`
+- CSV: `data/development/employeeKey.csv`
+
+開発用通知先は全部署共通の`ALL`を`h-tanaka@runsystem.co.jp`だけに固定し、
+個人宛て通知を無効化しています。開発環境でも通知コマンドを実行する前に、
+`DIVISION_OVERTIME_ENV=development`であることを確認してください。

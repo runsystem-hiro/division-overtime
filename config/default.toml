@@ -5,6 +5,7 @@ employee_csv = "data/employeeKey.csv"
 log_level = "INFO"
 
 [king_of_time]
+enabled = true
 base_url = "https://api.kingtime.jp/v1.0"
 endpoint = "/monthly-workings"
 connect_timeout_seconds = 5

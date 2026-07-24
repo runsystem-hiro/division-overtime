@@ -92,3 +92,42 @@ ALL = ["h-tanaka@runsystem.co.jp"]
     assert config.enable_self_notify is False
     assert config.self_notify_employee_codes == frozenset()
     assert config.department_recipients == {"ALL": ("h-tanaka@runsystem.co.jp",)}
+
+
+def test_load_config_uses_development_override(tmp_path: Path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "default.toml").write_text(
+        (Path(__file__).parents[1] / "config/default.toml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (config_dir / "development.toml").write_text(
+        """
+[app]
+database_path = "var/development/test.sqlite3"
+employee_csv = "data/development/employeeKey.csv"
+
+[notifications]
+enable_self_notify = false
+self_notify_employee_codes = []
+
+[notifications.department_recipients]
+ALL = ["h-tanaka@runsystem.co.jp"]
+"156" = []
+"158" = []
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DIVISION_OVERTIME_ENV", "development")
+    monkeypatch.setenv("KINGOFTIME_TOKEN", "kot-token")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "slack-token")
+
+    config = load_config(tmp_path)
+
+    assert config.database_path == tmp_path / "var/development/test.sqlite3"
+    assert config.employee_csv == tmp_path / "data/development/employeeKey.csv"
+    assert config.department_recipients == {
+        "ALL": ("h-tanaka@runsystem.co.jp",),
+        "156": (),
+        "158": (),
+    }

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
+
+from division_overtime.config import ConfigError, _load_toml_config
 
 
 class WebConfigError(RuntimeError):
@@ -39,6 +40,8 @@ class WebConfig:
     kot_retry_count: int
     kot_retry_backoff: float
     kot_sync_division_codes: tuple[str, ...] = ("156", "158", "300")
+    environment: str = "production"
+    kot_enabled: bool = True
 
 
 def _required_env(name: str) -> str:
@@ -93,8 +96,10 @@ def load_web_config(root: Path | None = None) -> WebConfig:
     if not default_path.is_file():
         raise WebConfigError(f"configuration file not found: {default_path}")
 
-    with default_path.open("rb") as handle:
-        raw = tomllib.load(handle)
+    try:
+        raw = _load_toml_config(root)
+    except ConfigError as exc:
+        raise WebConfigError(str(exc)) from exc
 
     try:
         app = raw["app"]
@@ -149,4 +154,6 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         kot_retry_count=int(raw.get("king_of_time", {}).get("retry_count", 3)),
         kot_retry_backoff=float(raw.get("king_of_time", {}).get("retry_backoff_seconds", 2)),
         kot_sync_division_codes=_division_codes_env("KOT_SYNC_DIVISION_CODES", "156,158,300"),
+        environment=os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower(),
+        kot_enabled=bool(raw.get("king_of_time", {}).get("enabled", True)),
     )
