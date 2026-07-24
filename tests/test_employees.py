@@ -59,6 +59,9 @@ def test_generate_employee_csv_records_result_and_replaces_atomically(tmp_path):
     assert result.generated_at == generated_at
     assert result.employee_count == 1
     assert result.output_path == path
+    assert result.backup_path is not None
+    assert result.backup_path.parent == tmp_path / "backups" / "employee-csv"
+    assert result.backup_path.read_text(encoding="utf-8") == "existing"
     assert load_employees(path)[0].code == "00001"
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
 
@@ -82,6 +85,45 @@ def test_generate_employee_csv_failure_preserves_existing_csv(tmp_path):
 
     with pytest.raises(EmployeeDataError, match="empty required fields"):
         generate_employee_csv(path, invalid)
+
+    assert path.read_text(encoding="utf-8") == "existing"
+    assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
+
+
+def test_generate_employee_csv_initial_generation_has_no_backup(tmp_path):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from division_overtime.employees import generate_employee_csv
+
+    path = tmp_path / "employeeKey.csv"
+    result = generate_employee_csv(
+        path,
+        [Employee("00001", "key", "田中", "太郎", "", "300")],
+        generated_at=datetime(2026, 7, 24, 10, 30, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    assert result.backup_path is None
+    assert not (tmp_path / "backups").exists()
+    assert load_employees(path)[0].code == "00001"
+
+
+def test_generate_employee_csv_backup_failure_preserves_existing_csv(tmp_path, monkeypatch):
+    from division_overtime.employees import generate_employee_csv
+
+    path = tmp_path / "employeeKey.csv"
+    path.write_text("existing", encoding="utf-8")
+
+    def fail_backup(*_args, **_kwargs):
+        raise OSError("simulated backup failure")
+
+    monkeypatch.setattr("division_overtime.employees.shutil.copy2", fail_backup)
+
+    with pytest.raises(OSError, match="simulated backup failure"):
+        generate_employee_csv(
+            path,
+            [Employee("00001", "key", "田中", "太郎", "", "300")],
+        )
 
     assert path.read_text(encoding="utf-8") == "existing"
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []

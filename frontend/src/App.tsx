@@ -72,6 +72,7 @@ type EmployeeWriteResult = {
     generatedAt: string;
     employeeCount: number;
     outputPath: string;
+    backupPath: string | null;
   };
 };
 
@@ -406,8 +407,8 @@ export function App() {
     setEditing(undefined);
     setNotice(
       isCreate
-        ? `社員 ${saved.code} ${saved.fullName} を追加しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`
-        : `社員 ${saved.code} ${saved.fullName} を更新しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`,
+        ? `社員 ${saved.code} ${saved.fullName} を追加しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。${result.csv.backupPath ? ` 更新前CSVを ${result.csv.backupPath} へ保存しました。` : " 初回生成のため更新前バックアップはありません。"}`
+        : `社員 ${saved.code} ${saved.fullName} を更新しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。${result.csv.backupPath ? ` 更新前CSVを ${result.csv.backupPath} へ保存しました。` : " 更新前バックアップはありません。"}`,
     );
     await Promise.all([loadEmployees(), loadConsistency()]);
   }

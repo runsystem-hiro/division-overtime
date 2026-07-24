@@ -46,6 +46,7 @@ class EmployeeCsvWriteResponse(BaseModel):
     generatedAt: str
     employeeCount: int
     outputPath: str
+    backupPath: str | None
 
 
 class EmployeeWriteResponse(BaseModel):
@@ -129,6 +130,7 @@ def _write_response(result: EmployeeSaveResult) -> EmployeeWriteResponse:
             generatedAt=result.csv.generated_at.isoformat(),
             employeeCount=result.csv.employee_count,
             outputPath=str(result.csv.output_path),
+            backupPath=(str(result.csv.backup_path) if result.csv.backup_path else None),
         ),
     )
 
