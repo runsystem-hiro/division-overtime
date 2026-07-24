@@ -151,3 +151,20 @@ def test_documentation_matches_ci_and_main_protection_rules() -> None:
         "Closes #Issue番号",
     ]:
         assert text in checklist
+
+
+def test_windows_uv_development_environment_is_documented() -> None:
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    python_version = (PROJECT_ROOT / ".python-version").read_text(encoding="utf-8").strip()
+
+    assert python_version == "3.13"
+    for text in [
+        "uv sync --frozen --extra web --extra dev",
+        "uv run python .\\scripts\\check_version.py --root .",
+        "uv run ruff check .",
+        "uv run ruff format --check .",
+        "uv run pytest -q",
+        "既存のvenv / pip手順も当面利用できます",
+        "Raspberry Piでは従来どおり",
+    ]:
+        assert text in readme

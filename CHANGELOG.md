@@ -4,6 +4,7 @@
 
 ### Added
 
+- Windows端末間でPython 3.13と依存関係を再現するため、`.python-version`と`uv.lock`を利用するローカル開発手順を追加
 - Pull Requestおよびmainへのpush時に、バージョン整合性、Ruff、pytest、frontend buildを自動実行するGitHub Actions CIを追加
 
 ### Changed

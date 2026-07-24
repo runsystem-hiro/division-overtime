@@ -49,6 +49,7 @@ var/
 *.log
 *.pid
 *.lock
+!uv.lock
 
 # Employee data and generated operational data
 data/employeeKey.csv
