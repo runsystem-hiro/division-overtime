@@ -219,8 +219,9 @@ class KotEmployeeSyncService:
             warnings = tuple(self._warnings(kot))
             proposed = self._kot_dict(kot)
             if local is None:
-                action = "disable" if kot.resignation_date else "create"
-                differences.append(SyncDifference(code, action, None, proposed, warnings))
+                if kot.resignation_date:
+                    continue
+                differences.append(SyncDifference(code, "create", None, proposed, warnings))
                 continue
             if kot.resignation_date and not local.is_enabled:
                 continue

@@ -182,3 +182,42 @@ def test_employee_consistency_api_reports_codes_and_field_names_only(tmp_path):
     assert "secret-key" not in response.text
     assert "different-secret" not in response.text
     assert "csv-only" not in response.text
+
+
+def test_employee_delete_regenerates_csv_and_returns_backup(tmp_path):
+    client = _client(tmp_path)
+    create_payload = {
+        "code": "00002",
+        "employeeKey": "key-2",
+        "lastName": "佐藤",
+        "firstName": "花子",
+        "email": "",
+        "divisionCode": "301",
+        "divisionName": "開発部",
+        "personalTargetMinutes": None,
+        "isEnabled": False,
+        "disabledReason": "管理対象外",
+        "note": "",
+    }
+    assert client.post("/api/employees", json=create_payload).status_code == 201
+
+    response = client.delete("/api/employees/00002")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deletedEmployee"]["code"] == "00002"
+    assert body["csv"]["regenerated"] is True
+    assert body["csv"]["employeeCount"] == 1
+    assert Path(body["backupPath"]).exists()
+    assert (Path(body["backupPath"]) / "overtime.db").exists()
+    assert (Path(body["backupPath"]) / "employeeKey.csv").exists()
+    assert client.get("/api/employees/00002").status_code == 404
+    assert "00002" not in (tmp_path / "data/employeeKey.csv").read_text(encoding="utf-8-sig")
+
+
+def test_employee_delete_unknown_code_returns_404(tmp_path):
+    client = _client(tmp_path)
+
+    response = client.delete("/api/employees/99999")
+
+    assert response.status_code == 404

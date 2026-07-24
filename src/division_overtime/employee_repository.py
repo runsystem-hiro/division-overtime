@@ -256,6 +256,11 @@ class EmployeeRepository:
         if cursor.rowcount != 1:
             raise RuntimeError(f"Employee not found: {change.code}")
 
+    def delete_managed(self, code: str, *, conn: sqlite3.Connection) -> None:
+        cursor = conn.execute("DELETE FROM employees WHERE code=?", (code,))
+        if cursor.rowcount != 1:
+            raise RuntimeError(f"Employee not found: {code}")
+
     def count(self) -> int:
         with self.database.connect() as conn:
             return int(conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0])
