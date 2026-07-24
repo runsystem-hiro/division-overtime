@@ -6,6 +6,11 @@
 
 - Pull Requestおよびmainへのpush時に、バージョン整合性、Ruff、pytest、frontend buildを自動実行するGitHub Actions CIを追加
 
+### Changed
+
+- `main`への反映をPull Request経由、`CI / verify`成功、squash merge必須とするGitHub運用へ変更
+- `main`へのforce pushとブランチ削除を禁止するRulesetに合わせてREADME、運用手順、リリースチェックリストを更新
+
 ## [2.0.2] - 2026-07-24
 
 ### Added
