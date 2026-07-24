@@ -2,11 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-07-24
+
 ### Added
 
 - WindowsのPR前検証を1コマンドで実行する`scripts/verify.ps1`を追加
 - Windows端末間でPython 3.13と依存関係を再現するため、`.python-version`と`uv.lock`を利用するローカル開発手順を追加
-- Pull Requestおよびmainへのpush時に、バージョン整合性、Ruff、pytest、frontend buildを自動実行するGitHub Actions CIを追加
+- Pull Request時に、バージョン整合性、Ruff、pytest、frontend buildを自動実行するGitHub Actions CIを追加
+- 本番Slack表示確認でweeklyを実送信した場合の重複履歴確認と復旧手順をリリースチェックリストへ追加
 
 ### Changed
 
@@ -15,6 +18,7 @@
 - CI必須ゲートを解除する運用に合わせてREADME、運用手順、リリースチェックリストを更新
 - `main`への反映をPull Request経由、squash mergeとするGitHub運用へ変更
 - `main`へのforce pushとブランチ削除を禁止するRulesetに合わせてREADME、運用手順、リリースチェックリストを更新
+- 公開バージョンを2.0.3へ更新
 
 ## [2.0.2] - 2026-07-24
 
