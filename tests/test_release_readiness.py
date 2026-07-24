@@ -101,3 +101,31 @@ def test_legacy_health_endpoint_is_not_documented_or_scripted() -> None:
 
     for path in targets[:4]:
         assert "/api/system/health" in path.read_text(encoding="utf-8"), path
+
+
+def test_ci_runs_required_checks_without_production_actions() -> None:
+    workflow = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    required = [
+        "pull_request:",
+        "branches:",
+        'python-version: "3.13"',
+        "python scripts/check_version.py --root .",
+        "ruff check .",
+        "ruff format --check .",
+        "pytest -q",
+        "npm ci",
+        "npm run build",
+    ]
+    for text in required:
+        assert text in workflow
+
+    forbidden = [
+        "scripts/deploy.sh",
+        "KOT_TOKEN",
+        "SLACK_BOT_TOKEN",
+        "gh release",
+        "git tag",
+    ]
+    for text in forbidden:
+        assert text not in workflow

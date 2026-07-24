@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Pull Requestおよびmainへのpush時に、バージョン整合性、Ruff、pytest、frontend buildを自動実行するGitHub Actions CIを追加
+
 ## [2.0.2] - 2026-07-24
 
 ### Added
