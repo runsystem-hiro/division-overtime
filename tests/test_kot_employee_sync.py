@@ -115,6 +115,50 @@ def test_preview_filters_to_configured_divisions_and_reports_counts(tmp_path: Pa
     }
 
 
+def test_preview_omits_already_disabled_employee_missing_from_kot(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    repository = EmployeeRepository(db)
+    repository.upsert_many(
+        [Employee("00003", "key-3", "鈴木", "次郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    with db.transaction() as conn:
+        conn.execute(
+            "UPDATE employees SET is_enabled=0, disabled_reason='手動無効化' WHERE code='00003'"
+        )
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    assert "00003" not in {item.code for item in differences}
+
+
+def test_preview_keeps_enabled_employee_missing_from_kot_as_disable(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00003", "key-3", "鈴木", "次郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        FakeClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    difference = next(item for item in differences if item.code == "00003")
+    assert difference.action == "disable"
+
+
 def test_empty_target_divisions_are_rejected(tmp_path: Path):
     db = Database(tmp_path / "db.sqlite3")
     db.initialize()
