@@ -286,7 +286,7 @@ class KotEmployeeSyncService:
         selected_codes: list[str],
         actor: str,
         now: datetime,
-    ) -> dict[str, int]:
+    ) -> dict[str, int | str]:
         with self._lock:
             self._prune()
             preview = self._previews.get(preview_id)
@@ -297,7 +297,7 @@ class KotEmployeeSyncService:
         if not selected or not selected <= allowed:
             raise KotEmployeeSyncError("Select one or more valid differences")
 
-        self._create_apply_backup(now)
+        backup_path = self._create_apply_backup(now)
 
         original_csv = self.employee_csv.read_bytes() if self.employee_csv.exists() else None
         csv_replaced = False
@@ -490,7 +490,7 @@ class KotEmployeeSyncService:
                 temp_path.unlink(missing_ok=True)
         with self._lock:
             self._previews.pop(preview_id, None)
-        return counts
+        return {**counts, "backupPath": str(backup_path)}
 
     def history(self, limit: int = 20) -> list[dict[str, object]]:
         with self.database.connect() as conn:

@@ -64,6 +64,16 @@ type KotSyncStatus = {
   } | null;
 };
 
+type KotSyncApplyResult = {
+  status: "ok";
+  counts: {
+    created: number;
+    updated: number;
+    disabled: number;
+  };
+  backupPath: string;
+};
+
 type EmployeeWriteResult = {
   employee: Employee;
   csv: {
@@ -372,7 +382,8 @@ export function App() {
       setError(await responseError(response));
       return;
     }
-    setNotice("KOT社員差分を反映し、employeeKey.csvを再生成しました。");
+    const result = (await response.json()) as KotSyncApplyResult;
+    setNotice(`KOT社員差分を反映し、employeeKey.csvを再生成しました。反映前バックアップを ${result.backupPath} へ保存しました。`);
     setSyncPreview(null);
     setSelectedSyncCodes([]);
     await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);

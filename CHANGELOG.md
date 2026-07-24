@@ -4,6 +4,8 @@
 
 ### Added
 
+- KOT社員同期の適用結果APIと管理画面に反映前バックアップ先を表示
+
 - `employeeKey.csv`置換前バックアップを最新30世代に制限する世代管理
 
 - `employeeKey.csv`置換前バックアップを`data/backups/employee-csv/`へ所有者限定権限で保存

@@ -76,7 +76,10 @@ def test_apply_updates_database_and_csv_without_returning_key(tmp_path: Path):
         preview_id, ["00001", "00002"], "hiro", datetime.now(ZoneInfo("Asia/Tokyo"))
     )
 
-    assert counts == {"created": 1, "updated": 1, "disabled": 0}
+    assert counts["created"] == 1
+    assert counts["updated"] == 1
+    assert counts["disabled"] == 0
+    assert Path(str(counts["backupPath"])).exists()
     assert "new-key" in csv.read_text(encoding="utf-8-sig")
     with db.connect() as conn:
         assert (
@@ -164,11 +167,12 @@ def test_apply_creates_database_and_csv_backup(tmp_path: Path):
     preview_id, _ = service.preview()
     now = datetime(2026, 7, 23, 13, 30, 0, tzinfo=ZoneInfo("Asia/Tokyo"))
 
-    service.apply(preview_id, ["00001"], "hiro", now)
+    result = service.apply(preview_id, ["00001"], "hiro", now)
 
     backup_dirs = list(backup_root.iterdir())
     assert len(backup_dirs) == 1
     backup_dir = backup_dirs[0]
+    assert result["backupPath"] == str(backup_dir)
     database_backup = backup_dir / "db.sqlite3"
     csv_backup = backup_dir / "employeeKey.csv"
 
