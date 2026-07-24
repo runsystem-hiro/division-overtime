@@ -9,7 +9,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_public_versions_are_2_0_0_and_consistent() -> None:
+def test_public_versions_are_2_0_1_and_consistent() -> None:
     expected = (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
     with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
         python_version = tomllib.load(handle)["project"]["version"]
@@ -17,7 +17,7 @@ def test_public_versions_are_2_0_0_and_consistent() -> None:
     lock = json.loads((PROJECT_ROOT / "frontend/package-lock.json").read_text(encoding="utf-8"))
     module_text = (PROJECT_ROOT / "src/division_overtime/__init__.py").read_text(encoding="utf-8")
 
-    assert expected == "2.0.0"
+    assert expected == "2.0.1"
     assert python_version == expected
     assert frontend["version"] == expected
     assert lock["version"] == expected
@@ -35,7 +35,7 @@ def test_version_check_script_succeeds() -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout.strip() == "version_check=ok version=2.0.0"
+    assert result.stdout.strip() == "version_check=ok version=2.0.1"
 
 
 def test_verify_and_deploy_enforce_version_checks() -> None:
@@ -69,8 +69,32 @@ def test_release_checklist_documents_required_production_checks() -> None:
         "/api/system/health",
         "sudo systemctl stop division-overtime-web.service",
         "employees check-consistency",
-        "git tag -a v2.0.0",
-        "gh release create v2.0.0",
+        "git tag -a v2.0.1",
+        "gh release create v2.0.1",
     ]
     for text in required:
         assert text in checklist
+
+
+def test_frontend_initial_auth_check_uses_status_endpoint() -> None:
+    app = (PROJECT_ROOT / "frontend/src/App.tsx").read_text(encoding="utf-8")
+
+    assert 'fetch("/api/auth/status"' in app
+    assert 'fetch("/api/auth/me"' not in app
+
+
+def test_legacy_health_endpoint_is_not_documented_or_scripted() -> None:
+    targets = [
+        PROJECT_ROOT / "README.md",
+        PROJECT_ROOT / "docs/release-checklist.md",
+        PROJECT_ROOT / "docs/operations.md",
+        PROJECT_ROOT / "scripts/deploy.sh",
+        PROJECT_ROOT / "scripts/verify.sh",
+    ]
+
+    for path in targets:
+        text = path.read_text(encoding="utf-8")
+        assert "/api/health" not in text, path
+
+    for path in targets[:4]:
+        assert "/api/system/health" in path.read_text(encoding="utf-8"), path

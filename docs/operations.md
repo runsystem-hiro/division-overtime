@@ -693,7 +693,7 @@ sudo systemctl daemon-reload
 
 実行中の再実行はHTTP 409で拒否される。08:30〜10:00および17:30〜18:30はHTTP 423で拒否される。同期前バックアップとCSVの原子的再生成は既存のKOT同期サービスが行う。threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する。
 
-## v2.0.0 デプロイと復旧
+## v2.0系列 デプロイと復旧
 
 リリース前後の総合確認は[`docs/release-checklist.md`](release-checklist.md)を使用する。
 

@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-07-24
+
+### Added
+
+- 未ログイン時もHTTP 200で認証状態を確認できる`GET /api/auth/status`を追加
+- 認証状態API、フロント初期認証処理、ヘルスチェックURL、公開バージョンの回帰テストを追加
+
+### Fixed
+
+- Web管理画面の初期表示で`GET /api/auth/me`の401がブラウザConsoleへ表示される問題を解消
+- README・リリースチェックリスト・運用文書等のヘルスチェックURLを`/api/system/health`へ統一
+
+### Changed
+
+- 公開バージョンを2.0.1へ更新
+- `GET /api/auth/me`は認証必須APIとして未ログイン時401を返す従来仕様を維持
+
 ## [2.0.0] - 2026-07-24
 
 ### Release readiness

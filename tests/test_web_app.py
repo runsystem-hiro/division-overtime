@@ -75,7 +75,11 @@ def test_built_frontend_is_served(tmp_path):
 def test_login_me_logout_flow_and_cookie_attributes(tmp_path):
     client = TestClient(create_app(_config(tmp_path)))
 
+    status = client.get("/api/auth/status")
+    assert status.status_code == 200
+    assert status.json() == {"authenticated": False, "user": None}
     assert client.get("/api/auth/me").status_code == 401
+
     login = _login(client)
     assert login.status_code == 200
     assert login.json()["username"] == "hiro"
@@ -84,12 +88,18 @@ def test_login_me_logout_flow_and_cookie_attributes(tmp_path):
     assert "samesite=strict" in cookie
     assert "secure" not in cookie
 
+    status = client.get("/api/auth/status")
+    assert status.status_code == 200
+    assert status.json()["authenticated"] is True
+    assert status.json()["user"]["username"] == "hiro"
+
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json()["username"] == "hiro"
 
     logout = client.post("/api/auth/logout")
     assert logout.status_code == 204
+    assert client.get("/api/auth/status").json() == {"authenticated": False, "user": None}
     assert client.get("/api/auth/me").status_code == 401
 
 

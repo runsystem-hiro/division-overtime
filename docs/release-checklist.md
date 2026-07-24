@@ -1,19 +1,16 @@
-# v2.0.0 リリースチェックリスト
+# v2.0.1 リリースチェックリスト
 
 ## リリース範囲
 
-v2.0.0は、既存通知処理を維持したまま追加したWeb管理機能の初回正式版とする。
+v2.0.1は、v2.0.0の通知処理と社員管理仕様を変更しない小規模な品質改善リリースとする。
 
-- 管理者認証
-- SQLite社員管理
-- `employeeKey.csv`の安全な再生成
-- 社員追加・編集・無効化・再有効化・削除
-- SQLiteとCSVの整合性確認
-- KING OF TIME社員同期のプレビュー・選択反映
-- 社員操作・KOT同期前バックアップ
-- Web管理サービスと既存通知サービスの分離
+- 初期認証確認を`GET /api/auth/status`へ変更し、未ログイン時の不要な401表示を解消
+- `GET /api/auth/me`の未ログイン401仕様は維持
+- README・運用文書・スクリプトのヘルスチェックURLを`/api/system/health`へ統一
+- 公開バージョンを2.0.1へ更新
+- CHANGELOG・回帰テストを更新
 
-通知処理はv2.0.0でもSQLiteへ直接切り替えず、引き続き`data/employeeKey.csv`を参照する。
+threshold、weekly、healthの通知条件・実行時刻・`employeeKey.csv`参照方式・SQLite社員データ・KOT同期判定は変更しない。
 
 ## Windows側の事前検証
 
@@ -36,7 +33,7 @@ git status
 
 合格条件:
 
-- バージョン整合性が`version_check=ok version=2.0.0`
+- バージョン整合性が`version_check=ok version=2.0.1`
 - Ruff、pytest、frontend buildが成功
 - `git diff --check`が無出力
 - 作業ツリーがclean
@@ -55,8 +52,8 @@ git status --short
 合格例:
 
 ```text
-version_check=ok version=2.0.0
-Deployment completed. version=2.0.0
+version_check=ok version=2.0.1
+Deployment completed. version=2.0.1
 ```
 
 ## 実機確認
@@ -70,7 +67,7 @@ systemctl status division-overtime-web.service --no-pager
 ```
 
 - `status`が`ok`
-- `version`が`2.0.0`
+- `version`が`2.0.1`
 - `frontendBuilt`が`true`
 - Webサービスが`active (running)`
 
@@ -155,12 +152,12 @@ git fetch origin
 git merge --ff-only origin/main
 git status
 
-git tag -a v2.0.0 -m "division-overtime v2.0.0"
-git push origin v2.0.0
+git tag -a v2.0.1 -m "division-overtime v2.0.1"
+git push origin v2.0.1
 
-gh release create v2.0.0 `
-  --title "division-overtime v2.0.0" `
+gh release create v2.0.1 `
+  --title "division-overtime v2.0.1" `
   --notes-from-tag
 ```
 
-リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.0`を指すことを確認する。
+リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.1`を指すことを確認する。
