@@ -192,4 +192,8 @@ def test_apply_returns_backup_path_and_hides_secrets(tmp_path: Path, monkeypatch
     assert backup_path.parent == backup_root
     assert (backup_path / "db.sqlite3").exists()
     assert (backup_path / "employeeKey.csv").read_text(encoding="utf-8") == "original-csv"
+    status = client.get("/api/kot-sync/status")
+    assert status.status_code == 200
+    assert status.json()["lastRun"]["backup_path"] == str(backup_path)
     assert "hidden-key" not in response.text
+    assert "hidden-key" not in status.text
