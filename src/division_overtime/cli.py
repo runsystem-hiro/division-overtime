@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -14,7 +13,7 @@ from .employee_consistency import (
     check_employee_data_consistency,
 )
 from .employee_repository import EmployeeRepository
-from .employees import EmployeeDataError, load_employees, write_employees
+from .employees import EmployeeDataError, generate_employee_csv, load_employees
 from .service import run
 
 
@@ -74,26 +73,14 @@ def _export_employees(db: Database, employee_csv: Path, apply: bool) -> int:
         print("csv_changes=none")
         return 0
 
-    employee_csv.parent.mkdir(parents=True, exist_ok=True)
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            prefix=f".{employee_csv.name}.",
-            suffix=".tmp",
-            dir=employee_csv.parent,
-            delete=False,
-        ) as handle:
-            temp_path = Path(handle.name)
-        write_employees(temp_path, employees)
-        validated = load_employees(temp_path)
-        if len(validated) != len(employees):
-            raise EmployeeDataError("Generated employee CSV validation count mismatch")
-        temp_path.replace(employee_csv)
-    finally:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-
-    print(f"employee_csv_export=applied employees={len(employees)}")
+    result = generate_employee_csv(employee_csv, employees)
+    print(
+        "employee_csv_export=applied "
+        f"status={result.status} "
+        f"generated_at={result.generated_at.isoformat()} "
+        f"employees={result.employee_count} "
+        f"output_path={result.output_path}"
+    )
     return 0
 
 

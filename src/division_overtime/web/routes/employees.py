@@ -13,6 +13,7 @@ from division_overtime.employee_management import (
     EmployeeManagementError,
     EmployeeManagementService,
     EmployeeNotFoundError,
+    EmployeeSaveResult,
 )
 from division_overtime.employee_repository import ManagedEmployee
 from division_overtime.web.auth import AuthenticatedUser
@@ -41,7 +42,10 @@ class EmployeeResponse(BaseModel):
 
 class EmployeeCsvWriteResponse(BaseModel):
     regenerated: Literal[True]
+    status: Literal["success"]
+    generatedAt: str
     employeeCount: int
+    outputPath: str
 
 
 class EmployeeWriteResponse(BaseModel):
@@ -116,12 +120,15 @@ def _response(employee: ManagedEmployee) -> EmployeeResponse:
     )
 
 
-def _write_response(employee: ManagedEmployee, csv_employee_count: int) -> EmployeeWriteResponse:
+def _write_response(result: EmployeeSaveResult) -> EmployeeWriteResponse:
     return EmployeeWriteResponse(
-        employee=_response(employee),
+        employee=_response(result.employee),
         csv=EmployeeCsvWriteResponse(
             regenerated=True,
-            employeeCount=csv_employee_count,
+            status=result.csv.status,
+            generatedAt=result.csv.generated_at.isoformat(),
+            employeeCount=result.csv.employee_count,
+            outputPath=str(result.csv.output_path),
         ),
     )
 
@@ -211,8 +218,10 @@ def create_employee(
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> EmployeeWriteResponse:
     try:
-        employee = service.create_employee(_change(payload), datetime.now(config.timezone))
-        return _write_response(employee, service.get_csv_employee_count())
+        result = service.create_employee_with_result(
+            _change(payload), datetime.now(config.timezone)
+        )
+        return _write_response(result)
     except EmployeeManagementError as exc:
         _raise_http_error(exc)
 
@@ -226,7 +235,9 @@ def update_employee(
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> EmployeeWriteResponse:
     try:
-        employee = service.update_employee(code, _change(payload), datetime.now(config.timezone))
-        return _write_response(employee, service.get_csv_employee_count())
+        result = service.update_employee_with_result(
+            code, _change(payload), datetime.now(config.timezone)
+        )
+        return _write_response(result)
     except EmployeeManagementError as exc:
         _raise_http_error(exc)
