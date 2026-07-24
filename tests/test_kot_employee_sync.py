@@ -139,6 +139,85 @@ def test_preview_omits_already_disabled_employee_missing_from_kot(tmp_path: Path
     assert "00003" not in {item.code for item in differences}
 
 
+def test_preview_omits_already_disabled_resigned_employee(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    repository = EmployeeRepository(db)
+    repository.upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+    with db.transaction() as conn:
+        conn.execute(
+            "UPDATE employees SET is_enabled=0, disabled_reason='KOT退職済み' WHERE code='00001'"
+        )
+
+    class ResignedClient:
+        def fetch(self):
+            return parse_kot_employees(
+                [
+                    {
+                        "code": "00001",
+                        "key": "new-key",
+                        "lastName": "田中",
+                        "firstName": "太郎",
+                        "divisionCode": "301",
+                        "divisionName": "開発部",
+                        "employeeGroups": [],
+                        "resignationDate": "2026-07-23",
+                    }
+                ]
+            )
+
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        ResignedClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    assert differences == []
+
+
+def test_preview_keeps_enabled_resigned_employee_as_disable(tmp_path: Path):
+    db = Database(tmp_path / "db.sqlite3")
+    db.initialize()
+    EmployeeRepository(db).upsert_many(
+        [Employee("00001", "old-key", "田中", "太郎", "", "301", "開発部")],
+        datetime.now(ZoneInfo("Asia/Tokyo")),
+    )
+
+    class ResignedClient:
+        def fetch(self):
+            return parse_kot_employees(
+                [
+                    {
+                        "code": "00001",
+                        "key": "new-key",
+                        "lastName": "田中",
+                        "firstName": "太郎",
+                        "divisionCode": "301",
+                        "divisionName": "開発部",
+                        "employeeGroups": [],
+                        "resignationDate": "2026-07-23",
+                    }
+                ]
+            )
+
+    service = KotEmployeeSyncService(
+        db,
+        tmp_path / "employeeKey.csv",
+        ResignedClient(),
+        ("301",),
+    )
+
+    _, differences = service.preview()
+
+    assert [(item.code, item.action) for item in differences] == [("00001", "disable")]
+
+
 def test_preview_keeps_enabled_employee_missing_from_kot_as_disable(tmp_path: Path):
     db = Database(tmp_path / "db.sqlite3")
     db.initialize()
