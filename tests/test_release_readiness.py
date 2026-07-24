@@ -309,3 +309,16 @@ def test_frontend_quality_checks_are_configured() -> None:
         assert text in ci
         assert text in readme
         assert text in operations
+
+
+def test_frontend_uses_react_19() -> None:
+    frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+
+    assert frontend["dependencies"]["react"].startswith("^19.2.")
+    assert frontend["dependencies"]["react-dom"].startswith("^19.2.")
+    assert frontend["devDependencies"]["@types/react"].startswith("^19.2.")
+    assert frontend["devDependencies"]["@types/react-dom"].startswith("^19.2.")
+    assert "React 19.2系" in readme
+    assert "React 19.2系" in operations

@@ -727,6 +727,8 @@ npm run build
 
 初期テストは未ログイン時の管理者ログイン画面を対象とする。網羅率を目的にせず、通知履歴やUI機能追加時に代表的な回帰テストを段階的に追加する。
 
+frontendはReact 19.2系を使用する。React更新時は`react`、`react-dom`、`@types/react`、`@types/react-dom`を同じPRで更新し、lint、test、build、npm auditを確認する。React CompilerやServer Componentsなどの新機能採用は別Issueとする。
+
 ## frontendの開発確認用dist配信
 
 WindowsとGitHub ActionsはNode.js 22を推奨する。Raspberry Pi本番はNode.js 20.19.2 / npm 9.2.0を継続利用し、正式リリースでは従来どおりPi上の`scripts/deploy.sh`でfrontendをbuildする。

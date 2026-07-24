@@ -634,6 +634,8 @@ division-overtime-web
 
 frontendの品質確認にはOxlintとVitest / Testing Libraryを使用します。`npm run test:watch`は開発中の監視実行専用で、PR前の標準検証では単発実行の`npm run test`を使用します。
 
+frontendはReact 19.2系を使用します。React Compiler、Server Components、Actionsなどの新機能はこの段階では導入せず、既存のSPA構成と認証フローを維持します。
+
 `frontend/dist/index.html`が存在する場合、FastAPIがSPAと`/assets`を配信します。未ビルドの場合もAPIは起動し、`/`はHTTP 503と`frontend_not_built`を返します。
 
 ### 開発中のfrontend実機確認
