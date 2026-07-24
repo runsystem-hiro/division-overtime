@@ -13,6 +13,11 @@ type CurrentUser = {
   expiresAt: string;
 };
 
+type AuthStatus = {
+  authenticated: boolean;
+  user: CurrentUser | null;
+};
+
 type Employee = {
   code: string;
   lastName: string;
@@ -173,13 +178,10 @@ export function App() {
   const [showOnLeave, setShowOnLeave] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
-    const response = await fetch("/api/auth/me", { credentials: "same-origin" });
-    if (response.status === 401) {
-      setUser(null);
-      return;
-    }
+    const response = await fetch("/api/auth/status", { credentials: "same-origin" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    setUser((await response.json()) as CurrentUser);
+    const status = (await response.json()) as AuthStatus;
+    setUser(status.authenticated ? status.user : null);
   }, []);
 
   const loadConsistency = useCallback(async () => {

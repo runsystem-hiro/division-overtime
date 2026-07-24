@@ -8,7 +8,12 @@ from pydantic import BaseModel, Field
 
 from division_overtime.web.auth import AuthenticatedUser, AuthService
 from division_overtime.web.config import WebConfig
-from division_overtime.web.dependencies import get_auth_service, get_current_user, get_web_config
+from division_overtime.web.dependencies import (
+    get_auth_service,
+    get_current_user,
+    get_optional_current_user,
+    get_web_config,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -74,6 +79,18 @@ def logout(
         httponly=True,
         samesite="strict",
     )
+
+
+@router.get("/status")
+def auth_status(
+    user: Annotated[AuthenticatedUser | None, Depends(get_optional_current_user)],
+) -> dict[str, object]:
+    if user is None:
+        return {"authenticated": False, "user": None}
+    return {
+        "authenticated": True,
+        "user": {"username": user.username, "expiresAt": user.expires_at.isoformat()},
+    }
 
 
 @router.get("/me")
