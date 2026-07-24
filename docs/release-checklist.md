@@ -1,16 +1,16 @@
-# v2.0.2 リリースチェックリスト
+# v2.0.3 リリースチェックリスト
 
 ## リリース範囲
 
-v2.0.2は、本番通知処理と社員管理仕様を変更せず、WindowsローカルでのWeb UI開発を安全かつ効率的にする小規模リリースとする。
+v2.0.3は、本番通知処理と社員管理仕様を変更せず、v2.0.2以降の開発環境・CI・検証手順の改善を正式リリースとして区切る。
 
-- development/production設定切替を追加
-- 開発専用SQLite、`employeeKey.csv`、ダミー社員データを追加
-- Viteホットリロードを利用するローカル開発手順を追加
-- 開発環境ではKOT本番APIへの接続を停止
-- `create`、`update`、`reactivate`、`disable`、`unchanged`を再現するダミーKOT同期プレビューを追加
-- 公開バージョンを2.0.2へ更新
-- CHANGELOG、README、リリースチェックリスト、回帰テストを更新
+- Windows開発環境を`.python-version`、uv、`uv.lock`で再現可能にする
+- `scripts/verify.ps1`でPR前検証を1コマンドへ統一する
+- GitHub Actions CIをPull Request中心の補助確認へ整理する
+- main保護Rulesetとsquash merge運用を文書化する
+- 本番Slack表示確認後のweekly重複履歴確認手順を追加する
+- 公開バージョンを2.0.3へ更新する
+- CHANGELOG、README、リリースチェックリスト、回帰テストを更新する
 
 threshold、weekly、healthの通知条件・実行時刻・本番`employeeKey.csv`参照方式・本番SQLite社員データ・本番KOT同期判定は変更しない。
 
@@ -42,7 +42,7 @@ git diff --check
 
 合格条件:
 
-- バージョン整合性が`version_check=ok version=2.0.2`
+- バージョン整合性が`version_check=ok version=2.0.3`
 - `.\scripts\verify.ps1`が全工程成功で完了
 - Ruff、pytest、frontend buildが成功
 - `git diff --check`が無出力
@@ -71,8 +71,8 @@ git status --short
 合格例:
 
 ```text
-version_check=ok version=2.0.2
-Deployment completed. version=2.0.2
+version_check=ok version=2.0.3
+Deployment completed. version=2.0.3
 ```
 
 ## 実機確認
@@ -86,7 +86,7 @@ systemctl status division-overtime-web.service --no-pager
 ```
 
 - `status`が`ok`
-- `version`が`2.0.2`
+- `version`が`2.0.3`
 - `frontendBuilt`が`true`
 - Webサービスが`active (running)`
 
@@ -107,6 +107,82 @@ systemctl show division-overtime-threshold.service -p Result -p ExecMainStatus
 systemctl show division-overtime-weekly.service -p Result -p ExecMainStatus
 systemctl show division-overtime-health.service -p Result -p ExecMainStatus
 ```
+
+### 本番Slack表示確認を伴う通知テスト
+
+通知本文やSlack表示を確認するためにweeklyを実送信すると、その週・社員・受信者の重複防止キーが`notification_attempts`へ保存される。同じ週の正規weeklyでは、その受信者向けの対象社員が重複スキップされるため、実送信テスト後は必ず履歴を確認する。
+
+実送信前にDBをバックアップする。
+
+```bash
+cd /home/pi/division-overtime
+BACKUP="var/division_overtime-before-notification-test-$(date +%Y%m%d_%H%M%S).sqlite3"
+sqlite3 var/division_overtime.sqlite3 ".backup '$BACKUP'"
+chmod 600 "$BACKUP"
+```
+
+実送信後、対象の`run_id`、受信者、通知種別、Slack timestampを確認する。
+
+```bash
+sqlite3 -header -column var/division_overtime.sqlite3 "
+SELECT
+  er.run_id,
+  er.mode,
+  er.dry_run,
+  er.started_at,
+  na.recipient,
+  na.notification_type,
+  na.status,
+  COUNT(*) AS records,
+  MIN(na.slack_timestamp) AS slack_timestamp
+FROM execution_runs AS er
+JOIN notification_attempts AS na ON na.run_id = er.run_id
+WHERE er.started_at >= datetime('now', '-1 day')
+GROUP BY
+  er.run_id, er.mode, er.dry_run, er.started_at,
+  na.recipient, na.notification_type, na.status
+ORDER BY er.started_at DESC;
+"
+```
+
+正規weeklyより前に、テスト専用の実送信履歴を復旧する必要がある場合は、対象`run_id`と受信者を特定し、削除予定件数を先に確認する。対象を広く指定しない。
+
+```bash
+TEST_RUN_ID='<テスト実行のrun_id>'
+TEST_RECIPIENT='<テスト受信者>'
+
+sqlite3 -header -column var/division_overtime.sqlite3 "
+SELECT id, dedupe_key, recipient, status, slack_timestamp, created_at
+FROM notification_attempts
+WHERE run_id = '$TEST_RUN_ID'
+  AND recipient = '$TEST_RECIPIENT'
+  AND notification_type = 'weekly'
+ORDER BY id;
+"
+```
+
+表示内容と件数がテスト送信分だけであることを確認してから、トランザクション内で対象行だけを削除する。
+
+```bash
+sqlite3 var/division_overtime.sqlite3 "
+BEGIN IMMEDIATE;
+DELETE FROM notification_attempts
+WHERE run_id = '$TEST_RUN_ID'
+  AND recipient = '$TEST_RECIPIENT'
+  AND notification_type = 'weekly';
+SELECT changes();
+COMMIT;
+"
+
+sqlite3 var/division_overtime.sqlite3 'PRAGMA integrity_check;'
+```
+
+- 削除件数が事前確認件数と一致する
+- `PRAGMA integrity_check`が`ok`
+- 他の受信者やthreshold履歴を削除していない
+- バックアップをGitへ追加しない
+
+通常のリリース確認では、実通知サービスを手動実行せず、直近のsystemd実行結果とjournalを確認する。Slack表示確認が必要なリリースに限って、この手順を使用する。
 
 ### 社員データ
 
@@ -171,12 +247,12 @@ git fetch origin
 git merge --ff-only origin/main
 git status
 
-git tag -a v2.0.2 -m "division-overtime v2.0.2"
-git push origin v2.0.2
+git tag -a v2.0.3 -m "division-overtime v2.0.3"
+git push origin v2.0.3
 
-gh release create v2.0.2 `
-  --title "v2.0.2" `
+gh release create v2.0.3 `
+  --title "v2.0.3" `
   --generate-notes
 ```
 
-リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.2`を指すことを確認する。
+リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.3`を指すことを確認する。
