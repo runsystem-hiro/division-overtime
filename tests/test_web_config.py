@@ -83,6 +83,7 @@ employee_csv = "data/development/employeeKey.csv"
 
 [king_of_time]
 enabled = false
+mock_enabled = true
 """.strip(),
         encoding="utf-8",
     )
@@ -95,3 +96,4 @@ enabled = false
     assert config.employee_csv == tmp_path / "data/development/employeeKey.csv"
     assert config.environment == "development"
     assert config.kot_enabled is False
+    assert config.kot_mock_enabled is True

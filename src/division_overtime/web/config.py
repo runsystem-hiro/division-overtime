@@ -42,6 +42,7 @@ class WebConfig:
     kot_sync_division_codes: tuple[str, ...] = ("156", "158", "300")
     environment: str = "production"
     kot_enabled: bool = True
+    kot_mock_enabled: bool = False
 
 
 def _required_env(name: str) -> str:
@@ -156,4 +157,5 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         kot_sync_division_codes=_division_codes_env("KOT_SYNC_DIVISION_CODES", "156,158,300"),
         environment=os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower(),
         kot_enabled=bool(raw.get("king_of_time", {}).get("enabled", True)),
+        kot_mock_enabled=bool(raw.get("king_of_time", {}).get("mock_enabled", False)),
     )

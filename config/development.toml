@@ -7,6 +7,7 @@ log_level = "DEBUG"
 
 [king_of_time]
 enabled = false
+mock_enabled = true
 
 [notifications]
 enable_self_notify = false

@@ -8,6 +8,7 @@ type Health = {
   timezone: string;
   environment: string;
   kotSyncEnabled: boolean;
+  kotSyncMock: boolean;
 };
 
 type CurrentUser = {
@@ -589,7 +590,8 @@ export function App() {
             <p className="eyebrow">KING OF TIME</p>
             <h2>社員同期</h2>
             <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>
-            {health && !health.kotSyncEnabled && <p className="muted">開発環境ではKOT本番APIへの接続を停止しています。</p>}
+            {health?.kotSyncMock && <p className="muted">開発用ダミーKOTデータを使用します。本番APIには接続しません。</p>}
+            {health && !health.kotSyncEnabled && <p className="muted">この環境ではKOT同期を停止しています。</p>}
             {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}
             {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
             {syncStatus?.lastRun && (
@@ -600,7 +602,7 @@ export function App() {
             )}
           </div>
           <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={!health?.kotSyncEnabled || syncing || syncStatus?.running || syncStatus?.blocked}>
-            {!health?.kotSyncEnabled ? "開発環境では無効" : syncing || syncStatus?.running ? "実行中…" : "KOTから取得"}
+            {!health?.kotSyncEnabled ? "この環境では無効" : syncing || syncStatus?.running ? "実行中…" : health.kotSyncMock ? "ダミーKOTから取得" : "KOTから取得"}
           </button>
         </div>
         {syncPreview && (
