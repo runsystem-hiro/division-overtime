@@ -64,6 +64,14 @@ type KotSyncStatus = {
   } | null;
 };
 
+type EmployeeWriteResult = {
+  employee: Employee;
+  csv: {
+    regenerated: true;
+    employeeCount: number;
+  };
+};
+
 type EmployeeConsistency = {
   status: "ok" | "mismatch";
   databaseEmployees: number;
@@ -390,12 +398,13 @@ export function App() {
       setError(await responseError(response));
       return;
     }
-    const saved = (await response.json()) as Employee;
+    const result = (await response.json()) as EmployeeWriteResult;
+    const saved = result.employee;
     setEditing(undefined);
     setNotice(
       isCreate
-        ? `社員 ${saved.code} ${saved.fullName} を追加し、employeeKey.csvを再生成しました。`
-        : `社員 ${saved.code} ${saved.fullName} を更新し、employeeKey.csvを再生成しました。`,
+        ? `社員 ${saved.code} ${saved.fullName} を追加しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`
+        : `社員 ${saved.code} ${saved.fullName} を更新しました。employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`,
     );
     await Promise.all([loadEmployees(), loadConsistency()]);
   }

@@ -100,12 +100,17 @@ def test_employee_create_and_update_regenerate_csv(tmp_path):
 
     created = client.post("/api/employees", json=create_payload)
     assert created.status_code == 201
-    assert "employeeKey" not in created.json()
+    assert created.json()["employee"]["code"] == "00002"
+    assert created.json()["csv"] == {"regenerated": True, "employeeCount": 2}
+    assert "employeeKey" not in created.json()["employee"]
+    assert "key-2" not in created.text
 
     update_payload = {**create_payload, "employeeKey": None, "divisionName": "開発本部"}
     updated = client.put("/api/employees/00002", json=update_payload)
     assert updated.status_code == 200
-    assert updated.json()["divisionName"] == "開発本部"
+    assert updated.json()["employee"]["divisionName"] == "開発本部"
+    assert updated.json()["csv"] == {"regenerated": True, "employeeCount": 2}
+    assert "key-2" not in updated.text
 
     csv_text = (tmp_path / "data/employeeKey.csv").read_text(encoding="utf-8-sig")
     assert "00002,key-2,佐藤,花子" in csv_text
