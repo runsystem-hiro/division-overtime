@@ -6,6 +6,8 @@ type Health = {
   version: string;
   serverTime: string;
   timezone: string;
+  environment: string;
+  kotSyncEnabled: boolean;
 };
 
 type CurrentUser = {
@@ -208,7 +210,7 @@ export function App() {
 
   const loadKotSyncStatus = useCallback(async () => {
     const response = await fetch("/api/kot-sync/status", { credentials: "same-origin" });
-    if (response.status === 503) {
+    if (response.status === 403 || response.status === 503) {
       setSyncStatus(null);
       return;
     }
@@ -497,7 +499,7 @@ export function App() {
   return (
     <main className="page-shell">
       <header className="topbar">
-        <div><p className="eyebrow">DIVISION OVERTIME</p><strong>{user.username}</strong></div>
+        <div><p className="eyebrow">DIVISION OVERTIME</p><strong>{user.username}</strong>{health?.environment === "development" && <span className="environment-badge">DEVELOPMENT</span>}</div>
         <button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button>
       </header>
 
@@ -587,6 +589,7 @@ export function App() {
             <p className="eyebrow">KING OF TIME</p>
             <h2>社員同期</h2>
             <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>
+            {health && !health.kotSyncEnabled && <p className="muted">開発環境ではKOT本番APIへの接続を停止しています。</p>}
             {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}
             {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
             {syncStatus?.lastRun && (
@@ -596,8 +599,8 @@ export function App() {
               </div>
             )}
           </div>
-          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={syncing || syncStatus?.running || syncStatus?.blocked}>
-            {syncing || syncStatus?.running ? "実行中…" : "KOTから取得"}
+          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={!health?.kotSyncEnabled || syncing || syncStatus?.running || syncStatus?.blocked}>
+            {!health?.kotSyncEnabled ? "開発環境では無効" : syncing || syncStatus?.running ? "実行中…" : "KOTから取得"}
           </button>
         </div>
         {syncPreview && (

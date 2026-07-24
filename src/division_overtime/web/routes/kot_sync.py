@@ -38,6 +38,11 @@ class ApplyRequest(BaseModel):
 
 
 def get_service(request: Request) -> KotEmployeeSyncService:
+    config: WebConfig = request.app.state.web_config
+    if not config.kot_enabled:
+        raise HTTPException(
+            status_code=403, detail="KOT employee synchronization is disabled in this environment"
+        )
     service = getattr(request.app.state, "kot_employee_sync_service", None)
     if service is None:
         raise HTTPException(

@@ -71,3 +71,27 @@ def test_load_web_config_rejects_short_session_secret(tmp_path, monkeypatch):
 
     with pytest.raises(WebConfigError, match="at least 32"):
         load_web_config(tmp_path)
+
+
+def test_load_web_config_uses_development_paths(tmp_path, monkeypatch):
+    _write_default(tmp_path)
+    (tmp_path / "config/development.toml").write_text(
+        """
+[app]
+database_path = "var/development/overtime.db"
+employee_csv = "data/development/employeeKey.csv"
+
+[king_of_time]
+enabled = false
+""".strip(),
+        encoding="utf-8",
+    )
+    _set_auth_env(monkeypatch)
+    monkeypatch.setenv("DIVISION_OVERTIME_ENV", "development")
+
+    config = load_web_config(tmp_path)
+
+    assert config.database_path == tmp_path / "var/development/overtime.db"
+    assert config.employee_csv == tmp_path / "data/development/employeeKey.csv"
+    assert config.environment == "development"
+    assert config.kot_enabled is False

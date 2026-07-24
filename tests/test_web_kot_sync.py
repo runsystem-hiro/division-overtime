@@ -159,6 +159,40 @@ def test_preview_omits_already_disabled_resigned_employee_from_api(tmp_path: Pat
     assert "hidden-key" not in response.text
 
 
+def test_kot_sync_is_rejected_when_disabled(tmp_path: Path):
+    config = WebConfig(
+        root=tmp_path,
+        timezone=ZoneInfo("Asia/Tokyo"),
+        database_path=tmp_path / "db.sqlite3",
+        employee_csv=tmp_path / "employeeKey.csv",
+        frontend_dist=tmp_path / "dist",
+        host="0.0.0.0",
+        port=8000,
+        log_level="INFO",
+        admin_username="hiro",
+        admin_password_hash=PasswordHasher().hash("pass"),
+        session_secret="s" * 48,
+        session_cookie_name="session",
+        session_cookie_secure=False,
+        session_max_age_seconds=28800,
+        login_max_attempts=5,
+        login_window_seconds=900,
+        login_lockout_seconds=900,
+        kot_base_url="https://api.kingtime.jp/v1.0",
+        kot_token="configured-but-unused",
+        kot_connect_timeout=5,
+        kot_read_timeout=30,
+        kot_retry_count=1,
+        kot_retry_backoff=0,
+        environment="development",
+        kot_enabled=False,
+    )
+    client = TestClient(create_app(config))
+    client.post("/api/auth/login", json={"username": "hiro", "password": "pass"})
+    assert client.get("/api/kot-sync/status").status_code == 403
+    assert client.post("/api/kot-sync/preview").status_code == 403
+
+
 def test_kot_sync_blocked_time_detection():
     from division_overtime.web.routes.kot_sync import _is_api_blocked
 

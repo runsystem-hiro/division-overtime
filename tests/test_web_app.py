@@ -52,6 +52,8 @@ def test_health_and_version_endpoints_are_public(tmp_path):
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert health.json()["version"] == "1.0.2"
+    assert health.json()["environment"] == "production"
+    assert health.json()["kotSyncEnabled"] is True
     assert version.json() == {"version": "1.0.2"}
 
 

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- 開発環境のKOT本番API接続を停止し、Viteホットリロードを利用するローカル開発手順を追加
+
+### Added
+
+- Windowsローカル用の`development.toml`とダミー社員データ生成スクリプトを追加
+- `DIVISION_OVERTIME_ENV`によるdevelopment/production設定切替を追加
+
 ## [2.0.1] - 2026-07-24
 
 ### Added
