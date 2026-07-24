@@ -4,7 +4,7 @@
 
 - Windows側リポジトリを正本とし、変更はローカルで検証・コミット・pushする。
 - 軽微な文書修正を含む変更は原則として作業ブランチとPull Request経由で`main`へ反映する。
-- `main`へのマージは必須チェック`CI / verify`成功後のsquash mergeに限定する。
+- `main`へのマージはsquash mergeに限定する。ローカル検証を主とし、CIは必須ゲートではなく補助確認として扱う。
 - `main`へのforce pushとブランチ削除はGitHub Rulesetで禁止する。
 - Raspberry Pi側は`git pull`で反映し、実機固有設定はGitへ含めない。
 - 定期実行はsystemd timerのみを使用し、cronと併用しない。

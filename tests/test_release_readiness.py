@@ -108,12 +108,21 @@ def test_ci_runs_required_checks_without_production_actions() -> None:
 
     required = [
         "pull_request:",
-        "branches:",
+        "workflow_dispatch:",
+        "concurrency:",
+        "cancel-in-progress: true",
         'python-version: "3.13"',
-        "python scripts/check_version.py --root .",
-        "ruff check .",
-        "ruff format --check .",
-        "pytest -q",
+        "astral-sh/setup-uv@",
+        'version: "0.11.32"',
+        "enable-cache: true",
+        "cache-dependency-glob: uv.lock",
+        "uv sync --locked --extra web --extra dev",
+        "uv run python scripts/check_version.py --root .",
+        "uv run ruff check .",
+        "uv run ruff format --check .",
+        "uv run pytest -q",
+        "cache: npm",
+        "cache-dependency-path: frontend/package-lock.json",
         "npm ci",
         "npm run build",
     ]
@@ -121,6 +130,7 @@ def test_ci_runs_required_checks_without_production_actions() -> None:
         assert text in workflow
 
     forbidden = [
+        "push:",
         "scripts/deploy.sh",
         "KOT_TOKEN",
         "SLACK_BOT_TOKEN",
@@ -137,18 +147,25 @@ def test_documentation_matches_ci_and_main_protection_rules() -> None:
     checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
     for text in [
-        "CI / verify",
         "squash merge",
         "force push",
         "Pull Request",
+        "必須ステータスチェックには設定せず",
     ]:
         assert text in readme
+
+    for text in [
+        "squash merge",
+        "force push",
+        "必須ゲートではなく補助確認",
+    ]:
         assert text in operations
 
     for text in [
-        "CI / verify",
+        "CI結果を確認",
         "squash merge",
         "Closes #Issue番号",
+        "CIはmergeの必須条件ではない",
     ]:
         assert text in checklist
 

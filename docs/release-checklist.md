@@ -19,10 +19,11 @@ threshold、weekly、healthの通知条件・実行時刻・本番`employeeKey.c
 ```powershell
 cd D:\_dev\division-overtime
 
-python .\scripts\check_version.py --root .
-ruff check .
-ruff format --check .
-pytest -q
+uv sync --frozen --extra web --extra dev
+uv run python .\scripts\check_version.py --root .
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
 
 cd frontend
 npm ci
@@ -43,11 +44,11 @@ git status
 ## Pull RequestとCI確認
 
 - Pull Request本文に`Closes #Issue番号`がある
-- GitHub Actionsの必須チェック`CI / verify`が成功している
+- GitHub ActionsのCI結果を確認している
 - マージ方式がsquash mergeである
 - マージ後の`main`と`origin/main`が一致している
 
-CIはローカル検証の代替ではない。Windows側の事前検証とGitHub Actionsの両方が成功してからRaspberry Piへ反映する。
+ローカル検証を主たる品質確認とし、CIはクリーン環境での補助確認として扱う。CIはmergeの必須条件ではないが、失敗している場合は原因を確認し、未解決のままRaspberry Piへ反映しない。
 
 ## Raspberry Piへの反映
 
