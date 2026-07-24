@@ -661,7 +661,7 @@ Windows側では、リポジトリルートから次の1コマンドを実行す
 .\scripts\verify.ps1
 ```
 
-このスクリプトはuv同期、バージョン整合性、Ruff、pytest、frontendの依存導入とbuild、`git diff --check`を順番に実行する。失敗した工程で停止し、終了時は呼び出し元ディレクトリへ戻る。commit、push、deploy、本番API接続は行わない。
+このスクリプトはuv同期、バージョン整合性、Ruff、pytest、frontendの依存導入・lint・test・build、`git diff --check`を順番に実行する。失敗した工程で停止し、終了時は呼び出し元ディレクトリへ戻る。commit、push、deploy、本番API接続は行わない。
 
 ## 更新手順
 
@@ -707,6 +707,25 @@ sudo systemctl daemon-reload
 6. 最終実行日時と新規・更新・無効化件数を確認する
 
 実行中の再実行はHTTP 409で拒否される。08:30〜10:00および17:30〜18:30はHTTP 423で拒否される。同期前バックアップとCSVの原子的再生成は既存のKOT同期サービスが行う。threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する。
+
+## frontend品質確認
+
+frontendの静的チェックとコンポーネントテストはWindowsローカルを主とし、GitHub Actionsをクリーン環境での補助確認とする。
+
+```powershell
+cd frontend
+npm ci
+npm run lint
+npm run test
+npm run build
+```
+
+- `npm run lint`: Oxlintによる静的チェック。自動修正は行わない
+- `npm run test`: Vitest / Testing Libraryによる単発テスト
+- `npm run test:watch`: 開発中の監視実行専用
+- `npm run build`: TypeScript型チェックとVite build
+
+初期テストは未ログイン時の管理者ログイン画面を対象とする。網羅率を目的にせず、通知履歴やUI機能追加時に代表的な回帰テストを段階的に追加する。
 
 ## frontendの開発確認用dist配信
 

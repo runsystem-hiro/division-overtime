@@ -76,6 +76,16 @@ try {
         -Arguments @("ci")
 
     Invoke-ExternalCommand `
+        -Label "Run frontend lint" `
+        -Command "npm" `
+        -Arguments @("run", "lint")
+
+    Invoke-ExternalCommand `
+        -Label "Run frontend tests" `
+        -Command "npm" `
+        -Arguments @("run", "test")
+
+    Invoke-ExternalCommand `
         -Label "Build frontend" `
         -Command "npm" `
         -Arguments @("run", "build")

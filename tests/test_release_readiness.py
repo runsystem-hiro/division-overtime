@@ -269,3 +269,43 @@ def test_frontend_deployment_script_is_limited_and_safe() -> None:
 
     assert frontend["engines"]["node"] == ">=20.19.0 <25"
     assert frontend["engines"]["npm"] == ">=9.2.0"
+
+
+def test_frontend_quality_checks_are_configured() -> None:
+    frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+    verify_script = (PROJECT_ROOT / "scripts/verify.ps1").read_text(encoding="utf-8")
+    ci = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+
+    assert frontend["scripts"]["lint"].startswith("oxlint ")
+    assert frontend["scripts"]["test"] == "vitest run"
+    assert frontend["scripts"]["test:watch"] == "vitest"
+
+    for dependency in [
+        "oxlint",
+        "vitest",
+        "@testing-library/react",
+        "@testing-library/jest-dom",
+        "jsdom",
+    ]:
+        assert dependency in frontend["devDependencies"]
+
+    for path in [
+        "frontend/vitest.config.ts",
+        "frontend/tests/setup.ts",
+        "frontend/tests/App.test.tsx",
+    ]:
+        assert (PROJECT_ROOT / path).is_file()
+
+    for text in [
+        '"run", "lint"',
+        '"run", "test"',
+        '"run", "build"',
+    ]:
+        assert text in verify_script
+
+    for text in ["npm run lint", "npm run test", "npm run build"]:
+        assert text in ci
+        assert text in readme
+        assert text in operations
