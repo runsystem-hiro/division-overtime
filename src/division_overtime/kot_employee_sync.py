@@ -219,6 +219,8 @@ class KotEmployeeSyncService:
                 action = "disable" if kot.resignation_date else "create"
                 differences.append(SyncDifference(code, action, None, proposed, warnings))
                 continue
+            if kot.resignation_date and not local.is_enabled:
+                continue
             changed_fields = self._changed_fields(
                 local,
                 kot,
