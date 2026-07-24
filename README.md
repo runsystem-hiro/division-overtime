@@ -614,7 +614,7 @@ division-overtime-web
 
 - Windows開発環境とGitHub ActionsはNode.js 22を推奨
 - Raspberry Pi本番は既存のNode.js 20.19.2 / npm 9.2.0を継続利用
-- frontendの対応範囲はNode.js 20.19以上22系まで
+- frontendの対応範囲はNode.js 20.19以上24系まで
 - 正式リリースはRaspberry Pi上の`scripts/deploy.sh`で`npm ci`と`npm run build`を実行
 - Windowsでbuildしたdistの配信は、開発中のfrontend実機確認に限定
 
@@ -625,10 +625,14 @@ Node.js更新と正式リリース方式の変更は同時に行わず、Raspber
 ```powershell
 cd frontend
 npm ci
+npm run lint
+npm run test
 npm run build
 cd ..
 division-overtime-web
 ```
+
+frontendの品質確認にはOxlintとVitest / Testing Libraryを使用します。`npm run test:watch`は開発中の監視実行専用で、PR前の標準検証では単発実行の`npm run test`を使用します。
 
 `frontend/dist/index.html`が存在する場合、FastAPIがSPAと`/assets`を配信します。未ビルドの場合もAPIは起動し、`/`はHTTP 503と`frontend_not_built`を返します。
 
@@ -773,7 +777,7 @@ cd division-overtime
 .\scripts\verify.ps1
 ```
 
-`.\scripts\verify.ps1`は、uv同期、バージョン整合性、Ruff、pytest、frontend build、`git diff --check`を順番に実行します。失敗した工程で停止し、実行後は呼び出し元ディレクトリへ戻ります。
+`.\scripts\verify.ps1`は、uv同期、バージョン整合性、Ruff、pytest、frontend lint・test・build、`git diff --check`を順番に実行します。失敗した工程で停止し、実行後は呼び出し元ディレクトリへ戻ります。
 
 個別の確認や問題の切り分けでは、従来どおり`uv sync`、`uv run`、`npm`を直接実行できます。`uv sync`はプロジェクト直下の`.venv`を作成・更新します。通常は仮想環境を手動で有効化せず、`uv run`でコマンドを実行します。
 
