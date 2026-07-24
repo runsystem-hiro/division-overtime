@@ -62,6 +62,7 @@ def test_generate_employee_csv_records_result_and_replaces_atomically(tmp_path):
     assert result.backup_path is not None
     assert result.backup_path.parent == tmp_path / "backups" / "employee-csv"
     assert result.backup_path.read_text(encoding="utf-8") == "existing"
+    assert result.removed_backup_count == 0
     assert load_employees(path)[0].code == "00001"
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
 
@@ -104,6 +105,7 @@ def test_generate_employee_csv_initial_generation_has_no_backup(tmp_path):
     )
 
     assert result.backup_path is None
+    assert result.removed_backup_count == 0
     assert not (tmp_path / "backups").exists()
     assert load_employees(path)[0].code == "00001"
 
@@ -127,3 +129,50 @@ def test_generate_employee_csv_backup_failure_preserves_existing_csv(tmp_path, m
 
     assert path.read_text(encoding="utf-8") == "existing"
     assert list(tmp_path.glob(".employeeKey.csv.*.tmp")) == []
+
+
+def test_employee_csv_backup_retention_keeps_latest_thirty(tmp_path):
+    from division_overtime.employees import _prune_employee_csv_backups
+
+    backup_dir = tmp_path / "backups" / "employee-csv"
+    backup_dir.mkdir(parents=True)
+    for index in range(31):
+        (backup_dir / f"employeeKey_202607{index + 1:02d}_100000000000.csv").write_text(
+            str(index), encoding="utf-8"
+        )
+    unrelated = backup_dir / "manual-backup.csv"
+    unrelated.write_text("keep", encoding="utf-8")
+    nested = backup_dir / "employeeKey_20260701_100000000000.csv.d"
+    nested.mkdir()
+
+    removed = _prune_employee_csv_backups(backup_dir, tmp_path / "employeeKey.csv")
+
+    retained = sorted(backup_dir.glob("employeeKey_*.csv"))
+    assert removed == 1
+    assert len(retained) == 30
+    assert retained[0].name == "employeeKey_20260702_100000000000.csv"
+    assert unrelated.exists()
+    assert nested.exists()
+
+
+def test_generate_employee_csv_prune_failure_keeps_generated_csv(tmp_path, monkeypatch, caplog):
+    from division_overtime.employees import generate_employee_csv
+
+    path = tmp_path / "employeeKey.csv"
+    path.write_text("existing", encoding="utf-8")
+
+    def fail_prune(*_args, **_kwargs):
+        raise OSError("simulated prune failure")
+
+    monkeypatch.setattr("division_overtime.employees._prune_employee_csv_backups", fail_prune)
+
+    result = generate_employee_csv(
+        path,
+        [Employee("00001", "key", "田中", "太郎", "", "300")],
+    )
+
+    assert result.removed_backup_count == 0
+    assert load_employees(path)[0].code == "00001"
+    assert result.backup_path is not None
+    assert result.backup_path.exists()
+    assert "employee_csv_backup_prune=failed" in caplog.text

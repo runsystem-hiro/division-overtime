@@ -4,6 +4,8 @@
 
 ### Added
 
+- `employeeKey.csv`置換前バックアップを最新30世代に制限する世代管理
+
 - `employeeKey.csv`置換前バックアップを`data/backups/employee-csv/`へ所有者限定権限で保存
 
 - `employeeKey.csv`生成結果（成否・生成日時・出力件数・出力先）をCLI・Web API・ログへ記録
