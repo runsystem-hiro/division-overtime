@@ -708,6 +708,51 @@ sudo systemctl daemon-reload
 
 実行中の再実行はHTTP 409で拒否される。08:30〜10:00および17:30〜18:30はHTTP 423で拒否される。同期前バックアップとCSVの原子的再生成は既存のKOT同期サービスが行う。threshold、weekly、healthは引き続き`data/employeeKey.csv`を参照する。
 
+## frontendの開発確認用dist配信
+
+WindowsとGitHub ActionsはNode.js 22を推奨する。Raspberry Pi本番はNode.js 20.19.2 / npm 9.2.0を継続利用し、正式リリースでは従来どおりPi上の`scripts/deploy.sh`でfrontendをbuildする。
+
+APIやPython処理を変更せず、frontendだけを実機確認する場合は、Windowsのcleanな作業ツリーから実行する。
+
+```powershell
+.\scripts\deploy-frontend.ps1 -Target <SSH接続先>
+```
+
+任意の配置先を使う場合だけ`-RemoteRoot`を指定する。
+
+```powershell
+.\scripts\deploy-frontend.ps1 `
+  -Target <SSH接続先> `
+  -RemoteRoot /home/pi/division-overtime
+```
+
+安全仕様:
+
+- ローカルとRaspberry Piの`VERSION`が一致しない場合は開始しない
+- 作業ツリーに未コミット変更がある場合は開始しない
+- `frontend/dist/index.html`と`assets/`の生成を確認してから転送する
+- 転送対象はfrontend build成果物だけとする
+- 既存distを`var/backups/frontend-dist/<timestamp>/dist`へ退避する
+- 同一ファイルシステム上の一時ディレクトリから`mv`して切り替える
+- バックアップは最新5世代を保持する
+- healthのversion不一致または`frontendBuilt=false`では失敗とする
+- 切替後のhealth確認に失敗した場合は直前のdistへ自動復旧する
+- `.env`、SQLite、実社員CSV、KOT設定、通知service / timerは変更しない
+
+手動ロールバックが必要な場合:
+
+```bash
+cd /home/pi/division-overtime
+sudo systemctl stop division-overtime-web.service
+stamp="$(date +%Y%m%d_%H%M%S)"
+mv frontend/dist "frontend/dist.failed-$stamp"
+cp -a var/backups/frontend-dist/<timestamp>/dist frontend/dist
+sudo systemctl start division-overtime-web.service
+curl -fsS http://127.0.0.1:8000/api/system/health
+```
+
+この手順は開発中のfrontend実機確認専用である。正式リリース、Python依存更新、API変更、systemd変更を含む反映には使用しない。
+
 ## v2.0系列 デプロイと復旧
 
 リリース前後の総合確認は[`docs/release-checklist.md`](release-checklist.md)を使用する。

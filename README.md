@@ -610,17 +610,47 @@ $env:WEB_PORT = "8000"
 division-overtime-web
 ```
 
+### Node.js運用方針
+
+- Windows開発環境とGitHub ActionsはNode.js 22を推奨
+- Raspberry Pi本番は既存のNode.js 20.19.2 / npm 9.2.0を継続利用
+- frontendの対応範囲はNode.js 20.19以上22系まで
+- 正式リリースはRaspberry Pi上の`scripts/deploy.sh`で`npm ci`と`npm run build`を実行
+- Windowsでbuildしたdistの配信は、開発中のfrontend実機確認に限定
+
+Node.js更新と正式リリース方式の変更は同時に行わず、Raspberry Piでの動作確認後に別Issueで判断します。
+
 ### 本番用ビルドと同一オリジン配信
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run build
 cd ..
 division-overtime-web
 ```
 
 `frontend/dist/index.html`が存在する場合、FastAPIがSPAと`/assets`を配信します。未ビルドの場合もAPIは起動し、`/`はHTTP 503と`frontend_not_built`を返します。
+
+### 開発中のfrontend実機確認
+
+APIやPython処理を変更せず、frontendだけをRaspberry Piで確認する場合は、cleanな作業ツリーから次を実行します。`<SSH接続先>`にはSSH configのHost名または`pi@ホスト名`を指定します。
+
+```powershell
+.\scripts\deploy-frontend.ps1 -Target <SSH接続先>
+```
+
+このスクリプトは次を行います。
+
+1. ローカルとRaspberry Piの`VERSION`一致を確認
+2. `npm ci`と`npm run build`を実行
+3. `frontend/dist`だけをRaspberry Piへ転送
+4. 既存distを`var/backups/frontend-dist/`へ退避
+5. 一時ディレクトリからdistを原子的に切り替え
+6. Webサービスを再起動し、`/api/system/health`のversionと`frontendBuilt=true`を確認
+7. 失敗時は直前のdistへ自動復旧
+
+バックアップは最新5世代を保持します。`.env`、SQLite、実社員CSV、KOT設定、通知service / timerには触れません。正式リリースではこのスクリプトを使用せず、従来どおりRaspberry Piで`./scripts/deploy.sh`を実行します。
 
 主要エンドポイント:
 

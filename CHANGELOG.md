@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Windowsで検証済みの`frontend/dist`をRaspberry Piへ安全に反映する開発確認用`scripts/deploy-frontend.ps1`を追加
+
+### Changed
+
+- WindowsとCIはNode.js 22を推奨し、Raspberry Piは既存のNode.js 20.19.2を継続利用するfrontend運用方針を明文化
+- 正式リリースは従来どおりRaspberry Pi上の`scripts/deploy.sh`でbuildし、dist配信は開発中の実機確認に限定
+
 ## [2.0.3] - 2026-07-24
 
 ### Added

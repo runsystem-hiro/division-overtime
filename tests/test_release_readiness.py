@@ -228,3 +228,44 @@ def test_windows_local_verify_script_is_safe_and_documented() -> None:
 
     for document in [readme, operations, checklist]:
         assert ".\\scripts\\verify.ps1" in document
+
+
+def test_frontend_deployment_script_is_limited_and_safe() -> None:
+    script = (PROJECT_ROOT / "scripts/deploy-frontend.ps1").read_text(encoding="utf-8")
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
+
+    for text in [
+        "[Parameter(Mandatory)]",
+        "[string]$Target",
+        "git status --porcelain",
+        "npm",
+        '@("ci")',
+        '@("run", "build")',
+        "frontend/dist/index.html",
+        "var/backups/frontend-dist",
+        "frontendBuilt",
+        "/api/system/health",
+        "Version mismatch",
+        "Restoring the previous dist",
+    ]:
+        assert text in script
+
+    for forbidden in [
+        "pip install",
+        "division-overtime-threshold",
+        "division-overtime-weekly",
+        "division-overtime-health.timer",
+        "data/employeeKey.csv",
+        "var/division_overtime.sqlite3",
+    ]:
+        assert forbidden not in script
+
+    for document in [readme, operations]:
+        assert ".\\scripts\\deploy-frontend.ps1" in document
+        assert "正式リリース" in document
+        assert "scripts/deploy.sh" in document
+
+    assert frontend["engines"]["node"] == ">=20.19.0 <25"
+    assert frontend["engines"]["npm"] == ">=9.2.0"
