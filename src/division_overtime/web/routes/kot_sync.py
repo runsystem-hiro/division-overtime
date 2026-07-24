@@ -39,7 +39,7 @@ class ApplyRequest(BaseModel):
 
 def get_service(request: Request) -> KotEmployeeSyncService:
     config: WebConfig = request.app.state.web_config
-    if not config.kot_enabled:
+    if not (config.kot_enabled or config.kot_mock_enabled):
         raise HTTPException(
             status_code=403, detail="KOT employee synchronization is disabled in this environment"
         )
@@ -69,7 +69,7 @@ def preview(
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> dict[str, object]:
     now = datetime.now(config.timezone)
-    if _is_api_blocked(now):
+    if not config.kot_mock_enabled and _is_api_blocked(now):
         raise HTTPException(
             status_code=423,
             detail=("KING OF TIME API is unavailable during 08:30-10:00 and 17:30-18:30 JST"),
@@ -102,7 +102,7 @@ def apply(
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> dict[str, object]:
     now = datetime.now(config.timezone)
-    if _is_api_blocked(now):
+    if not config.kot_mock_enabled and _is_api_blocked(now):
         raise HTTPException(
             status_code=423,
             detail=("KING OF TIME API is unavailable during 08:30-10:00 and 17:30-18:30 JST"),
@@ -135,6 +135,8 @@ def status(
     history = service.history(limit=1)
     return {
         "running": _operation_lock.locked(),
-        "blocked": _is_api_blocked(datetime.now(config.timezone)),
+        "blocked": (
+            False if config.kot_mock_enabled else _is_api_blocked(datetime.now(config.timezone))
+        ),
         "lastRun": history[0] if history else None,
     }

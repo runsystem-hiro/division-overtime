@@ -730,3 +730,9 @@ python -m division_overtime.web
 開発用通知先は全部署共通の`ALL`を`h-tanaka@runsystem.co.jp`だけに固定し、
 個人宛て通知を無効化しています。開発環境でも通知コマンドを実行する前に、
 `DIVISION_OVERTIME_ENV=development`であることを確認してください。
+
+開発環境のKOT同期画面では、KOT本番APIへ接続せず固定のダミーKOT社員データを使用します。
+`KOTから取得`の代わりに`ダミーKOTから取得`と表示され、`create`、`update`、
+`reactivate`、`disable`、`unchanged`を各1件ずつ確認できます。選択した差分の反映先は、
+開発用SQLiteと`data/development/employeeKey.csv`だけです。再現状態へ戻す場合は、
+`python .\scripts\seed_development_data.py --root .`を再実行してください。
