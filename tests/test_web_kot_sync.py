@@ -63,9 +63,14 @@ def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path, monkeyp
     app = create_app(config)
     db = Database(config.database_path)
     EmployeeRepository(db).upsert_many(
-        [Employee("00001", "old", "田中", "太郎", "", "300", "営業部")],
+        [
+            Employee("00001", "old", "田中", "太郎", "", "300", "営業部"),
+            Employee("00003", "key-3", "鈴木", "次郎", "", "300", "営業部"),
+        ],
         datetime.now(ZoneInfo("Asia/Tokyo")),
     )
+    with db.transaction() as conn:
+        conn.execute("UPDATE employees SET is_enabled=0 WHERE code='00003'")
     app.state.kot_employee_sync_service = KotEmployeeSyncService(
         db, config.employee_csv, FakeClient(), ("300", "301")
     )
@@ -79,8 +84,11 @@ def test_preview_requires_auth_and_never_exposes_kot_key(tmp_path: Path, monkeyp
     response = client.post("/api/kot-sync/preview")
 
     assert response.status_code == 200
+    body = response.json()
     assert "hidden-key" not in response.text
-    assert "key" not in response.json()["differences"][0]["proposed"]
+    assert "key" not in body["differences"][0]["proposed"]
+    assert body["counts"]["disable"] == 0
+    assert "00003" not in {item["code"] for item in body["differences"]}
 
 
 def test_kot_sync_blocked_time_detection():

@@ -206,8 +206,11 @@ class KotEmployeeSyncService:
             local = current.get(code)
             kot = remote.get(code)
             if kot is None and local is not None:
-                action = "disable" if local.is_enabled else "unchanged"
-                differences.append(SyncDifference(code, action, self._local_dict(local), None, ()))
+                if not local.is_enabled:
+                    continue
+                differences.append(
+                    SyncDifference(code, "disable", self._local_dict(local), None, ())
+                )
                 continue
             assert kot is not None
             warnings = tuple(self._warnings(kot))
