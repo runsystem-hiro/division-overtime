@@ -43,7 +43,10 @@ def test_verify_and_deploy_enforce_version_checks() -> None:
     deploy = (PROJECT_ROOT / "scripts/deploy.sh").read_text(encoding="utf-8")
 
     assert 'scripts/check_version.py --root "$PROJECT_ROOT"' in verify
-    assert 'EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"' in deploy
+    pull_position = deploy.index("git pull --ff-only")
+    version_position = deploy.index('EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"')
+
+    assert version_position > pull_position
     assert 'if [[ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]' in deploy
     assert "Deployment completed. version=$ACTUAL_VERSION" in deploy
 
