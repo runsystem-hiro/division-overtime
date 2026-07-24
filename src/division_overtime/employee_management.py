@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -43,6 +44,13 @@ class EmployeeSaveResult:
     csv: EmployeeCsvGenerationResult
 
 
+@dataclass(frozen=True, slots=True)
+class EmployeeDeleteResult:
+    employee: ManagedEmployee
+    csv: EmployeeCsvGenerationResult
+    backup_path: Path
+
+
 class EmployeeManagementService:
     """Keep SQLite employee data and the legacy employee CSV synchronized."""
 
@@ -84,6 +92,59 @@ class EmployeeManagementService:
         if code != change.code:
             raise EmployeeManagementError("Employee code cannot be changed.")
         return self._save(change, updated_at, create=False)
+
+    def delete_employee_with_result(self, code: str, deleted_at: datetime) -> EmployeeDeleteResult:
+        with self._write_lock:
+            employee = self.repository.get_managed(code)
+            if employee is None:
+                raise EmployeeNotFoundError(f"Employee not found: {code}")
+
+            backup_path = self._create_delete_backup(deleted_at)
+            original_csv = self.employee_csv.read_bytes() if self.employee_csv.exists() else None
+            csv_replaced = False
+            try:
+                with self.database.transaction() as conn:
+                    self.repository.delete_managed(code, conn=conn)
+                    enabled_employees = self.repository.list_enabled(conn=conn)
+                    if not enabled_employees:
+                        raise EmployeeManagementError(
+                            "At least one enabled employee is required; "
+                            "employee CSV was not changed."
+                        )
+                    csv_result = generate_employee_csv(
+                        self.employee_csv, enabled_employees, generated_at=deleted_at
+                    )
+                    csv_replaced = True
+                return EmployeeDeleteResult(
+                    employee=employee, csv=csv_result, backup_path=backup_path
+                )
+            except Exception:
+                if csv_replaced:
+                    if original_csv is None:
+                        self.employee_csv.unlink(missing_ok=True)
+                    else:
+                        self.employee_csv.write_bytes(original_csv)
+                raise
+
+    def _create_delete_backup(self, deleted_at: datetime) -> Path:
+        backup_root = self.database.path.parent / "backups" / "employee-delete"
+        backup_path = backup_root / deleted_at.strftime("%Y%m%d_%H%M%S_%f")
+        if backup_path.exists():
+            raise EmployeeManagementError(f"Backup destination already exists: {backup_path}")
+        try:
+            backup_path.mkdir(parents=True, mode=0o700)
+            backup_path.chmod(0o700)
+            database_backup = backup_path / self.database.path.name
+            self.database.backup_to(database_backup)
+            database_backup.chmod(0o600)
+            if self.employee_csv.exists():
+                csv_backup = backup_path / self.employee_csv.name
+                shutil.copy2(self.employee_csv, csv_backup)
+                csv_backup.chmod(0o600)
+            return backup_path
+        except Exception as exc:
+            shutil.rmtree(backup_path, ignore_errors=True)
+            raise EmployeeManagementError(f"Employee delete backup failed: {exc}") from exc
 
     def _save(
         self, change: EmployeeChange, updated_at: datetime, *, create: bool

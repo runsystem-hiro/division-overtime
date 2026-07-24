@@ -89,6 +89,12 @@ type EmployeeWriteResult = {
   };
 };
 
+type EmployeeDeleteResult = {
+  deletedEmployee: Employee;
+  csv: EmployeeWriteResult["csv"];
+  backupPath: string;
+};
+
 type EmployeeConsistency = {
   status: "ok" | "mismatch";
   databaseEmployees: number;
@@ -395,6 +401,39 @@ export function App() {
     await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
   }
 
+  async function deleteEmployee() {
+    if (!editing) return;
+    const message = [
+      `社員 ${editing.code} ${editing.fullName} を社員管理から削除します。`,
+      "削除後はemployeeKey.csvから除外されます。",
+      "KOTに在籍中の場合は、次回同期で新規候補として再表示されることがあります。",
+    ].join("\n");
+    if (!window.confirm(message)) return;
+
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+    const response = await fetch(`/api/employees/${editing.code}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    setSubmitting(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    const result = (await response.json()) as EmployeeDeleteResult;
+    setEditing(undefined);
+    setSyncPreview(null);
+    setSelectedSyncCodes([]);
+    setNotice(
+      `社員 ${result.deletedEmployee.code} ${result.deletedEmployee.fullName} を削除しました。`
+      + ` employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`
+      + ` 削除前バックアップを ${result.backupPath} へ保存しました。`,
+    );
+    await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
+  }
+
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -694,7 +733,12 @@ export function App() {
               </div>
               <p className="security-note">KOT Keyは保存専用です。画面・APIレスポンスには表示されません。</p>
               {error && <p className="error-message" role="alert">{error}</p>}
-              <div className="form-actions"><button className="button-secondary" type="button" onClick={() => setEditing(undefined)} disabled={submitting}>キャンセル</button><button className="button-primary" type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存してCSV再生成"}</button></div>
+              <div className="form-actions">
+                {editing && <button className="button-danger" type="button" onClick={deleteEmployee} disabled={submitting}>{submitting ? "処理中…" : "社員を削除"}</button>}
+                <span className="form-actions-spacer" />
+                <button className="button-secondary" type="button" onClick={() => setEditing(undefined)} disabled={submitting}>キャンセル</button>
+                <button className="button-primary" type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存してCSV再生成"}</button>
+              </div>
             </form>
           </section>
         </div>
