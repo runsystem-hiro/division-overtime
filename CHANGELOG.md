@@ -9,6 +9,7 @@
 
 ### Changed
 
+- TypeScriptを5.7系から6.0系へ更新し、TypeScript 7移行前の型チェック基盤を整備
 - Viteを6.4系から8.1系へ、`@vitejs/plugin-react`を6系へ更新
 - React / React DOMを18.3系から19.2系へ更新し、型定義をReact 19対応へ変更
 - Windowsローカル検証とGitHub ActionsのFrontend jobでlint、test、buildを順番に実行するよう変更
