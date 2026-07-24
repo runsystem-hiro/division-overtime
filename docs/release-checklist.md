@@ -40,6 +40,15 @@ git status
 - `git diff --check`が無出力
 - 作業ツリーがclean
 
+## Pull RequestとCI確認
+
+- Pull Request本文に`Closes #Issue番号`がある
+- GitHub Actionsの必須チェック`CI / verify`が成功している
+- マージ方式がsquash mergeである
+- マージ後の`main`と`origin/main`が一致している
+
+CIはローカル検証の代替ではない。Windows側の事前検証とGitHub Actionsの両方が成功してからRaspberry Piへ反映する。
+
 ## Raspberry Piへの反映
 
 ```bash

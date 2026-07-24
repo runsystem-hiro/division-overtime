@@ -129,3 +129,25 @@ def test_ci_runs_required_checks_without_production_actions() -> None:
     ]
     for text in forbidden:
         assert text not in workflow
+
+
+def test_documentation_matches_ci_and_main_protection_rules() -> None:
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
+
+    for text in [
+        "CI / verify",
+        "squash merge",
+        "force push",
+        "Pull Request",
+    ]:
+        assert text in readme
+        assert text in operations
+
+    for text in [
+        "CI / verify",
+        "squash merge",
+        "Closes #Issue番号",
+    ]:
+        assert text in checklist
