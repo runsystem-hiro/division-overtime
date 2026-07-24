@@ -1,0 +1,384 @@
+[1mdiff --git a/CHANGELOG.md b/CHANGELOG.md[m
+[1mindex 74b8319..5673bae 100644[m
+[1m--- a/CHANGELOG.md[m
+[1m+++ b/CHANGELOG.md[m
+[36m@@ -3,6 +3,7 @@[m
+ ## [Unreleased][m
+ [m
+ - 開発環境のKOT本番API接続を停止し、Viteホットリロードを利用するローカル開発手順を追加[m
+[32m+[m[32m- 開発環境専用のダミーKOT同期プレビューを追加し、全同期判定を本番APIなしで確認可能に変更[m
+ [m
+ ### Added[m
+ [m
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 9d5a137..dbfa41e 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -730,3 +730,9 @@[m [mpython -m division_overtime.web[m
+ 開発用通知先は全部署共通の`ALL`を`h-tanaka@runsystem.co.jp`だけに固定し、[m
+ 個人宛て通知を無効化しています。開発環境でも通知コマンドを実行する前に、[m
+ `DIVISION_OVERTIME_ENV=development`であることを確認してください。[m
+[32m+[m
+[32m+[m[32m開発環境のKOT同期画面では、KOT本番APIへ接続せず固定のダミーKOT社員データを使用します。[m
+[32m+[m[32m`KOTから取得`の代わりに`ダミーKOTから取得`と表示され、`create`、`update`、[m
+[32m+[m[32m`reactivate`、`disable`、`unchanged`を各1件ずつ確認できます。選択した差分の反映先は、[m
+[32m+[m[32m開発用SQLiteと`data/development/employeeKey.csv`だけです。再現状態へ戻す場合は、[m
+[32m+[m[32m`python .\scripts\seed_development_data.py --root .`を再実行してください。[m
+[1mdiff --git a/config/development.toml b/config/development.toml[m
+[1mindex c45b01b..287d34e 100644[m
+[1m--- a/config/development.toml[m
+[1m+++ b/config/development.toml[m
+[36m@@ -7,6 +7,7 @@[m [mlog_level = "DEBUG"[m
+ [m
+ [king_of_time][m
+ enabled = false[m
+[32m+[m[32mmock_enabled = true[m
+ [m
+ [notifications][m
+ enable_self_notify = false[m
+[1mdiff --git a/frontend/src/App.tsx b/frontend/src/App.tsx[m
+[1mindex 71ccf3c..92c85ab 100644[m
+[1m--- a/frontend/src/App.tsx[m
+[1m+++ b/frontend/src/App.tsx[m
+[36m@@ -8,6 +8,7 @@[m [mtype Health = {[m
+   timezone: string;[m
+   environment: string;[m
+   kotSyncEnabled: boolean;[m
+[32m+[m[32m  kotSyncMock: boolean;[m
+ };[m
+ [m
+ type CurrentUser = {[m
+[36m@@ -589,7 +590,8 @@[m [mexport function App() {[m
+             <p className="eyebrow">KING OF TIME</p>[m
+             <h2>社員同期</h2>[m
+             <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>[m
+[31m-            {health && !health.kotSyncEnabled && <p className="muted">開発環境ではKOT本番APIへの接続を停止しています。</p>}[m
+[32m+[m[32m            {health?.kotSyncMock && <p className="muted">開発用ダミーKOTデータを使用します。本番APIには接続しません。</p>}[m
+[32m+[m[32m            {health && !health.kotSyncEnabled && <p className="muted">この環境ではKOT同期を停止しています。</p>}[m
+             {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}[m
+             {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}[m
+             {syncStatus?.lastRun && ([m
+[36m@@ -600,7 +602,7 @@[m [mexport function App() {[m
+             )}[m
+           </div>[m
+           <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={!health?.kotSyncEnabled || syncing || syncStatus?.running || syncStatus?.blocked}>[m
+[31m-            {!health?.kotSyncEnabled ? "開発環境では無効" : syncing || syncStatus?.running ? "実行中…" : "KOTから取得"}[m
+[32m+[m[32m            {!health?.kotSyncEnabled ? "この環境では無効" : syncing || syncStatus?.running ? "実行中…" : health.kotSyncMock ? "ダミーKOTから取得" : "KOTから取得"}[m
+           </button>[m
+         </div>[m
+         {syncPreview && ([m
+[1mdiff --git a/scripts/seed_development_data.py b/scripts/seed_development_data.py[m
+[1mindex 6d7c8f3..82df52f 100644[m
+[1m--- a/scripts/seed_development_data.py[m
+[1m+++ b/scripts/seed_development_data.py[m
+[36m@@ -8,7 +8,8 @@[m [mfrom pathlib import Path[m
+ [m
+ from division_overtime.config import ConfigError, _load_toml_config[m
+ from division_overtime.database import Database[m
+[31m-from division_overtime.employee_management import EmployeeChange, EmployeeManagementService[m
+[32m+[m[32mfrom division_overtime.development_data import development_employees[m
+[32m+[m[32mfrom division_overtime.employee_management import EmployeeManagementService[m
+ [m
+ [m
+ def _parser() -> argparse.ArgumentParser:[m
+[36m@@ -36,61 +37,7 @@[m [mdef main() -> int:[m
+     database.initialize()[m
+     service = EmployeeManagementService(database, employee_csv)[m
+     now = datetime.now().astimezone()[m
+[31m-[m
+[31m-    employees = [[m
+[31m-        EmployeeChange([m
+[31m-            "90001",[m
+[31m-            "山田",[m
+[31m-            "太郎",[m
+[31m-            "taro.yamada@example.invalid",[m
+[31m-            "156",[m
+[31m-            "営業第一部",[m
+[31m-            1800,[m
+[31m-            True,[m
+[31m-            "",[m
+[31m-            "通常表示確認",[m
+[31m-            "dev-kot-90001",[m
+[31m-        ),[m
+[31m-        EmployeeChange([m
+[31m-            "90002",[m
+[31m-            "佐藤",[m
+[31m-            "花子",[m
+[31m-            "hanako.sato@example.invalid",[m
+[31m-            "158",[m
+[31m-            "開発部",[m
+[31m-            None,[m
+[31m-            True,[m
+[31m-            "",[m
+[31m-            "上限未設定確認",[m
+[31m-            "dev-kot-90002",[m
+[31m-        ),[m
+[31m-        EmployeeChange([m
+[31m-            "90003",[m
+[31m-            "表示確認用長姓",[m
+[31m-            "表示確認用長名",[m
+[31m-            "long-name@example.invalid",[m
+[31m-            "156",[m
+[31m-            "非常に長い部署名称の表示確認部門",[m
+[31m-            1200,[m
+[31m-            True,[m
+[31m-            "",[m
+[31m-            "長い文字列のレイアウト確認",[m
+[31m-            "dev-kot-90003",[m
+[31m-        ),[m
+[31m-        EmployeeChange([m
+[31m-            "90004",[m
+[31m-            "無効",[m
+[31m-            "社員",[m
+[31m-            "disabled@example.invalid",[m
+[31m-            "158",[m
+[31m-            "開発部",[m
+[31m-            1200,[m
+[31m-            False,[m
+[31m-            "開発環境での再有効化確認",[m
+[31m-            "無効社員の表示確認",[m
+[31m-            "dev-kot-90004",[m
+[31m-        ),[m
+[31m-    ][m
+[32m+[m[32m    employees = development_employees()[m
+     for employee in employees:[m
+         service.create_employee(employee, now)[m
+ [m
+[1mdiff --git a/src/division_overtime/web/app.py b/src/division_overtime/web/app.py[m
+[1mindex c3fa093..6f032ab 100644[m
+[1m--- a/src/division_overtime/web/app.py[m
+[1m+++ b/src/division_overtime/web/app.py[m
+[36m@@ -11,6 +11,7 @@[m [mfrom division_overtime.employee_management import EmployeeManagementService[m
+ from division_overtime.kot_employee_sync import KotEmployeeClient, KotEmployeeSyncService[m
+ from division_overtime.web.auth import AuthService[m
+ from division_overtime.web.config import WebConfig, load_web_config[m
+[32m+[m[32mfrom division_overtime.web.development_kot import DevelopmentKotEmployeeSource[m
+ from division_overtime.web.routes.auth import router as auth_router[m
+ from division_overtime.web.routes.employees import router as employees_router[m
+ from division_overtime.web.routes.kot_sync import router as kot_sync_router[m
+[36m@@ -32,7 +33,14 @@[m [mdef create_app(config: WebConfig | None = None) -> FastAPI:[m
+     app.state.employee_management_service = EmployeeManagementService([m
+         database, web_config.employee_csv[m
+     )[m
+[31m-    if web_config.kot_enabled and web_config.kot_token:[m
+[32m+[m[32m    if web_config.environment == "development" and web_config.kot_mock_enabled:[m
+[32m+[m[32m        app.state.kot_employee_sync_service = KotEmployeeSyncService([m
+[32m+[m[32m            database,[m
+[32m+[m[32m            web_config.employee_csv,[m
+[32m+[m[32m            DevelopmentKotEmployeeSource(),[m
+[32m+[m[32m            web_config.kot_sync_division_codes,[m
+[32m+[m[32m        )[m
+[32m+[m[32m    elif web_config.kot_enabled and web_config.kot_token:[m
+         app.state.kot_employee_sync_service = KotEmployeeSyncService([m
+             database,[m
+             web_config.employee_csv,[m
+[1mdiff --git a/src/division_overtime/web/config.py b/src/division_overtime/web/config.py[m
+[1mindex 3051f29..bc04b90 100644[m
+[1m--- a/src/division_overtime/web/config.py[m
+[1m+++ b/src/division_overtime/web/config.py[m
+[36m@@ -42,6 +42,7 @@[m [mclass WebConfig:[m
+     kot_sync_division_codes: tuple[str, ...] = ("156", "158", "300")[m
+     environment: str = "production"[m
+     kot_enabled: bool = True[m
+[32m+[m[32m    kot_mock_enabled: bool = False[m
+ [m
+ [m
+ def _required_env(name: str) -> str:[m
+[36m@@ -156,4 +157,5 @@[m [mdef load_web_config(root: Path | None = None) -> WebConfig:[m
+         kot_sync_division_codes=_division_codes_env("KOT_SYNC_DIVISION_CODES", "156,158,300"),[m
+         environment=os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower(),[m
+         kot_enabled=bool(raw.get("king_of_time", {}).get("enabled", True)),[m
+[32m+[m[32m        kot_mock_enabled=bool(raw.get("king_of_time", {}).get("mock_enabled", False)),[m
+     )[m
+[1mdiff --git a/src/division_overtime/web/routes/kot_sync.py b/src/division_overtime/web/routes/kot_sync.py[m
+[1mindex 6c312f4..ac1a89c 100644[m
+[1m--- a/src/division_overtime/web/routes/kot_sync.py[m
+[1m+++ b/src/division_overtime/web/routes/kot_sync.py[m
+[36m@@ -39,7 +39,7 @@[m [mclass ApplyRequest(BaseModel):[m
+ [m
+ def get_service(request: Request) -> KotEmployeeSyncService:[m
+     config: WebConfig = request.app.state.web_config[m
+[31m-    if not config.kot_enabled:[m
+[32m+[m[32m    if not (config.kot_enabled or config.kot_mock_enabled):[m
+         raise HTTPException([m
+             status_code=403, detail="KOT employee synchronization is disabled in this environment"[m
+         )[m
+[36m@@ -69,7 +69,7 @@[m [mdef preview([m
+     config: Annotated[WebConfig, Depends(get_web_config)],[m
+ ) -> dict[str, object]:[m
+     now = datetime.now(config.timezone)[m
+[31m-    if _is_api_blocked(now):[m
+[32m+[m[32m    if not config.kot_mock_enabled and _is_api_blocked(now):[m
+         raise HTTPException([m
+             status_code=423,[m
+             detail=("KING OF TIME API is unavailable during 08:30-10:00 and 17:30-18:30 JST"),[m
+[36m@@ -102,7 +102,7 @@[m [mdef apply([m
+     config: Annotated[WebConfig, Depends(get_web_config)],[m
+ ) -> dict[str, object]:[m
+     now = datetime.now(config.timezone)[m
+[31m-    if _is_api_blocked(now):[m
+[32m+[m[32m    if not config.kot_mock_enabled and _is_api_blocked(now):[m
+         raise HTTPException([m
+             status_code=423,[m
+             detail=("KING OF TIME API is unavailable during 08:30-10:00 and 17:30-18:30 JST"),[m
+[36m@@ -135,6 +135,8 @@[m [mdef status([m
+     history = service.history(limit=1)[m
+     return {[m
+         "running": _operation_lock.locked(),[m
+[31m-        "blocked": _is_api_blocked(datetime.now(config.timezone)),[m
+[32m+[m[32m        "blocked": ([m
+[32m+[m[32m            False if config.kot_mock_enabled else _is_api_blocked(datetime.now(config.timezone))[m
+[32m+[m[32m        ),[m
+         "lastRun": history[0] if history else None,[m
+     }[m
+[1mdiff --git a/src/division_overtime/web/routes/system.py b/src/division_overtime/web/routes/system.py[m
+[1mindex 9d29d61..14b00bb 100644[m
+[1m--- a/src/division_overtime/web/routes/system.py[m
+[1m+++ b/src/division_overtime/web/routes/system.py[m
+[36m@@ -30,7 +30,8 @@[m [mdef system_health(config: Annotated[WebConfig, Depends(get_web_config)]) -> dict[m
+         "timezone": str(config.timezone),[m
+         "frontendBuilt": config.frontend_dist.is_dir(),[m
+         "environment": config.environment,[m
+[31m-        "kotSyncEnabled": config.kot_enabled,[m
+[32m+[m[32m        "kotSyncEnabled": config.kot_enabled or config.kot_mock_enabled,[m
+[32m+[m[32m        "kotSyncMock": config.kot_mock_enabled,[m
+     }[m
+ [m
+ [m
+[1mdiff --git a/tests/test_web_app.py b/tests/test_web_app.py[m
+[1mindex 7f1ebcf..ebd0fcb 100644[m
+[1m--- a/tests/test_web_app.py[m
+[1m+++ b/tests/test_web_app.py[m
+[36m@@ -54,6 +54,7 @@[m [mdef test_health_and_version_endpoints_are_public(tmp_path):[m
+     assert health.json()["version"] == "1.0.2"[m
+     assert health.json()["environment"] == "production"[m
+     assert health.json()["kotSyncEnabled"] is True[m
+[32m+[m[32m    assert health.json()["kotSyncMock"] is False[m
+     assert version.json() == {"version": "1.0.2"}[m
+ [m
+ [m
+[1mdiff --git a/tests/test_web_config.py b/tests/test_web_config.py[m
+[1mindex b9c3c5e..405de62 100644[m
+[1m--- a/tests/test_web_config.py[m
+[1m+++ b/tests/test_web_config.py[m
+[36m@@ -83,6 +83,7 @@[m [memployee_csv = "data/development/employeeKey.csv"[m
+ [m
+ [king_of_time][m
+ enabled = false[m
+[32m+[m[32mmock_enabled = true[m
+ """.strip(),[m
+         encoding="utf-8",[m
+     )[m
+[36m@@ -95,3 +96,4 @@[m [menabled = false[m
+     assert config.employee_csv == tmp_path / "data/development/employeeKey.csv"[m
+     assert config.environment == "development"[m
+     assert config.kot_enabled is False[m
+[32m+[m[32m    assert config.kot_mock_enabled is True[m
+[1mdiff --git a/tests/test_web_kot_sync.py b/tests/test_web_kot_sync.py[m
+[1mindex 52abd69..1eec8d6 100644[m
+[1m--- a/tests/test_web_kot_sync.py[m
+[1m+++ b/tests/test_web_kot_sync.py[m
+[36m@@ -8,6 +8,8 @@[m [mfrom argon2 import PasswordHasher[m
+ from fastapi.testclient import TestClient[m
+ [m
+ from division_overtime.database import Database[m
+[32m+[m[32mfrom division_overtime.development_data import development_employees[m
+[32m+[m[32mfrom division_overtime.employee_management import EmployeeManagementService[m
+ from division_overtime.employee_repository import EmployeeRepository[m
+ from division_overtime.kot_employee_sync import KotEmployeeSyncService, parse_kot_employees[m
+ from division_overtime.models import Employee[m
+[36m@@ -367,3 +369,94 @@[m [mdef test_api_supports_reactivate_preview_apply_and_status(tmp_path: Path, monkey[m
+     assert applied.json()["counts"]["reactivated"] == 1[m
+     status = client.get("/api/kot-sync/status").json()[m
+     assert status["lastRun"]["reactivated_count"] == 1[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef test_development_mock_preview_contains_all_actions(tmp_path: Path):[m
+[32m+[m[32m    root = Path(__file__).resolve().parents[1][m
+[32m+[m[32m    database_path = tmp_path / "division_overtime.sqlite3"[m
+[32m+[m[32m    employee_csv = tmp_path / "employeeKey.csv"[m
+[32m+[m[32m    config = WebConfig([m
+[32m+[m[32m        root=root,[m
+[32m+[m[32m        timezone=ZoneInfo("Asia/Tokyo"),[m
+[32m+[m[32m        database_path=database_path,[m
+[32m+[m[32m        employee_csv=employee_csv,[m
+[32m+[m[32m        frontend_dist=root / "frontend/dist",[m
+[32m+[m[32m        host="0.0.0.0",[m
+[32m+[m[32m        port=8000,[m
+[32m+[m[32m        log_level="INFO",[m
+[32m+[m[32m        admin_username="hiro",[m
+[32m+[m[32m        admin_password_hash=PasswordHasher().hash("pass"),[m
+[32m+[m[32m        session_secret="s" * 48,[m
+[32m+[m[32m        session_cookie_name="session",[m
+[32m+[m[32m        session_cookie_secure=False,[m
+[32m+[m[32m        session_max_age_seconds=28800,[m
+[32m+[m[32m        login_max_attempts=5,[m
+[32m+[m[32m        login_window_seconds=900,[m
+[32m+[m[32m        login_lockout_seconds=900,[m
+[32m+[m[32m        kot_base_url="https://api.kingtime.jp/v1.0",[m
+[32m+[m[32m        kot_token="configured-but-unused",[m
+[32m+[m[32m        kot_connect_timeout=5,[m
+[32m+[m[32m        kot_read_timeout=30,[m
+[32m+[m[32m        kot_retry_count=1,[m
+[32m+[m[32m        kot_retry_backoff=0,[m
+[32m+[m[32m        kot_sync_division_codes=("156", "158"),[m
+[32m+[m[32m        environment="development",[m
+[32m+[m[32m        kot_enabled=False,[m
+[32m+[m[32m        kot_mock_enabled=True,[m
+[32m+[m[32m    )[m
+[32m+[m[32m    db = Database(database_path)[m
+[32m+[m[32m    db.initialize()[m
+[32m+[m[32m    service = EmployeeManagementService(db, employee_csv)[m
+[32m+[m[32m    now = datetime.now(ZoneInfo("Asia/Tokyo"))[m
+[32m+[m[32m    for employee in development_employees():[m
+[32m+[m[32m        service.create_employee(employee, now)[m
+[32m+[m
+[32m+[m[32m    app = create_app(config)[m
+[32m+[m[32m    client = TestClient(app)[m
+[32m+[m[32m    client.post("/api/auth/login", json={"username": "hiro", "password": "pass"})[m
+[32m+[m
+[32m+[m[32m    health = client.get("/api/system/health")[m
+[32m+[m[32m    assert health.status_code == 200[m
+[32m+[m[32m    assert health.json()["kotSyncEnabled"] is True[m
+[32m+[m[32m    assert health.json()["kotSyncMock"] is True[m
+[32m+[m
+[32m+[m[32m    status = client.get("/api/kot-sync/status")[m
+[32m+[m[32m    assert status.status_code == 200[m
+[32m+[m[32m    assert status.json()["blocked"] is False[m
+[32m+[m
+[32m+[m[32m    preview = client.post("/api/kot-sync/preview")[m
+[32m+[m[32m    assert preview.status_code == 200[m
+[32m+[m[32m    body = preview.json()[m
+[32m+[m[32m    assert body["counts"] == {[m
+[32m+[m[32m        "create": 1,[m
+[32m+[m[32m        "update": 1,[m
+[32m+[m[32m        "reactivate": 1,[m
+[32m+[m[32m        "disable": 1,[m
+[32m+[m[32m        "unchanged": 1,[m
+[32m+[m[32m    }[m
+[32m+[m[32m    assert {item["action"] for item in body["differences"]} == {[m
+[32m+[m[32m        "create",[m
+[32m+[m[32m        "update",[m
+[32m+[m[32m        "reactivate",[m
+[32m+[m[32m        "disable",[m
+[32m+[m[32m        "unchanged",[m
+[32m+[m[32m    }[m
+[32m+[m[32m    assert "configured-but-unused" not in preview.text[m
+[32m+[m
+[32m+[m[32m    selected_codes = [item["code"] for item in body["differences"] if item["action"] != "unchanged"][m
+[32m+[m[32m    applied = client.post([m
+[32m+[m[32m        "/api/kot-sync/apply",[m
+[32m+[m[32m        json={"previewId": body["previewId"], "employeeCodes": selected_codes},[m
+[32m+[m[32m    )[m
+[32m+[m[32m    assert applied.status_code == 200[m
+[32m+[m[32m    assert applied.json()["counts"] == {[m
+[32m+[m[32m        "created": 1,[m
+[32m+[m[32m        "updated": 1,[m
+[32m+[m[32m        "reactivated": 1,[m
+[32m+[m[32m        "disabled": 1,[m
+[32m+[m[32m    }[m
+[32m+[m[32m    assert employee_csv.exists()[m
+[32m+[m[32m    employees = {employee.code: employee for employee in EmployeeRepository(db).list_managed()}[m
+[32m+[m[32m    assert employees["90003"].is_enabled is False[m
+[32m+[m[32m    assert employees["90004"].is_enabled is True[m
+[32m+[m[32m    assert employees["90005"].is_enabled is True[m

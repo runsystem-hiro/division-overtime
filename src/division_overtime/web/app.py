@@ -11,6 +11,7 @@ from division_overtime.employee_management import EmployeeManagementService
 from division_overtime.kot_employee_sync import KotEmployeeClient, KotEmployeeSyncService
 from division_overtime.web.auth import AuthService
 from division_overtime.web.config import WebConfig, load_web_config
+from division_overtime.web.development_kot import DevelopmentKotEmployeeSource
 from division_overtime.web.routes.auth import router as auth_router
 from division_overtime.web.routes.employees import router as employees_router
 from division_overtime.web.routes.kot_sync import router as kot_sync_router
@@ -32,7 +33,14 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.state.employee_management_service = EmployeeManagementService(
         database, web_config.employee_csv
     )
-    if web_config.kot_enabled and web_config.kot_token:
+    if web_config.environment == "development" and web_config.kot_mock_enabled:
+        app.state.kot_employee_sync_service = KotEmployeeSyncService(
+            database,
+            web_config.employee_csv,
+            DevelopmentKotEmployeeSource(),
+            web_config.kot_sync_division_codes,
+        )
+    elif web_config.kot_enabled and web_config.kot_token:
         app.state.kot_employee_sync_service = KotEmployeeSyncService(
             database,
             web_config.employee_csv,

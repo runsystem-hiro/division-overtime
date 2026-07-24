@@ -30,7 +30,8 @@ def system_health(config: Annotated[WebConfig, Depends(get_web_config)]) -> dict
         "timezone": str(config.timezone),
         "frontendBuilt": config.frontend_dist.is_dir(),
         "environment": config.environment,
-        "kotSyncEnabled": config.kot_enabled,
+        "kotSyncEnabled": config.kot_enabled or config.kot_mock_enabled,
+        "kotSyncMock": config.kot_mock_enabled,
     }
 
 
