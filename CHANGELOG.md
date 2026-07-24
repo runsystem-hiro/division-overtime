@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-25
+
 ### Added
 
 - frontendへOxlint、Vitest、Testing Library、jsdomを追加し、未ログイン画面のスモークテストを追加

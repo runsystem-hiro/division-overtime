@@ -1,16 +1,17 @@
-# v2.0.3 リリースチェックリスト
+# v2.1.0 リリースチェックリスト
 
 ## リリース範囲
 
-v2.0.3は、本番通知処理と社員管理仕様を変更せず、v2.0.2以降の開発環境・CI・検証手順の改善を正式リリースとして区切る。
+v2.1.0は、本番通知処理と社員管理仕様を変更せず、フロントエンド開発基盤の更新を正式リリースとして区切る。
 
-- Windows開発環境を`.python-version`、uv、`uv.lock`で再現可能にする
-- `scripts/verify.ps1`でPR前検証を1コマンドへ統一する
-- GitHub Actions CIをPull Request中心の補助確認へ整理する
-- main保護Rulesetとsquash merge運用を文書化する
-- 本番Slack表示確認後のweekly重複履歴確認手順を追加する
-- 公開バージョンを2.0.3へ更新する
-- CHANGELOG、README、リリースチェックリスト、回帰テストを更新する
+- React / React DOMを19.2系へ更新する
+- Viteを8.1系、`@vitejs/plugin-react`を6系へ更新する
+- Vitestを4.1系、TypeScriptを6.0系へ更新する
+- Oxlint、Vitest、Testing LibraryをWindowsローカル検証とCIへ統合する
+- Windowsでbuildした`frontend/dist`だけをRaspberry Piへ反映する開発確認手順を維持する
+- 正式リリースは従来どおりRaspberry Pi上の`scripts/deploy.sh`で実行する
+- 公開バージョンを2.1.0へ更新する
+- CHANGELOG、README、operations、リリースチェックリスト、回帰テストを更新する
 
 threshold、weekly、healthの通知条件・実行時刻・本番`employeeKey.csv`参照方式・本番SQLite社員データ・本番KOT同期判定は変更しない。
 
@@ -34,6 +35,10 @@ uv run pytest -q
 
 cd frontend
 npm ci
+npm ls react react-dom vite vitest typescript @vitejs/plugin-react
+npm audit
+npm run lint
+npm run test
 npm run build
 cd ..
 
@@ -42,9 +47,11 @@ git diff --check
 
 合格条件:
 
-- バージョン整合性が`version_check=ok version=2.0.3`
+- バージョン整合性が`version_check=ok version=2.1.0`
 - `.\scripts\verify.ps1`が全工程成功で完了
-- Ruff、pytest、frontend buildが成功
+- Ruff、pytest、Oxlint、Vitest、frontend buildが成功
+- `npm audit`が`0 vulnerabilities`
+- `npm ls`で依存関係の重複・不整合がない
 - `git diff --check`が無出力
 - 作業ツリーがclean
 
@@ -71,8 +78,8 @@ git status --short
 合格例:
 
 ```text
-version_check=ok version=2.0.3
-Deployment completed. version=2.0.3
+version_check=ok version=2.1.0
+Deployment completed. version=2.1.0
 ```
 
 ## 実機確認
@@ -86,7 +93,7 @@ systemctl status division-overtime-web.service --no-pager
 ```
 
 - `status`が`ok`
-- `version`が`2.0.3`
+- `version`が`2.1.0`
 - `frontendBuilt`が`true`
 - Webサービスが`active (running)`
 
@@ -247,12 +254,12 @@ git fetch origin
 git merge --ff-only origin/main
 git status
 
-git tag -a v2.0.3 -m "division-overtime v2.0.3"
-git push origin v2.0.3
+git tag -a v2.1.0 -m "division-overtime v2.1.0"
+git push origin v2.1.0
 
-gh release create v2.0.3 `
-  --title "v2.0.3" `
+gh release create v2.1.0 `
+  --title "v2.1.0" `
   --generate-notes
 ```
 
-リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/version`がすべて`2.0.3`を指すことを確認する。
+リリース後にGitHub上のタグ、Release、mainのコミット、Raspberry Piの`/api/system/health`がすべて`2.1.0`を指すことを確認する。
