@@ -109,7 +109,8 @@ def apply(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         _operation_lock.release()
-    return {"status": "ok", "counts": counts}
+    backup_path = str(counts.pop("backupPath"))
+    return {"status": "ok", "counts": counts, "backupPath": backup_path}
 
 
 @router.get("/history")
