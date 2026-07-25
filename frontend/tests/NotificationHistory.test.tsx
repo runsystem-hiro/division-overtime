@@ -60,6 +60,10 @@ describe("NotificationHistory", () => {
                 errorMessage: null,
                 createdAt: run.startedAt,
                 updatedAt: run.finishedAt,
+                duplicateOfAttemptId: null,
+                duplicateOfRunId: null,
+                duplicateOfStartedAt: null,
+                duplicateOfSource: null,
               },
             ],
           }),
@@ -85,6 +89,59 @@ describe("NotificationHistory", () => {
     expect(screen.getAllByText("timer").length).toBeGreaterThan(0);
     expect(screen.getByText("manager@example.com")).toBeInTheDocument();
     expect(screen.getByText("123.456")).toBeInTheDocument();
+  });
+
+  it("重複スキップから重複元の詳細を開く", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/notification-runs?limit=50") {
+        return new Response(JSON.stringify([{ ...run, runId: "run-2", skippedCount: 1 }]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url === "/api/notification-runs/run-2") {
+        return new Response(JSON.stringify({
+          ...run,
+          runId: "run-2",
+          skippedCount: 1,
+          attempts: [{
+            id: 2,
+            dedupeKey: "weekly:2026-W30:00524",
+            employeeCode: "00524",
+            recipient: "manager@example.com",
+            notificationType: "weekly",
+            thresholdPercent: null,
+            status: "skipped",
+            attemptCount: 0,
+            slackTimestamp: null,
+            errorMessage: null,
+            createdAt: run.startedAt,
+            updatedAt: run.finishedAt,
+            duplicateOfAttemptId: 1,
+            duplicateOfRunId: "run-1",
+            duplicateOfStartedAt: "2026-07-24T20:30:08+09:00",
+            duplicateOfSource: "test",
+          }],
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/notification-runs/run-1") {
+        return new Response(JSON.stringify({ ...run, attempts: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(<NotificationHistory />);
+    fireEvent.click(await screen.findByRole("button", { name: "詳細" }));
+    const originButton = await screen.findByRole("button", { name: /2026.*test/ });
+    fireEvent.click(originButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("run-1")).toBeInTheDocument();
+    });
   });
 
   it("一覧が空の場合に空状態を表示する", async () => {
