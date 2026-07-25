@@ -30,6 +30,10 @@ type NotificationAttempt = {
   errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
+  duplicateOfAttemptId: number | null;
+  duplicateOfRunId: string | null;
+  duplicateOfStartedAt: string | null;
+  duplicateOfSource: "timer" | "manual" | "test" | "unknown" | null;
 };
 
 type NotificationRunDetail = NotificationRun & {
@@ -175,7 +179,7 @@ export function NotificationHistory() {
                 {detail.errorMessage && <p className="error-message">実行エラー: {detail.errorMessage}</p>}
                 <div className="table-wrap">
                   <table className="notification-attempt-table">
-                    <thead><tr><th>社員番号</th><th>送信先</th><th>種別</th><th>状態</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
+                    <thead><tr><th>社員番号</th><th>送信先</th><th>種別</th><th>状態</th><th>dedupe key</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
                     <tbody>
                       {detail.attempts.map((attempt) => (
                         <tr key={attempt.id}>
@@ -183,11 +187,19 @@ export function NotificationHistory() {
                           <td>{attempt.recipient}</td>
                           <td>{attempt.notificationType}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
                           <td><span className={`badge ${statusClass(attempt.status)}`}>{attempt.status}</span></td>
+                          <td className="mono">{attempt.dedupeKey}</td>
+                          <td>
+                            {attempt.duplicateOfRunId ? (
+                              <button className="table-action" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
+                                {formatDateTime(attempt.duplicateOfStartedAt)} / {attempt.duplicateOfSource}
+                              </button>
+                            ) : "—"}
+                          </td>
                           <td className="mono">{attempt.slackTimestamp || "—"}</td>
                           <td>{attempt.errorMessage || "—"}</td>
                         </tr>
                       ))}
-                      {detail.attempts.length === 0 && <tr><td colSpan={6} className="empty-row">送信試行はありません。</td></tr>}
+                      {detail.attempts.length === 0 && <tr><td colSpan={8} className="empty-row">送信試行はありません。</td></tr>}
                     </tbody>
                   </table>
                 </div>

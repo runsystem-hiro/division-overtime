@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 通知の重複スキップを履歴として保存し、重複元の実行日時・実行元・run IDをWeb UIから追跡できるようにしました。
+
 ### Added
 
 - 通知実行履歴に`timer` / `manual` / `test` / `unknown`の実行元を記録し、APIとWeb UIへ表示
