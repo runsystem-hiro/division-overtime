@@ -182,6 +182,33 @@ healthは軽量なローカル診断であり、次を行わない。
 
 ## SQLite確認
 
+### DBサイズ・件数・整合性の観測
+
+```bash
+.venv/bin/division-overtime --root . database status
+```
+
+DB本体・WAL・SHM・合計サイズ、`execution_runs`、`notification_attempts`、`employees`、`kot_sync_runs`の件数、通知履歴のstatus別件数、`PRAGMA integrity_check`を表示する。読み取り専用接続を使用し、通知処理やWebサービスを停止しない。
+
+### 稼働中DBの手動バックアップ
+
+```bash
+.venv/bin/division-overtime --root . database backup
+```
+
+SQLite Backup APIで整合性のあるバックアップを`var/backups/manual-database/<timestamp>/division_overtime.sqlite3`へ作成し、`PRAGMA integrity_check`が`ok`の場合だけ成功とする。バックアップDBは所有者限定権限に設定する。稼働中DBをmain DBファイルだけ`cp`してはならない。
+
+別DBや出力先を指定する場合:
+
+```bash
+.venv/bin/division-overtime --root . database status \
+  --path var/division_overtime.sqlite3
+
+.venv/bin/division-overtime --root . database backup \
+  --path var/division_overtime.sqlite3 \
+  --output var/backups/manual-database/manual.sqlite3
+```
+
 整合性とWAL:
 
 ```bash

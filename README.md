@@ -242,7 +242,10 @@ vim data/employeeKey.csv
 .venv/bin/division-overtime --root . validate-config
 .venv/bin/division-overtime --root . database init
 .venv/bin/division-overtime --root . database status
+.venv/bin/division-overtime --root . database backup
 ```
+
+`database status`はDB本体・WAL・SHM・合計サイズ、主要テーブル件数、通知履歴のstatus別件数、`PRAGMA integrity_check`を表示します。`database backup`はSQLite Backup APIで稼働中DBの整合性を保ったバックアップを`var/backups/manual-database/<timestamp>/division_overtime.sqlite3`へ作成し、所有者限定権限に設定します。別パスを使う場合は`--path`、出力先を指定する場合は`--output`を使用します。
 
 通知内容を実送信せず確認します。
 
