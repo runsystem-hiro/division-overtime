@@ -6,8 +6,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from .config import ConfigError, load_config
+from .config import ConfigError, load_config, load_database_path
 from .database import Database
+from .database_observability import DatabaseObservation, observe_database
 from .employee_consistency import (
     EmployeeConsistencyResult,
     check_employee_data_consistency,
@@ -32,7 +33,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     sub.add_parser("health")
     db_parser = sub.add_parser("database")
-    db_parser.add_argument("action", choices=["init", "status"])
+    db_parser.add_argument("action", choices=["init", "status", "backup"])
+    db_parser.add_argument(
+        "--path",
+        type=Path,
+        help="SQLite path; relative paths are resolved from --root",
+    )
+    db_parser.add_argument(
+        "--output",
+        type=Path,
+        help="backup output path; valid only for database backup",
+    )
     employees_parser = sub.add_parser("employees")
     employees_parser.add_argument(
         "action",
@@ -47,6 +58,73 @@ def _parser() -> argparse.ArgumentParser:
     employees_parser.add_argument("--json", action="store_true", dest="json_output")
     sub.add_parser("validate-config")
     return parser
+
+
+def _resolve_path(root: Path, path: Path) -> Path:
+    return path if path.is_absolute() else root.resolve() / path
+
+
+def _database_for_args(root: Path, path: Path | None) -> Database:
+    database_path = _resolve_path(root, path) if path else load_database_path(root)
+    return Database(database_path)
+
+
+def _default_backup_path(root: Path, now: datetime) -> Path:
+    timestamp = now.strftime("%Y%m%d_%H%M%S_%f")
+    return (
+        root.resolve()
+        / "var"
+        / "backups"
+        / "manual-database"
+        / timestamp
+        / "division_overtime.sqlite3"
+    )
+
+
+def _print_database_observation(observation: DatabaseObservation) -> None:
+    print(f"database={observation.database_path}")
+    print(f"database_bytes={observation.database_bytes}")
+    print(f"wal_bytes={observation.wal_bytes}")
+    print(f"shm_bytes={observation.shm_bytes}")
+    print(f"total_bytes={observation.total_bytes}")
+    for table, count in observation.table_counts.items():
+        print(f"table_count.{table}={count}")
+    for status, count in observation.notification_attempt_counts.items():
+        print(f"notification_attempt_count.{status}={count}")
+    print(f"integrity_check={observation.integrity_check}")
+
+
+def _run_database_command(args: argparse.Namespace) -> int:
+    root = args.root.resolve()
+    database = _database_for_args(root, args.path)
+
+    if args.action == "init":
+        if args.output is not None:
+            raise ValueError("--output is valid only for 'database backup'")
+        database.initialize()
+        print(f"database_initialized={database.path}")
+        return 0
+
+    if args.output is not None and args.action != "backup":
+        raise ValueError("--output is valid only for 'database backup'")
+    if not database.is_initialized_readonly():
+        raise RuntimeError(f"Database is not initialized: {database.path}")
+
+    if args.action == "status":
+        _print_database_observation(observe_database(database))
+        return 0
+
+    destination = (
+        _resolve_path(root, args.output)
+        if args.output is not None
+        else _default_backup_path(root, datetime.now().astimezone())
+    )
+    if destination.resolve() == database.path.resolve():
+        raise ValueError("Backup output must differ from the source database")
+    database.backup_to(destination)
+    print(f"database_backup=ok source={database.path} output={destination}")
+    print("integrity_check=ok")
+    return 0
 
 
 def _import_employees(db: Database, employee_csv: Path, apply: bool) -> int:
@@ -178,6 +256,13 @@ def _record_employee_consistency(db: Database, employee_csv: Path, history_path:
 def main() -> int:
     args = _parser().parse_args()
     try:
+        if args.command == "database":
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(asctime)s %(levelname)s %(name)s %(message)s",
+            )
+            return _run_database_command(args)
+
         config = load_config(args.root)
         logging.basicConfig(
             level=getattr(logging, config.log_level.upper(), logging.INFO),
@@ -186,12 +271,6 @@ def main() -> int:
         db = Database(config.database_path)
         if args.command == "run":
             return run(config, args.mode, args.dry_run, source=args.source)
-        if args.command == "database":
-            db.initialize()
-            if args.action == "status":
-                print(f"database={db.path}")
-                print(f"integrity_check={db.integrity_check()}")
-            return 0
         if args.command == "employees" and args.action == "import-csv":
             return _import_employees(db, config.employee_csv, args.apply)
         if args.command == "employees" and args.action == "export-csv":

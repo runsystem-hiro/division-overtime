@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -363,3 +364,66 @@ def test_run_parser_accepts_explicit_test_source():
 
     assert args.dry_run is True
     assert args.source == "test"
+
+
+def test_database_parser_accepts_backup_paths():
+    from division_overtime.cli import _parser
+
+    args = _parser().parse_args(
+        ["database", "backup", "--path", "var/custom.sqlite3", "--output", "backup.sqlite3"]
+    )
+
+    assert args.path == Path("var/custom.sqlite3")
+    assert args.output == Path("backup.sqlite3")
+
+
+def test_database_status_prints_observability(tmp_path: Path, capsys):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    Database(db_path).initialize()
+    args = Namespace(
+        root=tmp_path,
+        action="status",
+        path=Path("custom.sqlite3"),
+        output=None,
+    )
+
+    result = _run_database_command(args)
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert f"database={db_path}" in output
+    assert "database_bytes=" in output
+    assert "wal_bytes=" in output
+    assert "shm_bytes=" in output
+    assert "total_bytes=" in output
+    assert "table_count.execution_runs=0" in output
+    assert "table_count.notification_attempts=0" in output
+    assert "integrity_check=ok" in output
+
+
+def test_database_backup_uses_explicit_output(tmp_path: Path, capsys):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    Database(db_path).initialize()
+    args = Namespace(
+        root=tmp_path,
+        action="backup",
+        path=Path("custom.sqlite3"),
+        output=Path("backups/manual.sqlite3"),
+    )
+
+    result = _run_database_command(args)
+
+    destination = tmp_path / "backups" / "manual.sqlite3"
+    assert result == 0
+    assert destination.exists()
+    if os.name != "nt":
+        assert destination.stat().st_mode & 0o777 == 0o600
+    assert "database_backup=ok" in capsys.readouterr().out
