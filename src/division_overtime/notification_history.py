@@ -13,6 +13,7 @@ class NotificationRunSummary:
     finished_at: str | None
     status: str
     dry_run: bool
+    source: str
     error_message: str | None
     target_count: int
     attempt_count: int
@@ -56,6 +57,7 @@ class NotificationHistoryRepository:
         r.finished_at,
         r.status,
         r.dry_run,
+        r.source,
         r.error_message,
         (SELECT COUNT(*) FROM overtime_snapshots AS s
          WHERE s.run_id = r.run_id) AS target_count,
@@ -148,6 +150,7 @@ class NotificationHistoryRepository:
             finished_at=row["finished_at"],
             status=str(row["status"]),
             dry_run=bool(row["dry_run"]),
+            source=str(row["source"]),
             error_message=row["error_message"],
             target_count=int(row["target_count"] or 0),
             attempt_count=int(row["attempt_count"] or 0),

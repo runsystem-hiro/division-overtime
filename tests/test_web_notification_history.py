@@ -56,8 +56,8 @@ def _seed_history(database: Database) -> None:
         conn.execute(
             """
             INSERT INTO execution_runs(
-                run_id, mode, started_at, finished_at, status, dry_run, error_message
-            ) VALUES(?, ?, ?, ?, ?, ?, ?)
+                run_id, mode, started_at, finished_at, status, dry_run, source, error_message
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 "weekly-20260725",
@@ -66,6 +66,7 @@ def _seed_history(database: Database) -> None:
                 "2026-07-25T06:30:03+09:00",
                 "succeeded",
                 0,
+                "timer",
                 None,
             ),
         )
@@ -167,6 +168,7 @@ def test_notification_run_list_returns_existing_database_values(tmp_path):
             "finishedAt": "2026-07-25T06:30:03+09:00",
             "status": "succeeded",
             "dryRun": False,
+            "source": "timer",
             "errorMessage": None,
             "targetCount": 2,
             "attemptCount": 2,
@@ -187,6 +189,7 @@ def test_notification_run_detail_returns_attempts_without_secrets(tmp_path):
     assert response.status_code == 200
     body = response.json()
     assert body["runId"] == "weekly-20260725"
+    assert body["source"] == "timer"
     assert body["attemptCount"] == 2
     assert [attempt["status"] for attempt in body["attempts"]] == ["sent", "failed"]
     assert body["attempts"][0]["recipient"] == "U001"

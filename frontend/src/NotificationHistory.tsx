@@ -7,6 +7,7 @@ type NotificationRun = {
   finishedAt: string | null;
   status: string;
   dryRun: boolean;
+  source: "timer" | "manual" | "test" | "unknown";
   errorMessage: string | null;
   targetCount: number;
   attemptCount: number;
@@ -128,7 +129,7 @@ export function NotificationHistory() {
           <table className="notification-history-table">
             <thead>
               <tr>
-                <th>実行日時</th><th>種別</th><th>実行</th><th>状態</th><th>対象</th><th>送信</th><th>失敗</th><th />
+                <th>実行日時</th><th>種別</th><th>実行元</th><th>実行</th><th>状態</th><th>対象</th><th>送信</th><th>失敗</th><th />
               </tr>
             </thead>
             <tbody>
@@ -136,6 +137,7 @@ export function NotificationHistory() {
                 <tr key={run.runId}>
                   <td>{formatDateTime(run.startedAt)}</td>
                   <td><span className="mono">{run.mode}</span></td>
+                  <td><span className="mono">{run.source}</span></td>
                   <td>{run.dryRun ? <span className="badge badge-off">dry-run</span> : <span className="badge badge-live">本番</span>}</td>
                   <td><span className={`badge ${statusClass(run.status)}`}>{run.status}</span></td>
                   <td>{run.targetCount}</td>
@@ -144,7 +146,7 @@ export function NotificationHistory() {
                   <td><button className="table-action" type="button" onClick={() => void openDetail(run.runId)}>詳細</button></td>
                 </tr>
               ))}
-              {runs.length === 0 && <tr><td colSpan={8} className="empty-row">通知実行履歴はありません。</td></tr>}
+              {runs.length === 0 && <tr><td colSpan={9} className="empty-row">通知実行履歴はありません。</td></tr>}
             </tbody>
           </table>
         </div>
@@ -165,6 +167,7 @@ export function NotificationHistory() {
                   <div><dt>run ID</dt><dd className="mono">{detail.runId}</dd></div>
                   <div><dt>実行日時</dt><dd>{formatDateTime(detail.startedAt)}</dd></div>
                   <div><dt>種別</dt><dd>{detail.mode}</dd></div>
+                  <div><dt>実行元</dt><dd>{detail.source}</dd></div>
                   <div><dt>実行</dt><dd>{detail.dryRun ? "dry-run" : "本番"}</dd></div>
                   <div><dt>状態</dt><dd>{detail.status}</dd></div>
                   <div><dt>件数</dt><dd>対象 {detail.targetCount} / 試行 {detail.attemptCount} / 送信 {detail.sentCount} / 失敗 {detail.failedCount} / skip {detail.skippedCount} / pending {detail.pendingCount}</dd></div>
