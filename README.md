@@ -668,6 +668,14 @@ APIやPython処理を変更せず、frontendだけをRaspberry Piで確認する
 - `POST /api/auth/logout`
 - `GET /api/auth/status`
 - `GET /api/auth/me`
+
+通知実行履歴API（認証必須・読み取り専用）:
+
+```text
+GET /api/notification-runs?limit=50&offset=0
+GET /api/notification-runs/{run_id}
+```
+
 - `GET /api/system/health`
 - `GET /api/version`
 - `GET /api/employees`
