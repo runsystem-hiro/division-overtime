@@ -850,3 +850,5 @@ python -m division_overtime.web
 `reactivate`、`disable`、`unchanged`を各1件ずつ確認できます。選択した差分の反映先は、
 開発用SQLiteと`data/development/employeeKey.csv`だけです。再現状態へ戻す場合は、
 `python .\scripts\seed_development_data.py --root .`を再実行してください。
+
+- 通知実行履歴の一覧・詳細表示（読み取り専用）

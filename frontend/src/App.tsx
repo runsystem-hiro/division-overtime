@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { NotificationHistory } from "./NotificationHistory";
 
 type Health = {
   status: string;
@@ -501,7 +502,7 @@ export function App() {
     <main className="page-shell">
       <header className="topbar">
         <div><p className="eyebrow">DIVISION OVERTIME</p><strong>{user.username}</strong>{health?.environment === "development" && <span className="environment-badge">DEVELOPMENT</span>}</div>
-        <button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button>
+        <div className="topbar-actions"><a className="button-secondary topbar-link" href="#notification-history">通知履歴</a><button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button></div>
       </header>
 
       <section className="hero compact-hero">
@@ -583,6 +584,8 @@ export function App() {
         {loadingEmployees && <p className="muted loading-line">読み込み中…</p>}
       </section>
 
+
+      <NotificationHistory />
 
       <section className="employee-card sync-card">
         <div className="sync-heading">
