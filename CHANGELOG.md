@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/deploy.sh`のWeb起動待機中は一時的な`curl`接続エラーを抑制し、最終失敗時のみエラーを表示するよう変更
+
 ## [2.1.0] - 2026-07-25
 
 ### Added

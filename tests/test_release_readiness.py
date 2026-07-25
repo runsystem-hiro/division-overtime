@@ -51,6 +51,19 @@ def test_verify_and_deploy_enforce_version_checks() -> None:
     assert "Deployment completed. version=$ACTUAL_VERSION" in deploy
 
 
+def test_deploy_suppresses_transient_health_errors_but_reports_final_failure() -> None:
+    deploy = (PROJECT_ROOT / "scripts/deploy.sh").read_text(encoding="utf-8")
+
+    quiet_check = 'curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json 2>/dev/null'
+    final_check = 'curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json || true'
+
+    assert "for attempt in {1..15}" in deploy
+    assert "sleep 1" in deploy
+    assert quiet_check in deploy
+    assert final_check in deploy
+    assert deploy.index(final_check) > deploy.index("done")
+
+
 def test_web_service_is_independent_from_notification_units() -> None:
     web = (PROJECT_ROOT / "systemd/division-overtime-web.service").read_text(encoding="utf-8")
 
