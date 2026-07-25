@@ -65,7 +65,7 @@ sudo systemctl restart "$WEB_SERVICE"
 
 echo "==> Wait for Web service"
 for attempt in {1..15}; do
-    if curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json; then
+    if curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json 2>/dev/null; then
         cat /tmp/division-overtime-web-health.json
         echo
         ACTUAL_VERSION="$(
@@ -84,6 +84,7 @@ for attempt in {1..15}; do
     sleep 1
 done
 
+curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json || true
 rm -f /tmp/division-overtime-web-health.json
 systemctl status "$WEB_SERVICE" --no-pager || true
 journalctl -u "$WEB_SERVICE" -n 50 --no-pager || true
