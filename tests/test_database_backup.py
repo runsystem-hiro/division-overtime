@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+
+import pytest
 
 from division_overtime.database import Database
 
@@ -33,3 +36,17 @@ def test_backup_to_allows_missing_sidecars(tmp_path: Path) -> None:
     assert destination.exists()
     assert not destination.with_name(f"{destination.name}-wal").exists()
     assert not destination.with_name(f"{destination.name}-shm").exists()
+
+
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="POSIX file permissions are not available on Windows",
+)
+def test_backup_to_sets_owner_only_permissions(tmp_path: Path) -> None:
+    source = Database(tmp_path / "source.sqlite3")
+    source.initialize()
+
+    destination = tmp_path / "backup" / "division_overtime.sqlite3"
+    source.backup_to(destination)
+
+    assert destination.stat().st_mode & 0o777 == 0o600

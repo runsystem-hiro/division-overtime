@@ -76,6 +76,13 @@ def _load_toml_config(root: Path) -> dict[str, Any]:
     return raw
 
 
+def load_database_path(root: Path | None = None) -> Path:
+    """Resolve the configured SQLite path without requiring service secrets."""
+    root = (root or Path.cwd()).resolve()
+    raw = _load_toml_config(root)
+    return root / raw["app"]["database_path"]
+
+
 def load_config(root: Path | None = None) -> AppConfig:
     root = (root or Path.cwd()).resolve()
     load_dotenv(root / ".env")

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import sqlite3
+import uuid
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from datetime import datetime
@@ -32,27 +34,33 @@ class Database:
         return conn
 
     def backup_to(self, destination: Path) -> None:
-        """Create and verify a consistent SQLite backup."""
+        """Create, verify, and atomically publish a consistent SQLite backup."""
         destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
 
         try:
             with (
                 closing(self.connect()) as source,
-                closing(sqlite3.connect(destination)) as target,
+                closing(sqlite3.connect(temporary)) as target,
             ):
                 source.backup(target)
 
-            with closing(sqlite3.connect(destination)) as conn:
+            with closing(sqlite3.connect(temporary)) as conn:
                 result = str(conn.execute("PRAGMA integrity_check").fetchone()[0])
 
             if result != "ok":
                 raise RuntimeError(f"SQLite backup integrity check failed: {result}")
+
+            if os.name != "nt":
+                os.chmod(temporary, 0o600)
+            os.replace(temporary, destination)
         except Exception:
-            destination.unlink(missing_ok=True)
+            temporary.unlink(missing_ok=True)
             raise
         finally:
-            for suffix in ("-wal", "-shm"):
-                destination.with_name(f"{destination.name}{suffix}").unlink(missing_ok=True)
+            for path in (temporary, destination):
+                for suffix in ("-wal", "-shm"):
+                    path.with_name(f"{path.name}{suffix}").unlink(missing_ok=True)
 
     @contextmanager
     def transaction(self) -> Iterator[sqlite3.Connection]:
