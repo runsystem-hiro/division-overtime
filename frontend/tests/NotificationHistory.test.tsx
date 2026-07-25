@@ -17,6 +17,7 @@ const run = {
   finishedAt: "2026-07-24T21:30:16+09:00",
   status: "succeeded",
   dryRun: false,
+  source: "timer",
   errorMessage: null,
   targetCount: 14,
   attemptCount: 1,
@@ -74,12 +75,14 @@ describe("NotificationHistory", () => {
     render(<NotificationHistory />);
 
     expect(await screen.findByText("weekly")).toBeInTheDocument();
+    expect(screen.getByText("timer")).toBeInTheDocument();
     expect(screen.getByText("本番")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "詳細" }));
 
     expect(
       await screen.findByRole("heading", { name: "通知実行詳細" }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText("timer").length).toBeGreaterThan(0);
     expect(screen.getByText("manager@example.com")).toBeInTheDocument();
     expect(screen.getByText("123.456")).toBeInTheDocument();
   });

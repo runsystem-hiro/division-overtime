@@ -6,7 +6,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 class Database:
@@ -83,6 +83,8 @@ class Database:
                     finished_at TEXT,
                     status TEXT NOT NULL CHECK(status IN ('running','succeeded','failed')),
                     dry_run INTEGER NOT NULL DEFAULT 0,
+                    source TEXT NOT NULL DEFAULT 'unknown'
+                        CHECK(source IN ('timer','manual','test','unknown')),
                     error_message TEXT
                 );
                 CREATE TABLE IF NOT EXISTS overtime_snapshots (
@@ -157,6 +159,14 @@ class Database:
                 );
                 """
             )
+            execution_run_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(execution_runs)")
+            }
+            if "source" not in execution_run_columns:
+                conn.execute(
+                    "ALTER TABLE execution_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'"
+                )
+
             kot_sync_columns = {
                 row["name"] for row in conn.execute("PRAGMA table_info(kot_sync_runs)")
             }
@@ -229,12 +239,22 @@ class Database:
         with self.connect() as conn:
             return str(conn.execute("PRAGMA integrity_check").fetchone()[0])
 
-    def start_run(self, run_id: str, mode: str, started_at: datetime, dry_run: bool) -> None:
+    def start_run(
+        self,
+        run_id: str,
+        mode: str,
+        started_at: datetime,
+        dry_run: bool,
+        source: str = "unknown",
+    ) -> None:
+        if source not in {"timer", "manual", "test", "unknown"}:
+            raise ValueError(f"Unsupported run source: {source}")
         with self.transaction() as conn:
             conn.execute(
-                "INSERT INTO execution_runs(run_id, mode, started_at, status, dry_run) "
-                "VALUES(?, ?, ?, 'running', ?)",
-                (run_id, mode, started_at.isoformat(), int(dry_run)),
+                "INSERT INTO execution_runs("
+                "run_id, mode, started_at, status, dry_run, source"
+                ") VALUES(?, ?, ?, 'running', ?, ?)",
+                (run_id, mode, started_at.isoformat(), int(dry_run), source),
             )
 
     def finish_run(

@@ -165,6 +165,8 @@ ALL = [
 
 手動実行やdry-runも、利用禁止時間帯を避けてください。dry-runでもKING OF TIME APIからデータを取得します。
 
+通知実行履歴には実行元を記録します。systemd serviceは`--source timer`を指定し、CLIの既定値は`manual`です。検証目的で履歴を分けたい場合は`--source test`を明示します。
+
 ## 設定ファイル
 
 ### `.env`

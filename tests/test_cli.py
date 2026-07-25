@@ -346,3 +346,20 @@ def test_record_employee_consistency_records_error(tmp_path: Path):
     payload = json.loads(history_path.read_text(encoding="utf-8"))
     assert payload["status"] == "error"
     assert "Database is not initialized" in payload["error"]
+
+
+def test_run_parser_defaults_source_to_manual():
+    from division_overtime.cli import _parser
+
+    args = _parser().parse_args(["run", "weekly"])
+
+    assert args.source == "manual"
+
+
+def test_run_parser_accepts_explicit_test_source():
+    from division_overtime.cli import _parser
+
+    args = _parser().parse_args(["run", "threshold", "--dry-run", "--source", "test"])
+
+    assert args.dry_run is True
+    assert args.source == "test"

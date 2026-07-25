@@ -22,14 +22,20 @@ from .slack import SlackDeliveryError, SlackMessenger
 logger = logging.getLogger(__name__)
 
 
-def run(config: AppConfig, mode: str, dry_run: bool = False) -> int:
+def run(
+    config: AppConfig,
+    mode: str,
+    dry_run: bool = False,
+    *,
+    source: str = "unknown",
+) -> int:
     if mode not in {"threshold", "weekly"}:
         raise ValueError(f"Unsupported mode: {mode}")
     now = datetime.now(config.timezone)
     run_id = str(uuid.uuid4())
     db = Database(config.database_path)
     db.initialize()
-    db.start_run(run_id, mode, now, dry_run)
+    db.start_run(run_id, mode, now, dry_run, source)
     try:
         if mode == "threshold" and jpholiday.is_holiday(now.date()):
             logger.info("Japanese public holiday: threshold notification skipped")

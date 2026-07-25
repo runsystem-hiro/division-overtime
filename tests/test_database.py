@@ -7,7 +7,7 @@ import pytest
 from division_overtime.database import Database
 
 
-def test_database_initialization(tmp_path):
+def test_database_initialization_creates_employee_schema_version_6(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
     assert db.integrity_check() == "ok"
@@ -17,7 +17,7 @@ def test_notification_unique_constraint_prevents_duplicate(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
     now = datetime(2026, 7, 22, 10, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
-    db.start_run("run-1", "threshold", now, False)
+    db.start_run("run-1", "threshold", now, False, "timer")
 
     values = (
         "threshold:2026-W30:00001:60",
@@ -60,7 +60,7 @@ def test_transaction_rolls_back_on_error(tmp_path):
     assert row is None
 
 
-def test_database_initialization_creates_employee_schema_version_5(tmp_path):
+def test_database_initialization_creates_employee_schema_version_(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
 
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_5(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "5"
+    assert version == "6"
     assert table["name"] == "employees"
 
 
@@ -118,10 +118,10 @@ def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tm
         ).fetchone()[0]
 
     assert "backup_path" in columns
-    assert version == "5"
+    assert version == "6"
 
 
-def test_database_initialization_adds_reactivated_count_and_schema_version_5(tmp_path):
+def test_database_initialization_adds_reactivated_count_and_schema_version_6(tmp_path):
     path = tmp_path / "test.sqlite3"
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -159,4 +159,50 @@ def test_database_initialization_adds_reactivated_count_and_schema_version_5(tmp
         ).fetchone()[0]
     assert "reactivated_count" in columns
     assert row["reactivated_count"] == 0
-    assert version == "5"
+    assert version == "6"
+
+
+def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_meta(key, value) VALUES('schema_version', '5');
+            CREATE TABLE execution_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL UNIQUE,
+                mode TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                status TEXT NOT NULL,
+                dry_run INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT
+            );
+            INSERT INTO execution_runs(run_id, mode, started_at, status, dry_run)
+            VALUES('legacy-run', 'weekly', '2026-07-24T21:30:00+09:00', 'succeeded', 0);
+            """
+        )
+
+    db = Database(path)
+    db.initialize()
+
+    with db.connect_readonly() as conn:
+        row = conn.execute("SELECT source FROM execution_runs WHERE run_id='legacy-run'").fetchone()
+        version = conn.execute(
+            "SELECT value FROM schema_meta WHERE key='schema_version'"
+        ).fetchone()
+    assert row["source"] == "unknown"
+    assert version["value"] == "6"
+
+
+def test_start_run_records_execution_source(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+    db.initialize()
+    now = datetime(2026, 7, 25, 10, 30, tzinfo=ZoneInfo("Asia/Tokyo"))
+
+    db.start_run("run-source", "threshold", now, False, "manual")
+
+    with db.connect_readonly() as conn:
+        row = conn.execute("SELECT source FROM execution_runs WHERE run_id='run-source'").fetchone()
+    assert row["source"] == "manual"
