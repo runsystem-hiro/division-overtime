@@ -2,31 +2,50 @@
 
 ## Runtime flow
 
-1. systemd timer starts a one-shot service with an explicit mode.
-2. Configuration is loaded from `config/default.toml`, optional `config/production.toml`, and `.env` secrets.
-3. Employee CSV is validated before API access.
-4. KING OF TIME data is fetched once for each division and month.
-5. Employee snapshots and the execution record are stored in SQLite.
-6. Notification candidates are reserved with a unique dedupe key.
-7. Slack is called only for newly reserved candidates or previously failed candidates.
-8. A successful send changes the notification state to `sent`; a failure remains retryable as `failed`.
+1. systemd timer starts a one-shot notification service with `--source timer`.
+2. Configuration is loaded from `config/default.toml`, an environment TOML, and `.env`.
+3. The notification service validates `employeeKey.csv`.
+4. KING OF TIME monthly data is fetched once per division and target month.
+5. Execution metadata and overtime snapshots are stored in SQLite.
+6. Notification candidates are reserved using a dedupe key.
+7. Slack is called only for new candidates or previously failed candidates.
+8. Success becomes `sent`, failure remains retryable as `failed`, and duplicates are saved as `skipped` with a reference to the original attempt.
+
+## Components
+
+- Notification CLI: threshold / weekly / health
+- SQLite: execution, snapshot, notification, employee, KOT sync history
+- Web backend: FastAPI
+- Web frontend: React / TypeScript / Vite
+- Scheduler: systemd service / timer
+- External services: KING OF TIME API, Slack API
+
+## Employee data flow
+
+```text
+SQLite employees
+    -> atomic employeeKey.csv generation
+    -> existing notification service
+```
+
+The Web UI manages employees in SQLite. Notification runs intentionally continue to read `data/employeeKey.csv`.
 
 ## Execution modes
 
-- `threshold`: weekday threshold evaluation and notification
+- `threshold`: weekday threshold evaluation
 - `weekly`: Friday report regardless of overtime ratio
-- `health`: local-only integrity and file-existence checks
+- `health`: local integrity and file checks only
 
-`health` does not call KING OF TIME and does not send Slack notifications.
+`health` does not call KING OF TIME or Slack.
 
-## KING OF TIME API restrictions
+## Notification identity
 
-The API must not be used during these JST windows:
+- Threshold: `threshold:<ISO year>-W<ISO week>:<employee>:<threshold>`
+- Weekly: `weekly:<ISO year>-W<ISO week>:<employee>`
+- The recipient is part of the database uniqueness condition.
+- Self notification uses a separate suffix.
 
-- 08:30-10:00
-- 17:30-18:30
-
-The scheduled threshold and weekly runs are outside these windows. Manual and dry-run executions must also avoid them.
+Therefore, the same recipient and condition are deduplicated within an ISO week. A new ISO week produces a new key.
 
 ## SQLite durability
 
@@ -34,20 +53,19 @@ The scheduled threshold and weekly runs are outside these windows. Manual and dr
 - Foreign keys enabled
 - 5-second busy timeout
 - Explicit transactions
-- Unique `(dedupe_key, recipient)` constraint
-- Dry runs do not consume notification dedupe keys
+- Partial unique index for non-skipped attempts
+- Dry-run does not reserve dedupe keys
+- Backup API for consistent online backups
 
-## Notification identity
+## Configuration
 
-Threshold notifications are unique by ISO week, employee, threshold, and recipient.
-Weekly notifications are unique by ISO week, employee, and recipient.
+`config/default.toml` is deep-merged with the selected environment TOML. `notifications.department_recipients` is replaced as a whole instead of deep-merged. Secrets and Web authentication settings are loaded from `.env`.
 
-## Configuration override policy
+## Web security
 
-`config/production.toml` overrides general defaults. The following notification recipient table is replaced as a whole rather than deep-merged:
-
-```toml
-[notifications.department_recipients]
-```
-
-This prevents default or sample recipients from remaining active when production recipients are specified.
+- Argon2 password hash
+- Server-side in-memory session registry
+- HTTP only / SameSite strict cookie
+- Optional secure cookie
+- Login attempt rate limiting
+- KOT Key existing values are not returned to the browser
