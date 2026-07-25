@@ -9,12 +9,16 @@ from fastapi.staticfiles import StaticFiles
 from division_overtime.database import Database
 from division_overtime.employee_management import EmployeeManagementService
 from division_overtime.kot_employee_sync import KotEmployeeClient, KotEmployeeSyncService
+from division_overtime.notification_history import NotificationHistoryRepository
 from division_overtime.web.auth import AuthService
 from division_overtime.web.config import WebConfig, load_web_config
 from division_overtime.web.development_kot import DevelopmentKotEmployeeSource
 from division_overtime.web.routes.auth import router as auth_router
 from division_overtime.web.routes.employees import router as employees_router
 from division_overtime.web.routes.kot_sync import router as kot_sync_router
+from division_overtime.web.routes.notification_history import (
+    router as notification_history_router,
+)
 from division_overtime.web.routes.system import router as system_router
 
 
@@ -33,6 +37,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.state.employee_management_service = EmployeeManagementService(
         database, web_config.employee_csv
     )
+    app.state.notification_history_repository = NotificationHistoryRepository(database)
     if web_config.environment == "development" and web_config.kot_mock_enabled:
         app.state.kot_employee_sync_service = KotEmployeeSyncService(
             database,
@@ -67,6 +72,7 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(employees_router)
     app.include_router(kot_sync_router)
+    app.include_router(notification_history_router)
 
     assets_dir = web_config.frontend_dist / "assets"
     if assets_dir.is_dir():
