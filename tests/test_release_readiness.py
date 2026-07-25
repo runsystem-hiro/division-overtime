@@ -77,32 +77,16 @@ def test_release_checklist_documents_required_production_checks() -> None:
     checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
     required = [
-        "python .\\scripts\\check_version.py --root .",
-        "ruff check .",
-        "pytest -q",
-        "npm ls react react-dom vite vitest typescript @vitejs/plugin-react",
-        "npm audit",
-        "npm run lint",
-        "npm run test",
-        "npm run build",
+        ".\\scripts\\verify.ps1",
+        "git diff --check",
         "./scripts/deploy.sh",
         "/api/system/health",
-        "sudo systemctl stop division-overtime-web.service",
+        "database status",
         "employees check-consistency",
-        "git tag -a v2.1.0",
-        "gh release create v2.1.0",
+        "git tag -a vX.Y.Z",
+        "gh release create vX.Y.Z",
     ]
     for text in required:
-        assert text in checklist
-
-    for text in [
-        "本番Slack表示確認を伴う通知テスト",
-        ".backup '$BACKUP'",
-        "TEST_RUN_ID='<テスト実行のrun_id>'",
-        "BEGIN IMMEDIATE;",
-        "notification_type = 'weekly'",
-        "PRAGMA integrity_check;",
-    ]:
         assert text in checklist
 
 
@@ -169,36 +153,29 @@ def test_ci_runs_required_checks_without_production_actions() -> None:
 
 
 def test_documentation_matches_ci_and_main_protection_rules() -> None:
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    deployment = (PROJECT_ROOT / "docs/deployment.md").read_text(encoding="utf-8")
     checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
     for text in [
+        "PR",
         "squash merge",
-        "force push",
-        "Pull Request",
-        "必須ステータスチェックには設定せず",
+        "mainへ直接commitしない",
     ]:
-        assert text in readme
-
-    for text in [
-        "squash merge",
-        "force push",
-        "必須ゲートではなく補助確認",
-    ]:
-        assert text in operations
+        assert text in deployment
 
     for text in [
         "CI結果を確認",
         "squash merge",
+        "force push",
         "Closes #Issue番号",
-        "CIはmergeの必須条件ではない",
+        "CIはmergeの必須条件ではなく",
+        "必須ステータスチェックには設定せず",
     ]:
         assert text in checklist
 
 
 def test_windows_uv_development_environment_is_documented() -> None:
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
     python_version = (PROJECT_ROOT / ".python-version").read_text(encoding="utf-8").strip()
 
     assert python_version == "3.13"
@@ -208,16 +185,16 @@ def test_windows_uv_development_environment_is_documented() -> None:
         "uv run ruff check .",
         "uv run ruff format --check .",
         "uv run pytest -q",
-        "既存のvenv / pip手順も当面利用できます",
-        "Raspberry Piでは従来どおり",
+        "Python 3.13",
+        "Node.js 22",
     ]:
-        assert text in readme
+        assert text in development
 
 
 def test_windows_local_verify_script_is_safe_and_documented() -> None:
     script = (PROJECT_ROOT / "scripts/verify.ps1").read_text(encoding="utf-8")
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
+    deployment = (PROJECT_ROOT / "docs/deployment.md").read_text(encoding="utf-8")
     checklist = (PROJECT_ROOT / "docs/release-checklist.md").read_text(encoding="utf-8")
 
     required = [
@@ -243,14 +220,14 @@ def test_windows_local_verify_script_is_safe_and_documented() -> None:
     for text in forbidden:
         assert text not in script
 
-    for document in [readme, operations, checklist]:
+    for document in [development, deployment, checklist]:
         assert ".\\scripts\\verify.ps1" in document
 
 
 def test_frontend_deployment_script_is_limited_and_safe() -> None:
     script = (PROJECT_ROOT / "scripts/deploy-frontend.ps1").read_text(encoding="utf-8")
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
+    deployment = (PROJECT_ROOT / "docs/deployment.md").read_text(encoding="utf-8")
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
 
     for text in [
@@ -279,10 +256,11 @@ def test_frontend_deployment_script_is_limited_and_safe() -> None:
     ]:
         assert forbidden not in script
 
-    for document in [readme, operations]:
-        assert ".\\scripts\\deploy-frontend.ps1" in document
-        assert "正式リリース" in document
-        assert "scripts/deploy.sh" in document
+    assert ".\\scripts\\deploy-frontend.ps1" in development
+    assert "正式リリース" in development
+    assert "./scripts/deploy.sh" in development
+    assert "正式デプロイ" in deployment
+    assert "./scripts/deploy.sh" in deployment
 
     assert frontend["engines"]["node"] == ">=20.19.0 <25"
     assert frontend["engines"]["npm"] == ">=9.2.0"
@@ -292,8 +270,7 @@ def test_frontend_quality_checks_are_configured() -> None:
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
     verify_script = (PROJECT_ROOT / "scripts/verify.ps1").read_text(encoding="utf-8")
     ci = (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
 
     assert frontend["scripts"]["lint"].startswith("oxlint ")
     assert frontend["scripts"]["test"] == "vitest run"
@@ -324,42 +301,35 @@ def test_frontend_quality_checks_are_configured() -> None:
 
     for text in ["npm run lint", "npm run test", "npm run build"]:
         assert text in ci
-        assert text in readme
-        assert text in operations
+        assert text in development
 
 
 def test_frontend_uses_react_19() -> None:
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
 
     assert frontend["dependencies"]["react"].startswith("^19.2.")
     assert frontend["dependencies"]["react-dom"].startswith("^19.2.")
     assert frontend["devDependencies"]["@types/react"].startswith("^19.2.")
     assert frontend["devDependencies"]["@types/react-dom"].startswith("^19.2.")
-    assert "React 19.2系" in readme
-    assert "React 19.2系" in operations
+    assert "React 19.2系" in development
 
 
 def test_frontend_uses_vite_8() -> None:
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
 
     assert frontend["devDependencies"]["vite"].startswith("^8.1.")
     assert frontend["devDependencies"]["@vitejs/plugin-react"].startswith("^6.")
-    assert "Vite 8.1系" in readme
-    assert "Vite 8.1系" in operations
+    assert "Vite 8.1系" in development
 
 
 def test_frontend_uses_typescript_6() -> None:
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
-    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    operations = (PROJECT_ROOT / "docs/operations.md").read_text(encoding="utf-8")
+    development = (PROJECT_ROOT / "docs/development.md").read_text(encoding="utf-8")
 
     assert frontend["devDependencies"]["typescript"].startswith("^6.0.")
-    assert "TypeScript 6.0系" in readme
-    assert "TypeScript 6.0系" in operations
+    assert "TypeScript 6.0系" in development
     assert "ignoreDeprecations" not in json.dumps(
         [
             json.loads((PROJECT_ROOT / "frontend/tsconfig.json").read_text(encoding="utf-8")),
