@@ -109,3 +109,21 @@ tbody tr:hover { background: rgb(96 165 250 / 4%); }
 @media (max-width: 960px) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar { grid-template-columns: 1fr 160px auto; } .consistency-panel { align-items: stretch; flex-direction: column; } }
 
 .environment-badge { margin-left: 10px; padding: 3px 7px; border: 1px solid #60a5fa; border-radius: 999px; color: #93c5fd; font-size: .68rem; letter-spacing: .08em; vertical-align: middle; }
+
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar-link { text-decoration: none; }
+.notification-history-card { margin-top: 18px; scroll-margin-top: 20px; }
+.notification-history-table { min-width: 980px; }
+.notification-attempt-table { min-width: 980px; }
+.notification-history-modal { width: min(1120px, 100%); }
+.notification-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 20px; }
+.notification-detail-grid div { padding: 12px 14px; border: 1px solid #293148; border-radius: 10px; background: #0f1628; }
+.notification-detail-grid dt { color: #9ca3af; font-size: .74rem; }
+.notification-detail-grid dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+.badge-live { color: #bfdbfe; background: rgb(30 64 175 / 65%); }
+.badge-danger { color: #fecaca; background: rgb(127 29 29 / 65%); }
+@media (max-width: 760px) {
+  .topbar { align-items: flex-start; }
+  .topbar-actions { align-items: stretch; flex-direction: column; }
+  .notification-detail-grid { grid-template-columns: 1fr; }
+}
