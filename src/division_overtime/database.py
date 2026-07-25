@@ -6,7 +6,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 class Database:
@@ -114,11 +114,18 @@ class Database:
                     attempt_count INTEGER NOT NULL DEFAULT 0,
                     slack_timestamp TEXT,
                     error_message TEXT,
+                    duplicate_of_attempt_id INTEGER,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
-                    UNIQUE(dedupe_key, recipient),
-                    FOREIGN KEY(run_id) REFERENCES execution_runs(run_id) ON DELETE CASCADE
+                    FOREIGN KEY(run_id)
+                        REFERENCES execution_runs(run_id)
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(duplicate_of_attempt_id)
+                      REFERENCES notification_attempts(id)
                 );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_dedupe_active
+                    ON notification_attempts(dedupe_key, recipient)
+                    WHERE status != 'skipped';
                 CREATE INDEX IF NOT EXISTS idx_notification_status
                     ON notification_attempts(status, updated_at);
                 CREATE TABLE IF NOT EXISTS employees (
@@ -159,6 +166,53 @@ class Database:
                 );
                 """
             )
+            notification_attempt_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(notification_attempts)")
+            }
+            if "duplicate_of_attempt_id" not in notification_attempt_columns:
+                conn.executescript(
+                    """
+                    CREATE TABLE notification_attempts_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        dedupe_key TEXT NOT NULL,
+                        run_id TEXT NOT NULL,
+                        employee_code TEXT,
+                        recipient TEXT NOT NULL,
+                        notification_type TEXT NOT NULL,
+                        threshold_percent INTEGER,
+                        status TEXT NOT NULL CHECK(status IN ('pending','sent','failed','skipped')),
+                        attempt_count INTEGER NOT NULL DEFAULT 0,
+                        slack_timestamp TEXT,
+                        error_message TEXT,
+                        duplicate_of_attempt_id INTEGER,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        FOREIGN KEY(run_id)
+                            REFERENCES execution_runs(run_id)
+                            ON DELETE CASCADE,
+                        FOREIGN KEY(duplicate_of_attempt_id)
+                            REFERENCES notification_attempts_new(id)
+                    );
+                    INSERT INTO notification_attempts_new(
+                        id, dedupe_key, run_id, employee_code, recipient, notification_type,
+                        threshold_percent, status, attempt_count, slack_timestamp, error_message,
+                        duplicate_of_attempt_id, created_at, updated_at
+                    )
+                    SELECT
+                        id, dedupe_key, run_id, employee_code, recipient, notification_type,
+                        threshold_percent, status, attempt_count, slack_timestamp, error_message,
+                        NULL, created_at, updated_at
+                    FROM notification_attempts;
+                    DROP TABLE notification_attempts;
+                    ALTER TABLE notification_attempts_new RENAME TO notification_attempts;
+                    CREATE UNIQUE INDEX idx_notification_dedupe_active
+                        ON notification_attempts(dedupe_key, recipient)
+                        WHERE status != 'skipped';
+                    CREATE INDEX idx_notification_status
+                        ON notification_attempts(status, updated_at);
+                    """
+                )
+
             execution_run_columns = {
                 row["name"] for row in conn.execute("PRAGMA table_info(execution_runs)")
             }

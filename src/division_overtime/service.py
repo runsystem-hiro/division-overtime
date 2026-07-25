@@ -158,19 +158,37 @@ def run(
                             sendable.append((snapshot, threshold, dedupe))
                         except sqlite3.IntegrityError:
                             existing = conn.execute(
-                                "SELECT status FROM notification_attempts "
-                                "WHERE dedupe_key=? AND recipient=?",
+                                "SELECT id, run_id, status FROM notification_attempts "
+                                "WHERE dedupe_key=? AND recipient=? AND status != 'skipped'",
                                 (dedupe, recipient),
                             ).fetchone()
                             if existing and existing["status"] == "failed":
                                 conn.execute(
                                     "UPDATE notification_attempts SET run_id=?, status='pending', "
                                     "error_message=NULL, updated_at=? "
-                                    "WHERE dedupe_key=? AND recipient=?",
+                                    "WHERE dedupe_key=? AND recipient=? AND status != 'skipped'",
                                     (run_id, now.isoformat(), dedupe, recipient),
                                 )
                                 sendable.append((snapshot, threshold, dedupe))
                             else:
+                                conn.execute(
+                                    "INSERT INTO notification_attempts("
+                                    "dedupe_key,run_id,employee_code,recipient,notification_type,"
+                                    "threshold_percent,status,attempt_count,duplicate_of_attempt_id,"
+                                    "created_at,updated_at"
+                                    ") VALUES(?,?,?,?,?,?,'skipped',0,?,?,?)",
+                                    (
+                                        dedupe,
+                                        run_id,
+                                        snapshot.employee.code,
+                                        recipient,
+                                        mode,
+                                        threshold,
+                                        existing["id"] if existing else None,
+                                        now.isoformat(),
+                                        now.isoformat(),
+                                    ),
+                                )
                                 logger.info(
                                     "Duplicate notification skipped: %s -> %s", dedupe, recipient
                                 )
@@ -196,7 +214,7 @@ def run(
                     conn.execute(
                         "UPDATE notification_attempts SET status=?, attempt_count=attempt_count+1,"
                         "slack_timestamp=?, error_message=?, updated_at=? "
-                        "WHERE dedupe_key=? AND recipient=?",
+                        "WHERE dedupe_key=? AND recipient=? AND status != 'skipped'",
                         (
                             status,
                             slack_ts,

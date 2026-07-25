@@ -7,7 +7,7 @@ import pytest
 from division_overtime.database import Database
 
 
-def test_database_initialization_creates_employee_schema_version_6(tmp_path):
+def test_database_initialization_creates_employee_schema_version_7(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
     assert db.integrity_check() == "ok"
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "6"
+    assert version == "7"
     assert table["name"] == "employees"
 
 
@@ -118,10 +118,10 @@ def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tm
         ).fetchone()[0]
 
     assert "backup_path" in columns
-    assert version == "6"
+    assert version == "7"
 
 
-def test_database_initialization_adds_reactivated_count_and_schema_version_6(tmp_path):
+def test_database_initialization_adds_reactivated_count_and_schema_version_7(tmp_path):
     path = tmp_path / "test.sqlite3"
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -159,7 +159,7 @@ def test_database_initialization_adds_reactivated_count_and_schema_version_6(tmp
         ).fetchone()[0]
     assert "reactivated_count" in columns
     assert row["reactivated_count"] == 0
-    assert version == "6"
+    assert version == "7"
 
 
 def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
@@ -193,7 +193,7 @@ def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
             "SELECT value FROM schema_meta WHERE key='schema_version'"
         ).fetchone()
     assert row["source"] == "unknown"
-    assert version["value"] == "6"
+    assert version["value"] == "7"
 
 
 def test_start_run_records_execution_source(tmp_path):
@@ -206,3 +206,67 @@ def test_start_run_records_execution_source(tmp_path):
     with db.connect_readonly() as conn:
         row = conn.execute("SELECT source FROM execution_runs WHERE run_id='run-source'").fetchone()
     assert row["source"] == "manual"
+
+
+def test_database_migrates_notification_attempts_for_duplicate_trace(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_meta(key, value) VALUES('schema_version', '6');
+            CREATE TABLE execution_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL UNIQUE,
+                mode TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                status TEXT NOT NULL,
+                dry_run INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'unknown',
+                error_message TEXT
+            );
+            INSERT INTO execution_runs(run_id, mode, started_at, status, dry_run, source)
+            VALUES('legacy-run', 'weekly', '2026-07-24T21:30:00+09:00', 'succeeded', 0, 'timer');
+            CREATE TABLE notification_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dedupe_key TEXT NOT NULL,
+                run_id TEXT NOT NULL,
+                employee_code TEXT,
+                recipient TEXT NOT NULL,
+                notification_type TEXT NOT NULL,
+                threshold_percent INTEGER,
+                status TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                slack_timestamp TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(dedupe_key, recipient)
+            );
+            INSERT INTO notification_attempts(
+                dedupe_key, run_id, employee_code, recipient, notification_type,
+                status, attempt_count, created_at, updated_at
+            ) VALUES(
+                'weekly:2026-W30:00001', 'legacy-run', '00001', 'manager@example.com',
+                'weekly', 'sent', 1, '2026-07-24T21:30:00+09:00',
+                '2026-07-24T21:30:01+09:00'
+            );
+            """
+        )
+
+    db = Database(path)
+    db.initialize()
+
+    with db.connect_readonly() as conn:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(notification_attempts)")}
+        version = conn.execute(
+            "SELECT value FROM schema_meta WHERE key='schema_version'"
+        ).fetchone()[0]
+        row = conn.execute(
+            "SELECT status, duplicate_of_attempt_id FROM notification_attempts"
+        ).fetchone()
+    assert "duplicate_of_attempt_id" in columns
+    assert version == "7"
+    assert row["status"] == "sent"
+    assert row["duplicate_of_attempt_id"] is None

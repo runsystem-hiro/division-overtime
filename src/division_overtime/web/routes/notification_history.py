@@ -31,6 +31,10 @@ class NotificationAttemptResponse(BaseModel):
     errorMessage: str | None
     createdAt: str
     updatedAt: str
+    duplicateOfAttemptId: int | None
+    duplicateOfRunId: str | None
+    duplicateOfStartedAt: str | None
+    duplicateOfSource: Literal["timer", "manual", "test", "unknown"] | None
 
 
 class NotificationRunResponse(BaseModel):
@@ -91,6 +95,10 @@ def _attempt_response(attempt: NotificationAttempt) -> NotificationAttemptRespon
         errorMessage=attempt.error_message,
         createdAt=attempt.created_at,
         updatedAt=attempt.updated_at,
+        duplicateOfAttemptId=attempt.duplicate_of_attempt_id,
+        duplicateOfRunId=attempt.duplicate_of_run_id,
+        duplicateOfStartedAt=attempt.duplicate_of_started_at,
+        duplicateOfSource=attempt.duplicate_of_source,
     )
 
 

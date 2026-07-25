@@ -110,7 +110,8 @@ def fetch_attempts(database_path: Path) -> list[sqlite3.Row]:
     with db.connect() as conn:
         return list(
             conn.execute(
-                "SELECT recipient,status,attempt_count,slack_timestamp,error_message "
+                "SELECT id,run_id,recipient,status,attempt_count,"
+                "slack_timestamp,error_message,duplicate_of_attempt_id "
                 "FROM notification_attempts ORDER BY id"
             )
         )
@@ -126,11 +127,16 @@ def test_threshold_success_is_recorded_and_duplicate_is_skipped(
     assert run(config, "threshold") == 0
 
     attempts = fetch_attempts(config.database_path)
-    assert len(attempts) == 1
-    assert attempts[0]["recipient"] == "manager@example.com"
-    assert attempts[0]["status"] == "sent"
-    assert attempts[0]["attempt_count"] == 1
-    assert attempts[0]["slack_timestamp"] == "1712345678.000100"
+    assert len(attempts) == 2
+    sent, skipped = attempts
+    assert sent["recipient"] == "manager@example.com"
+    assert sent["status"] == "sent"
+    assert sent["attempt_count"] == 1
+    assert sent["slack_timestamp"] == "1712345678.000100"
+    assert skipped["status"] == "skipped"
+    assert skipped["attempt_count"] == 0
+    assert skipped["duplicate_of_attempt_id"] == sent["id"]
+    assert skipped["run_id"] != sent["run_id"]
     assert len(SuccessfulMessenger.calls) == 1
 
 

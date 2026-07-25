@@ -193,6 +193,7 @@ def test_notification_run_detail_returns_attempts_without_secrets(tmp_path):
     assert body["attemptCount"] == 2
     assert [attempt["status"] for attempt in body["attempts"]] == ["sent", "failed"]
     assert body["attempts"][0]["recipient"] == "U001"
+    assert body["attempts"][0]["duplicateOfRunId"] is None
     assert body["attempts"][1]["errorMessage"] == "Slack API error"
     assert "token" not in response.text.lower()
     assert "password" not in response.text.lower()
@@ -225,3 +226,62 @@ def test_notification_history_api_does_not_modify_database(tmp_path):
             conn.execute("SELECT COUNT(*) FROM notification_attempts").fetchone()[0],
         )
     assert after == before
+
+
+def test_notification_run_detail_returns_duplicate_origin(tmp_path):
+    client, database = _client(tmp_path)
+    _seed_history(database)
+    with database.transaction() as conn:
+        original = conn.execute(
+            "SELECT id FROM notification_attempts WHERE recipient='U001'"
+        ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO execution_runs(
+                run_id, mode, started_at, finished_at, status, dry_run, source
+            ) VALUES(?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "weekly-duplicate",
+                "weekly",
+                "2026-07-25T07:00:00+09:00",
+                "2026-07-25T07:00:01+09:00",
+                "succeeded",
+                0,
+                "timer",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO notification_attempts(
+                dedupe_key, run_id, employee_code, recipient, notification_type,
+                threshold_percent, status, attempt_count, duplicate_of_attempt_id,
+                created_at, updated_at
+            ) VALUES(?, ?, ?, ?, ?, ?, 'skipped', 0, ?, ?, ?)
+            """,
+            (
+                "weekly:2026-W30:U001",
+                "weekly-duplicate",
+                "00001",
+                "U001",
+                "weekly",
+                None,
+                original["id"],
+                "2026-07-25T07:00:00+09:00",
+                "2026-07-25T07:00:00+09:00",
+            ),
+        )
+
+    response = client.get("/api/notification-runs/weekly-duplicate")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["attemptCount"] == 1
+    assert body["skippedCount"] == 1
+    attempt = body["attempts"][0]
+    assert attempt["status"] == "skipped"
+    assert attempt["dedupeKey"] == "weekly:2026-W30:U001"
+    assert attempt["duplicateOfAttemptId"] == original["id"]
+    assert attempt["duplicateOfRunId"] == "weekly-20260725"
+    assert attempt["duplicateOfStartedAt"] == "2026-07-25T06:30:00+09:00"
+    assert attempt["duplicateOfSource"] == "timer"

@@ -37,6 +37,10 @@ class NotificationAttempt:
     error_message: str | None
     created_at: str
     updated_at: str
+    duplicate_of_attempt_id: int | None
+    duplicate_of_run_id: str | None
+    duplicate_of_started_at: str | None
+    duplicate_of_source: str | None
 
 
 @dataclass(frozen=True)
@@ -101,21 +105,29 @@ class NotificationHistoryRepository:
             attempt_rows = conn.execute(
                 """
                 SELECT
-                    id,
-                    dedupe_key,
-                    employee_code,
-                    recipient,
-                    notification_type,
-                    threshold_percent,
-                    status,
-                    attempt_count,
-                    slack_timestamp,
-                    error_message,
-                    created_at,
-                    updated_at
-                FROM notification_attempts
-                WHERE run_id = ?
-                ORDER BY created_at, id
+                    a.id,
+                    a.dedupe_key,
+                    a.employee_code,
+                    a.recipient,
+                    a.notification_type,
+                    a.threshold_percent,
+                    a.status,
+                    a.attempt_count,
+                    a.slack_timestamp,
+                    a.error_message,
+                    a.created_at,
+                    a.updated_at,
+                    a.duplicate_of_attempt_id,
+                    original.run_id AS duplicate_of_run_id,
+                    original_run.started_at AS duplicate_of_started_at,
+                    original_run.source AS duplicate_of_source
+                FROM notification_attempts AS a
+                LEFT JOIN notification_attempts AS original
+                    ON original.id = a.duplicate_of_attempt_id
+                LEFT JOIN execution_runs AS original_run
+                    ON original_run.run_id = original.run_id
+                WHERE a.run_id = ?
+                ORDER BY a.created_at, a.id
                 """,
                 (run_id,),
             ).fetchall()
@@ -136,6 +148,10 @@ class NotificationHistoryRepository:
                     error_message=row["error_message"],
                     created_at=str(row["created_at"]),
                     updated_at=str(row["updated_at"]),
+                    duplicate_of_attempt_id=row["duplicate_of_attempt_id"],
+                    duplicate_of_run_id=row["duplicate_of_run_id"],
+                    duplicate_of_started_at=row["duplicate_of_started_at"],
+                    duplicate_of_source=row["duplicate_of_source"],
                 )
                 for row in attempt_rows
             ),
