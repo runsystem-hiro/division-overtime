@@ -10,7 +10,7 @@ WorkingDirectory=/home/pi/division-overtime
 EnvironmentFile=/home/pi/division-overtime/.env
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime run weekly
+ExecStart=/home/pi/division-overtime/.venv/bin/division-overtime --root /home/pi/division-overtime run weekly --source timer
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

@@ -96,6 +96,15 @@ def patch_external_services(monkeypatch: pytest.MonkeyPatch, messenger_type: typ
     messenger_type.calls.clear()
 
 
+def fetch_run_sources(database_path: Path) -> list[str]:
+    db = Database(database_path)
+    with db.connect_readonly() as conn:
+        return [
+            str(row["source"])
+            for row in conn.execute("SELECT source FROM execution_runs ORDER BY id")
+        ]
+
+
 def fetch_attempts(database_path: Path) -> list[sqlite3.Row]:
     db = Database(database_path)
     with db.connect() as conn:
@@ -322,3 +331,12 @@ def test_shadow_read_failure_does_not_stop_notification_processing(
         assert run(config, "threshold", dry_run=True) == 0
 
     assert "employee_shadow_read=failed error_type=RuntimeError" in caplog.text
+
+
+def test_run_records_explicit_execution_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    config = make_config(tmp_path)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "threshold", source="test") == 0
+
+    assert fetch_run_sources(config.database_path) == ["test"]

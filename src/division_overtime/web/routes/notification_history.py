@@ -40,6 +40,7 @@ class NotificationRunResponse(BaseModel):
     finishedAt: str | None
     status: Literal["running", "succeeded", "failed"]
     dryRun: bool
+    source: Literal["timer", "manual", "test", "unknown"]
     errorMessage: str | None
     targetCount: int
     attemptCount: int
@@ -65,6 +66,7 @@ def _run_response(run: NotificationRunSummary) -> NotificationRunResponse:
         finishedAt=run.finished_at,
         status=run.status,
         dryRun=run.dry_run,
+        source=run.source,
         errorMessage=run.error_message,
         targetCount=run.target_count,
         attemptCount=run.attempt_count,

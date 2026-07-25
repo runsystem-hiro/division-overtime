@@ -24,6 +24,12 @@ def _parser() -> argparse.ArgumentParser:
     run_parser = sub.add_parser("run")
     run_parser.add_argument("mode", choices=["threshold", "weekly"])
     run_parser.add_argument("--dry-run", action="store_true")
+    run_parser.add_argument(
+        "--source",
+        choices=["timer", "manual", "test"],
+        default="manual",
+        help="execution source recorded in notification history",
+    )
     sub.add_parser("health")
     db_parser = sub.add_parser("database")
     db_parser.add_argument("action", choices=["init", "status"])
@@ -179,7 +185,7 @@ def main() -> int:
         )
         db = Database(config.database_path)
         if args.command == "run":
-            return run(config, args.mode, args.dry_run)
+            return run(config, args.mode, args.dry_run, source=args.source)
         if args.command == "database":
             db.initialize()
             if args.action == "status":
