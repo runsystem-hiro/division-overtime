@@ -16,6 +16,7 @@
 
 ### Fixed
 
+- `scripts/deploy.sh`で全systemd unitを本番へ反映し、リポジトリ内定義との一致を検証することで、timer起動が`source=manual`と記録される反映漏れを防止
 - `scripts/deploy.sh`のWeb起動待機中は一時的な`curl`接続エラーを抑制し、最終失敗時のみエラーを表示するよう変更
 
 ## [2.1.0] - 2026-07-25

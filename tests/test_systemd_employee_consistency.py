@@ -37,6 +37,6 @@ def test_employee_consistency_timer_runs_daily_and_is_persistent() -> None:
 def test_deploy_installs_and_enables_employee_consistency_timer() -> None:
     deploy = (PROJECT_ROOT / "scripts" / "deploy.sh").read_text(encoding="utf-8")
 
-    assert 'EMPLOYEE_CONSISTENCY_SERVICE="division-overtime-employee-consistency.service"' in deploy
-    assert 'EMPLOYEE_CONSISTENCY_TIMER="division-overtime-employee-consistency.timer"' in deploy
-    assert 'sudo systemctl enable --now "$EMPLOYEE_CONSISTENCY_TIMER"' in deploy
+    assert "division-overtime-employee-consistency.service" in deploy
+    assert "division-overtime-employee-consistency.timer" in deploy
+    assert 'sudo systemctl enable --now "${SYSTEMD_TIMERS[@]}"' in deploy
