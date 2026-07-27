@@ -39,7 +39,7 @@ ENV/
 
 # Production-only configuration
 config/production.toml
-
+config/development.toml
 # =============================================================================
 # Runtime data
 # =============================================================================
