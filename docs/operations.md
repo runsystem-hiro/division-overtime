@@ -41,7 +41,11 @@ systemctl list-timers --all | grep division-overtime
 
 ### 状態確認
 
+リポジトリ内のunit更新は正式デプロイ時に`/etc/systemd/system/`へ反映されます。通知実行履歴の`source`確認時は、実際に読み込まれているservice定義も確認します。
+
 ```bash
+systemctl cat division-overtime-threshold.service
+systemctl cat division-overtime-weekly.service
 systemctl status division-overtime-web.service --no-pager
 systemctl status division-overtime-threshold.timer --no-pager
 systemctl status division-overtime-weekly.timer --no-pager

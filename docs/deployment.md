@@ -42,10 +42,12 @@ cd /home/pi/division-overtime
 5. `npm ci`
 6. frontend build
 7. `scripts/verify.sh`
-8. employee consistency timer反映
-9. Web再起動
-10. `/api/system/health`再試行
-11. 稼働versionと`VERSION`の一致確認
+8. リポジトリ内の全systemd unitを`/etc/systemd/system/`へ反映
+9. 反映後のunitがリポジトリ内定義と一致することを検証
+10. threshold / weekly / health / employee consistency timerを有効化
+11. Web再起動
+12. `/api/system/health`再試行
+13. 稼働versionと`VERSION`の一致確認
 
 health待機中の一時的な接続失敗は表示せず、最終的に成功すれば異常ではありません。
 
@@ -55,6 +57,8 @@ health待機中の一時的な接続失敗は表示せず、最終的に成功�
 curl -fsS http://127.0.0.1:8000/api/system/health
 systemctl status division-overtime-web.service --no-pager
 systemctl list-timers --all | grep division-overtime
+systemctl cat division-overtime-threshold.service
+systemctl cat division-overtime-weekly.service
 ```
 
 期待する主要項目:
@@ -64,6 +68,7 @@ systemctl list-timers --all | grep division-overtime
 - `frontendBuilt=true`
 - Web serviceが`active (running)`
 - threshold / weekly / health / employee-consistency timerが`active (waiting)`
+- threshold / weekly serviceの`ExecStart`に`--source timer`が含まれる
 
 ## 通知処理との独立性
 

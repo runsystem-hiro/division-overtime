@@ -4,8 +4,24 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 WEB_SERVICE="division-overtime-web.service"
-EMPLOYEE_CONSISTENCY_SERVICE="division-overtime-employee-consistency.service"
-EMPLOYEE_CONSISTENCY_TIMER="division-overtime-employee-consistency.timer"
+SYSTEMD_UNIT_DIR="/etc/systemd/system"
+SYSTEMD_UNITS=(
+    division-overtime-threshold.service
+    division-overtime-threshold.timer
+    division-overtime-weekly.service
+    division-overtime-weekly.timer
+    division-overtime-health.service
+    division-overtime-health.timer
+    division-overtime-employee-consistency.service
+    division-overtime-employee-consistency.timer
+    division-overtime-web.service
+)
+SYSTEMD_TIMERS=(
+    division-overtime-threshold.timer
+    division-overtime-weekly.timer
+    division-overtime-health.timer
+    division-overtime-employee-consistency.timer
+)
 HEALTH_URL="http://127.0.0.1:8000/api/system/health"
 
 cd "$PROJECT_ROOT"
@@ -22,6 +38,7 @@ echo "==> Preflight"
 require_command git
 require_command npm
 require_command curl
+require_command cmp
 require_command sudo
 
 if [[ ! -x "$VENV_PYTHON" ]]; then
@@ -52,13 +69,22 @@ npm --prefix frontend run build
 echo "==> Verify application"
 ./scripts/verify.sh
 
-echo "==> Install employee consistency systemd units"
-sudo install -m 0644 \
-    "systemd/$EMPLOYEE_CONSISTENCY_SERVICE" \
-    "systemd/$EMPLOYEE_CONSISTENCY_TIMER" \
-    /etc/systemd/system/
+echo "==> Install systemd units"
+for unit in "${SYSTEMD_UNITS[@]}"; do
+    sudo install -m 0644 "systemd/$unit" "$SYSTEMD_UNIT_DIR/$unit"
+done
 sudo systemctl daemon-reload
-sudo systemctl enable --now "$EMPLOYEE_CONSISTENCY_TIMER"
+
+echo "==> Verify installed systemd units"
+for unit in "${SYSTEMD_UNITS[@]}"; do
+    if ! cmp -s "systemd/$unit" "$SYSTEMD_UNIT_DIR/$unit"; then
+        echo "ERROR: installed systemd unit differs from repository: $unit" >&2
+        exit 1
+    fi
+done
+
+echo "==> Enable systemd timers"
+sudo systemctl enable --now "${SYSTEMD_TIMERS[@]}"
 
 echo "==> Restart Web service"
 sudo systemctl restart "$WEB_SERVICE"
