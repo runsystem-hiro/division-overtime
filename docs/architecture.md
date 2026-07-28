@@ -16,7 +16,7 @@
 - Notification CLI: threshold / weekly / health
 - SQLite: execution, snapshot, notification, employee, KOT sync history
 - Web backend: FastAPI
-- Web frontend: React / TypeScript / Vite
+- Web frontend: React / TypeScript / Vite（History APIを使ったURLベースの画面遷移と共通レイアウト）
 - Scheduler: systemd service / timer
 - External services: KING OF TIME API, Slack API
 
@@ -69,3 +69,14 @@ Therefore, the same recipient and condition are deduplicated within an ISO week.
 - Optional secure cookie
 - Login attempt rate limiting
 - KOT Key existing values are not returned to the browser
+
+
+## Web frontend navigation
+
+認証後の管理画面は共通サイドナビゲーションを持ち、次のURLへ分離しています。
+
+- `/`: 社員管理
+- `/kot-sync`: KING OF TIME社員同期
+- `/notifications`: 通知実行履歴
+
+画面遷移はブラウザのHistory APIを利用し、FastAPIのSPAフォールバックが各URLへの直接アクセスを`index.html`へ解決します。業務API、通知service、SQLiteスキーマには影響しません。
