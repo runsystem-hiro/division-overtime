@@ -80,3 +80,8 @@ Therefore, the same recipient and condition are deduplicated within an ISO week.
 - `/notifications`: 通知実行履歴
 
 画面遷移はブラウザのHistory APIを利用し、FastAPIのSPAフォールバックが各URLへの直接アクセスを`index.html`へ解決します。業務API、通知service、SQLiteスキーマには影響しません。
+
+
+### Web UI design tokens
+
+Web管理UIは `frontend/src/styles.css` のCSSカスタムプロパティをデザイントークンとして利用する。色、サーフェス、境界線、角丸、影、フォーカスリング、モーション時間を共通化し、社員管理・KOT同期・通知履歴で同じ視覚ルールを適用する。`prefers-reduced-motion` を尊重し、業務操作を妨げるアニメーションは行わない。

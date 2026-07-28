@@ -72,6 +72,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "KOT同期" }));
     expect(screen.getByRole("heading", { name: "KOT社員同期" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "KOT同期" })).toHaveClass("active");
     expect(window.location.pathname).toBe("/kot-sync");
 
     fireEvent.click(screen.getByRole("link", { name: "通知履歴" }));
