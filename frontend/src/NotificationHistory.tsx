@@ -139,15 +139,15 @@ export function NotificationHistory() {
             <tbody>
               {runs.map((run) => (
                 <tr key={run.runId}>
-                  <td>{formatDateTime(run.startedAt)}</td>
-                  <td><span className="mono">{run.mode}</span></td>
-                  <td><span className="mono">{run.source}</span></td>
-                  <td>{run.dryRun ? <span className="badge badge-off">dry-run</span> : <span className="badge badge-live">本番</span>}</td>
-                  <td><span className={`badge ${statusClass(run.status)}`}>{run.status}</span></td>
-                  <td>{run.targetCount}</td>
-                  <td>{run.sentCount} / {run.attemptCount}</td>
-                  <td className={run.failedCount > 0 ? "status-danger" : ""}>{run.failedCount}</td>
-                  <td><button className="table-action" type="button" onClick={() => void openDetail(run.runId)}>詳細</button></td>
+                  <td data-label="実行日時">{formatDateTime(run.startedAt)}</td>
+                  <td data-label="種別"><span className="mono">{run.mode}</span></td>
+                  <td data-label="実行元"><span className="mono">{run.source}</span></td>
+                  <td data-label="実行">{run.dryRun ? <span className="badge badge-off">dry-run</span> : <span className="badge badge-live">本番</span>}</td>
+                  <td data-label="状態"><span className={`badge ${statusClass(run.status)}`}>{run.status}</span></td>
+                  <td data-label="対象">{run.targetCount}</td>
+                  <td data-label="送信">{run.sentCount} / {run.attemptCount}</td>
+                  <td data-label="失敗" className={run.failedCount > 0 ? "status-danger" : ""}>{run.failedCount}</td>
+                  <td className="card-action"><button className="table-action" type="button" onClick={() => void openDetail(run.runId)}>詳細</button></td>
                 </tr>
               ))}
               {runs.length === 0 && <tr><td colSpan={9} className="empty-row">通知実行履歴はありません。</td></tr>}

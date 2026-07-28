@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { NotificationHistory } from "./NotificationHistory";
 
 type Health = {
@@ -150,6 +150,16 @@ async function responseError(response: Response): Promise<string> {
   }
 }
 
+
+function NavIcon({ name }: { name: "employees" | "sync" | "history" }) {
+  const paths = {
+    employees: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    sync: <><path d="M20 7h-9" /><path d="m16 3 4 4-4 4" /><path d="M4 17h9" /><path d="m8 21-4-4 4-4" /></>,
+    history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
+  };
+  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
 export function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -180,6 +190,33 @@ export function App() {
   });
   const [showNoAttendance, setShowNoAttendance] = useState(false);
   const [showOnLeave, setShowOnLeave] = useState(false);
+
+  const [path, setPath] = useState(() => window.location.pathname);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    window.localStorage.getItem("division-overtime-sidebar-collapsed") === "true",
+  );
+
+  useEffect(() => {
+    const handlePopState = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      window.localStorage.setItem("division-overtime-sidebar-collapsed", String(next));
+      return next;
+    });
+  }
+
+  function navigate(event: MouseEvent<HTMLAnchorElement>, nextPath: string) {
+    event.preventDefault();
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+      setPath(nextPath);
+    }
+  }
 
   const loadCurrentUser = useCallback(async () => {
     const response = await fetch("/api/auth/status", { credentials: "same-origin" });
@@ -499,12 +536,50 @@ export function App() {
   }
 
   return (
-    <main className="page-shell">
-      <header className="topbar">
-        <div><p className="eyebrow">DIVISION OVERTIME</p><strong>{user.username}</strong>{health?.environment === "development" && <span className="environment-badge">DEVELOPMENT</span>}</div>
-        <div className="topbar-actions"><a className="button-secondary topbar-link" href="#notification-history">通知履歴</a><button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button></div>
-      </header>
+    <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      <aside className="app-sidebar">
+        <div className="app-brand-row">
+          <div className="app-brand">
+            <div className="app-brand-copy">
+              <p className="eyebrow">DIVISION OVERTIME</p>
+              <strong>管理コンソール</strong>
+            </div>
+          </div>
+          <button
+            className="sidebar-toggle"
+            type="button"
+            aria-label={sidebarCollapsed ? "ナビゲーションを開く" : "ナビゲーションを閉じる"}
+            aria-expanded={!sidebarCollapsed}
+            onClick={toggleSidebar}
+          >
+            <span aria-hidden="true">{sidebarCollapsed ? "›" : "‹"}</span>
+          </button>
+        </div>
+        <nav className="app-nav" aria-label="管理画面">
+          <a className={path === "/" ? "active" : ""} href="/" title="社員管理" onClick={(event) => navigate(event, "/")}><NavIcon name="employees" /><span className="nav-label">社員管理</span></a>
+          <a className={path === "/kot-sync" ? "active" : ""} href="/kot-sync" title="KOT同期" onClick={(event) => navigate(event, "/kot-sync")}><NavIcon name="sync" /><span className="nav-label">KOT同期</span></a>
+          <a className={path === "/notifications" ? "active" : ""} href="/notifications" title="通知履歴" onClick={(event) => navigate(event, "/notifications")}><NavIcon name="history" /><span className="nav-label">通知履歴</span></a>
+        </nav>
+        <div className="sidebar-status" role="status" aria-label={health?.status === "ok" ? "システム正常" : "状態確認中"} title={health?.status === "ok" ? "システム正常" : "状態確認中"}>
+          <span className={`status-dot ${health?.status === "ok" ? "status-dot-ok" : ""}`} />
+          <span>{health?.status === "ok" ? "システム正常" : "状態確認中"}</span>
+        </div>
+      </aside>
 
+      <main className="app-main">
+        <header className="app-topbar">
+          <div>
+            <span className="muted">ログイン中</span>
+            <strong>{user.username}</strong>
+            {health?.environment === "development" && <span className="environment-badge">DEVELOPMENT</span>}
+          </div>
+          <button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button>
+        </header>
+
+        <div className="page-shell">
+          {notice && <p className="success-message" role="status">{notice}</p>}
+          {error && editing === undefined && <p className="error-message global-error" role="alert">{error}</p>}
+          {path === "/" && <>
       <section className="hero compact-hero">
         <div>
           <h1>社員管理</h1>
@@ -536,8 +611,6 @@ export function App() {
           <button className="button-secondary" type="button" onClick={() => { setQueryInput(""); setQuery(""); setEnabledFilter("all"); }}>条件クリア</button>
           <button className="button-secondary" type="button" onClick={() => Promise.all([loadEmployees(), loadConsistency()])}>再読込</button>
         </form>
-        {notice && <p className="success-message" role="status">{notice}</p>}
-        {error && editing === undefined && <p className="error-message" role="alert">{error}</p>}
         <div className={`consistency-panel ${consistency?.status === "mismatch" ? "consistency-panel-danger" : ""}`}>
           <div>
             <strong>SQLite / employeeKey.csv</strong>
@@ -563,21 +636,19 @@ export function App() {
           )}
         </div>
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>社員番号</th><th>氏名</th><th>部署</th><th>メール</th><th>上限分</th><th>状態</th><th /></tr></thead>
+          <table className="employee-table">
+            <thead><tr><th>社員番号</th><th>社員情報</th><th>所属</th><th>上限分</th><th>状態・操作</th></tr></thead>
             <tbody>
               {employees.map((employee) => (
                 <tr key={employee.code}>
-                  <td className="mono">{employee.code}</td>
-                  <td><strong>{employee.fullName}</strong></td>
-                  <td>{employee.divisionName || employee.divisionCode}</td>
-                  <td>{employee.email || "—"}</td>
-                  <td>{employee.personalTargetMinutes ?? "—"}</td>
-                  <td><span className={`badge ${employee.isEnabled ? "badge-ok" : "badge-off"}`}>{employee.isEnabled ? "有効" : "無効"}</span></td>
-                  <td><button className="table-action" type="button" onClick={() => openEdit(employee)}>編集</button></td>
+                  <td className="mono employee-code" data-label="社員番号">{employee.code}</td>
+                  <td className="employee-identity" data-label="社員情報"><strong>{employee.fullName}</strong><span>{employee.email || "—"}</span></td>
+                  <td className="employee-meta" data-label="所属"><strong>{employee.divisionName || employee.divisionCode || "—"}</strong>{employee.divisionName && employee.divisionCode && <span>{employee.divisionCode}</span>}</td>
+                  <td className="employee-target" data-label="上限分">{employee.personalTargetMinutes ?? "—"}</td>
+                  <td data-label="状態・操作"><div className="employee-actions"><span className={`badge ${employee.isEnabled ? "badge-ok" : "badge-off"}`}>{employee.isEnabled ? "有効" : "無効"}</span><button className="table-action" type="button" onClick={() => openEdit(employee)}>編集</button></div></td>
                 </tr>
               ))}
-              {!loadingEmployees && employees.length === 0 && <tr><td colSpan={7} className="empty-row">該当する社員はいません。</td></tr>}
+              {!loadingEmployees && employees.length === 0 && <tr><td colSpan={5} className="empty-row">該当する社員はいません。</td></tr>}
             </tbody>
           </table>
         </div>
@@ -585,8 +656,13 @@ export function App() {
       </section>
 
 
-      <NotificationHistory />
-
+            </>}
+          {path === "/kot-sync" && <>
+              <section className="hero">
+                <p className="eyebrow">KING OF TIME</p>
+                <h1>KOT社員同期</h1>
+                <p className="lead">差分を確認し、選択した変更だけを社員管理へ安全に反映します。</p>
+              </section>
       <section className="employee-card sync-card">
         <div className="sync-heading">
           <div>
@@ -700,13 +776,13 @@ export function App() {
                     };
                     return (
                       <tr key={item.code} className={`sync-row sync-row-${item.action}`}>
-                        <td><input type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={(event) => setSelectedSyncCodes(event.target.checked ? [...selectedSyncCodes, item.code] : selectedSyncCodes.filter((code) => code !== item.code))} /></td>
-                        <td className="mono">{item.code}</td>
-                        <td><span className={`sync-badge sync-badge-${item.action}`}>{item.action}</span></td>
-                        <td>{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
-                        <td>{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
-                        <td>{item.changedFields.map((field) => changedLabels[field] ?? field).join("、") || "—"}</td>
-                        <td>{item.warnings.join("、") || "—"}</td>
+                        <td data-label="反映"><input type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={(event) => setSelectedSyncCodes(event.target.checked ? [...selectedSyncCodes, item.code] : selectedSyncCodes.filter((code) => code !== item.code))} /></td>
+                        <td className="mono" data-label="社員番号">{item.code}</td>
+                        <td data-label="判定"><span className={`sync-badge sync-badge-${item.action}`}>{item.action}</span></td>
+                        <td data-label="変更前">{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
+                        <td data-label="変更後">{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
+                        <td data-label="変更項目">{item.changedFields.map((field) => changedLabels[field] ?? field).join("、") || "—"}</td>
+                        <td data-label="注意">{item.warnings.join("、") || "—"}</td>
                       </tr>
                     );
                   })}
@@ -724,6 +800,24 @@ export function App() {
         )}
       </section>
 
+            </>}
+          {path === "/notifications" && <>
+              <section className="hero">
+                <p className="eyebrow">NOTIFICATION HISTORY</p>
+                <h1>通知履歴</h1>
+                <p className="lead">threshold・weekly・healthの実行結果と送信状況を確認します。</p>
+              </section>
+      <NotificationHistory />
+
+            </>}
+          {!["/", "/kot-sync", "/notifications"].includes(path) && (
+            <section className="empty-state" role="status">
+              <p className="eyebrow">NOT FOUND</p>
+              <h1>ページが見つかりません</h1>
+              <p className="lead">ナビゲーションから管理画面へ戻ってください。</p>
+              <a className="button-primary inline-link" href="/" onClick={(event) => navigate(event, "/")}>社員管理へ戻る</a>
+            </section>
+          )}
       {editing !== undefined && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => !submitting && setEditing(undefined)}>
           <section className="modal" role="dialog" aria-modal="true" aria-labelledby="employee-form-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -754,6 +848,8 @@ export function App() {
           </section>
         </div>
       )}
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
