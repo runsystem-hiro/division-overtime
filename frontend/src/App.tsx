@@ -347,12 +347,22 @@ export function App() {
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, nextPath: string) {
     event.preventDefault();
-    if (window.location.pathname !== nextPath) {
+    if (window.location.pathname === nextPath) return;
+
+    const updatePath = () => {
       window.history.pushState({}, "", nextPath);
       setPath(nextPath);
       setNotice(null);
       setError(null);
+    };
+    const transitionDocument = document as Document & {
+      startViewTransition?: (callback: () => void) => void;
+    };
+    if (transitionDocument.startViewTransition) {
+      transitionDocument.startViewTransition(updatePath);
+      return;
     }
+    updatePath();
   }
 
   const loadCurrentUser = useCallback(async () => {
@@ -753,7 +763,7 @@ export function App() {
 
   if (!user) {
     return (
-      <main className="login-shell">
+      <main className="login-shell ambient-shell">
         <section className="login-card">
           <p className="eyebrow">DIVISION OVERTIME</p>
           <h1>管理者ログイン</h1>
@@ -784,7 +794,7 @@ export function App() {
                 {error}
               </p>
             )}
-            <button type="submit" disabled={submitting}>
+            <button type="submit" disabled={submitting} aria-busy={submitting}>
               {submitting ? "ログイン中…" : "ログイン"}
             </button>
           </form>
@@ -800,7 +810,7 @@ export function App() {
   const healthLabel = health?.status === "ok" ? "正常" : "確認中";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell ambient-shell" data-page={path === "/" ? "employees" : path === "/kot-sync" ? "sync" : path === "/notifications" ? "history" : "unknown"}>
       <header className="app-topbar">
         <div className="header-brand" aria-label="division overtime">
           <strong>division overtime</strong>
@@ -936,6 +946,7 @@ export function App() {
               />
             )}
           </div>
+          <div key={path} className="page-content">
           {path === "/" && (
             <>
               <section className="hero compact-hero">
@@ -1054,8 +1065,9 @@ export function App() {
                         Promise.all([loadEmployees(), loadConsistency()])
                       }
                       disabled={loadingEmployees || loadingConsistency}
+                      aria-busy={loadingEmployees || loadingConsistency}
                     >
-                      再読込
+                      {loadingEmployees || loadingConsistency ? "更新中…" : "再読込"}
                     </button>
                   </div>
                 </form>
@@ -1102,6 +1114,7 @@ export function App() {
                     type="button"
                     onClick={loadConsistency}
                     disabled={!isAdmin || loadingConsistency}
+                    aria-busy={loadingConsistency}
                     title={
                       !isAdmin
                         ? "閲覧専用ユーザーは整合性を再確認できません"
@@ -1141,6 +1154,16 @@ export function App() {
                       </tr>
                     </thead>
                     <tbody>
+                      {loadingEmployees && employees.length === 0 &&
+                        Array.from({ length: 5 }, (_, index) => (
+                          <tr key={`employee-skeleton-${index}`} className="skeleton-row" aria-hidden="true">
+                            <td><span className="skeleton-block skeleton-code" /></td>
+                            <td><span className="skeleton-block skeleton-name" /></td>
+                            <td><span className="skeleton-block skeleton-email" /></td>
+                            <td><span className="skeleton-block skeleton-division" /></td>
+                            <td><span className="skeleton-block skeleton-action" /></td>
+                          </tr>
+                        ))}
                       {employees.map((employee) => (
                         <tr key={employee.code}>
                           <td
@@ -1223,9 +1246,9 @@ export function App() {
                     </tbody>
                   </table>
                 </div>
-                {loadingEmployees && (
-                  <p className="muted loading-line" role="status">
-                    社員一覧を読み込み中…
+                {loadingEmployees && employees.length > 0 && (
+                  <p className="muted loading-line updating-indicator" role="status">
+                    社員一覧を更新中…
                   </p>
                 )}
               </section>
@@ -1604,6 +1627,7 @@ export function App() {
                         className="button-primary"
                         type="button"
                         disabled={syncing || selectedSyncCodes.length === 0}
+                        aria-busy={syncing}
                         onClick={applyKotPreview}
                       >
                         {syncing
@@ -1646,6 +1670,7 @@ export function App() {
               </a>
             </section>
           )}
+          </div>
           {confirmAction && (
             <ConfirmDialog
               title={confirmAction.title}

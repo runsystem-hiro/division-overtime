@@ -39,6 +39,30 @@ afterEach(() => {
 
 describe("NotificationHistory", () => {
 
+  it("初回読込では対象領域だけにスケルトンを表示する", async () => {
+    let resolveResponse: ((value: Response) => void) | undefined;
+    vi.spyOn(globalThis, "fetch").mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveResponse = resolve;
+      }),
+    );
+
+    render(<NotificationHistory />);
+
+    expect(
+      screen.getByRole("status", { name: "通知履歴を読み込んでいます" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "通知実行履歴" })).toBeInTheDocument();
+
+    resolveResponse?.(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(await screen.findByText("通知実行履歴はありません")).toBeInTheDocument();
+  });
+
   it("開発用サンプルを有効にするとAPIを使わず一覧と詳細を表示する", async () => {
     vi.stubEnv("VITE_NOTIFICATION_HISTORY_MOCK", "true");
     const fetchSpy = vi.spyOn(globalThis, "fetch");

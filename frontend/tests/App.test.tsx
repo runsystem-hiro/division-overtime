@@ -26,6 +26,7 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("ユーザー名")).toBeInTheDocument();
     expect(screen.getByLabelText("パスワード")).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveClass("ambient-shell");
     expect(globalThis.fetch).toHaveBeenCalledWith("/api/auth/status", {
       credentials: "same-origin",
     });
@@ -83,6 +84,11 @@ describe("App", () => {
     expect(
       screen.getByRole("navigation", { name: "管理画面" }),
     ).toBeInTheDocument();
+    expect(document.querySelector(".app-shell")).toHaveAttribute(
+      "data-page",
+      "employees",
+    );
+    expect(document.querySelector(".page-content")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("link", { name: "同期" }));
     expect(
@@ -90,6 +96,10 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "同期" })).toHaveClass("active");
     expect(window.location.pathname).toBe("/kot-sync");
+    expect(document.querySelector(".app-shell")).toHaveAttribute(
+      "data-page",
+      "sync",
+    );
 
     fireEvent.click(screen.getByRole("link", { name: "履歴" }));
     expect(
