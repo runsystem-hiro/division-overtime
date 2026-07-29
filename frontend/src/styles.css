@@ -730,3 +730,470 @@ tbody tr:hover { background: var(--surface-hover); }
 @media (max-width: 460px) {
   .sync-summary-primary { grid-template-columns: 1fr; }
 }
+
+/* issue #145 notification history usability */
+.notification-history-heading { align-items: flex-end; }
+.notification-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.notification-summary article {
+  padding: 13px 15px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel-muted);
+}
+.notification-summary span { display: block; color: var(--text-muted); font-size: .72rem; }
+.notification-summary strong { display: block; margin-top: 5px; font-size: 1.25rem; }
+.notification-type { display: block; font-weight: 720; }
+.notification-code { display: block; margin-top: 3px; color: var(--text-muted); font-size: .68rem; }
+.notification-row-attention { box-shadow: inset 2px 0 0 rgb(248 113 113 / 62%); }
+.notification-loading,
+.notification-empty-state {
+  display: grid;
+  min-height: 112px;
+  place-content: center;
+  gap: 7px;
+  padding: 22px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel-muted);
+  text-align: center;
+}
+.notification-empty-state strong { color: var(--text-primary); }
+.notification-empty-state.compact { min-height: 72px; }
+.notification-detail-heading,
+.notification-attempt-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.notification-detail-heading > div { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.notification-attempt-heading h3 { margin: 3px 0 0; }
+.notification-attempt-heading > span {
+  min-width: 52px;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  text-align: center;
+}
+.notification-error-cell { max-width: 280px; overflow-wrap: anywhere; }
+.badge-warning { color: #fde68a; border-color: rgb(245 158 11 / 35%); background: rgb(245 158 11 / 13%); }
+
+@media (max-width: 900px) {
+  .notification-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .notification-history-heading,
+  .notification-detail-heading,
+  .notification-attempt-heading { align-items: stretch; flex-direction: column; }
+  .notification-history-table,
+  .notification-history-table tbody,
+  .notification-attempt-table,
+  .notification-attempt-table tbody { display: block; width: 100%; min-width: 0; }
+  .notification-attempt-table thead { display: none; }
+  .notification-attempt-table tr {
+    display: grid;
+    gap: 8px;
+    margin: 10px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, rgb(17 26 45 / 96%), rgb(13 21 39 / 98%));
+  }
+  .notification-attempt-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 30%) minmax(0, 1fr);
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .notification-attempt-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: .72rem;
+    font-weight: 700;
+  }
+  .notification-error-cell { max-width: none; }
+}
+
+.notification-mock-badge {
+  display: inline-flex;
+  margin-top: 0.55rem;
+}
+
+/* issue #145 notification history visual consistency and responsive detail */
+.notification-history-card .button-secondary,
+.notification-history-card .table-action,
+.notification-history-modal .table-action {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: rgb(15 22 40 / 56%);
+}
+
+.notification-history-card .button-secondary:hover:not(:disabled),
+.notification-history-card .table-action:hover:not(:disabled),
+.notification-history-modal .table-action:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+  background: var(--surface-hover);
+}
+
+.notification-attempt-table td,
+.notification-attempt-table .table-action {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 1040px) {
+  .notification-history-modal .table-wrap {
+    overflow-x: visible;
+  }
+
+  .notification-attempt-table,
+  .notification-attempt-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notification-attempt-table thead {
+    display: none;
+  }
+
+  .notification-attempt-table tr {
+    display: grid;
+    gap: 8px;
+    margin: 10px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: linear-gradient(180deg, rgb(17 26 45 / 96%), rgb(13 21 39 / 98%));
+  }
+
+  .notification-attempt-table td {
+    display: grid;
+    grid-template-columns: minmax(112px, 28%) minmax(0, 1fr);
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .notification-attempt-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: .72rem;
+    font-weight: 700;
+  }
+
+  .notification-attempt-table .table-action {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .notification-error-cell {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .notification-attempt-table td {
+    grid-template-columns: minmax(88px, 32%) minmax(0, 1fr);
+  }
+}
+
+/* issue #145 responsive notification history adjustments */
+.notification-history-card .button-secondary,
+.notification-history-card .table-action,
+.notification-history-modal .table-action {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--surface-panel-muted);
+}
+
+.notification-history-card .button-secondary:hover:not(:disabled),
+.notification-history-card .table-action:hover:not(:disabled),
+.notification-history-modal .table-action:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+  background: var(--surface-hover);
+}
+
+@media (max-width: 1040px) {
+  .notification-history-modal .table-wrap {
+    overflow-x: visible;
+  }
+
+  .notification-attempt-table,
+  .notification-attempt-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notification-attempt-table thead {
+    display: none;
+  }
+
+  .notification-attempt-table tr {
+    display: grid;
+    gap: 8px;
+    margin: 10px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: linear-gradient(
+      180deg,
+      rgb(17 26 45 / 96%),
+      rgb(13 21 39 / 98%)
+    );
+  }
+
+  .notification-attempt-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 30%) minmax(0, 1fr);
+    gap: 10px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .notification-attempt-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .notification-attempt-table .table-action {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .notification-error-cell {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .notification-attempt-table td {
+    grid-template-columns: minmax(82px, 28%) minmax(0, 1fr);
+  }
+}
+
+/* issue #145 responsive notification history list */
+@media (max-width: 1040px) {
+  .notification-history-card > .table-wrap {
+    overflow-x: visible;
+  }
+
+  .notification-history-table,
+  .notification-history-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notification-history-table thead {
+    display: none;
+  }
+
+  .notification-history-table tr {
+    display: grid;
+    gap: 8px;
+    margin: 10px;
+    padding: 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: linear-gradient(
+      180deg,
+      rgb(17 26 45 / 96%),
+      rgb(13 21 39 / 98%)
+    );
+  }
+
+  .notification-history-table tr.notification-row-attention {
+    box-shadow: inset 3px 0 0 rgb(248 113 113 / 62%);
+  }
+
+  .notification-history-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, 28%) minmax(0, 1fr);
+    gap: 10px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .notification-history-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .notification-history-table .card-action {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-history-table .card-action::before {
+    display: none;
+  }
+
+  .notification-history-table .card-action .table-action {
+    width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 560px) {
+  .notification-history-table td {
+    grid-template-columns: minmax(82px, 30%) minmax(0, 1fr);
+  }
+}
+
+/* issue #145 notification status badge tones */
+.notification-history-card .badge-live,
+.notification-history-modal .badge-live {
+  color: var(--status-create);
+  border-color: var(--status-create-border);
+  background: var(--status-create-bg);
+}
+
+.notification-history-card .badge-warning,
+.notification-history-modal .badge-warning {
+  color: var(--status-update);
+  border-color: var(--status-update-border);
+  background: var(--status-update-bg);
+}
+
+.notification-history-card .badge-danger,
+.notification-history-modal .badge-danger {
+  color: var(--status-disable);
+  border-color: var(--status-disable-border);
+  background: var(--status-disable-bg);
+}
+
+.notification-history-card .badge-off,
+.notification-history-modal .badge-off {
+  color: var(--status-neutral);
+  border-color: var(--status-neutral-border);
+  background: var(--status-neutral-bg);
+}
+
+/* issue #145 compact notification history table */
+.notification-history-card .table-wrap {
+  overflow-x: hidden;
+}
+
+.notification-history-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.notification-history-table th,
+.notification-history-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-history-table th:nth-child(1),
+.notification-history-table td:nth-child(1) {
+  width: 18%;
+}
+
+.notification-history-table th:nth-child(2),
+.notification-history-table td:nth-child(2) {
+  width: 15%;
+}
+
+.notification-history-table th:nth-child(3),
+.notification-history-table td:nth-child(3) {
+  width: 14%;
+}
+
+.notification-history-table th:nth-child(4),
+.notification-history-table td:nth-child(4),
+.notification-history-table th:nth-child(5),
+.notification-history-table td:nth-child(5) {
+  width: 10%;
+}
+
+.notification-history-table th:nth-child(6),
+.notification-history-table td:nth-child(6),
+.notification-history-table th:nth-child(7),
+.notification-history-table td:nth-child(7),
+.notification-history-table th:nth-child(8),
+.notification-history-table td:nth-child(8) {
+  width: 7%;
+}
+
+.notification-history-table th:last-child,
+.notification-history-table td:last-child {
+  width: 9%;
+}
+
+.notification-history-table .table-action {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 6px;
+  white-space: nowrap;
+}
+
+/* issue #145 narrow notification history cards */
+@media (max-width: 1180px) {
+  .notification-history-table tr {
+    width: auto;
+  }
+
+  .notification-history-table th,
+  .notification-history-table td,
+  .notification-history-table th:nth-child(n),
+  .notification-history-table td:nth-child(n) {
+    width: auto;
+    max-width: none;
+  }
+
+  .notification-history-table td {
+    grid-template-columns: minmax(90px, 28%) minmax(0, 1fr);
+  }
+
+  .notification-history-table td > * {
+    min-width: 0;
+  }
+
+  .notification-history-table .card-action {
+    display: block;
+    width: 100%;
+  }
+
+  .notification-history-table .table-action {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .notification-history-table td {
+    grid-template-columns: minmax(78px, 30%) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .notification-history-table td::before {
+    overflow-wrap: anywhere;
+  }
+}
