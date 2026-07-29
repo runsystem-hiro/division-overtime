@@ -70,22 +70,22 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "社員管理" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "管理画面" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("link", { name: "KOT同期" }));
+    fireEvent.click(screen.getByRole("link", { name: "同期" }));
     expect(screen.getByRole("heading", { name: "KOT社員同期" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "KOT同期" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "同期" })).toHaveClass("active");
     expect(window.location.pathname).toBe("/kot-sync");
 
-    fireEvent.click(screen.getByRole("link", { name: "通知履歴" }));
+    fireEvent.click(screen.getByRole("link", { name: "履歴" }));
     expect(screen.getByRole("heading", { name: "通知履歴", level: 1 })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/notifications");
   });
 
-  it("ナビゲーションを折りたたみ、状態を保存する", async () => {
+  it("ヘッダーからシステム状態とログアウトメニューを開ける", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
       const responses: Record<string, unknown> = {
         "/api/auth/status": { authenticated: true, user: { username: "admin", expiresAt: null } },
-        "/api/system/health": { status: "ok", environment: "development" },
+        "/api/system/health": { status: "ok", environment: "development", version: "2.1.0" },
         "/api/employees?enabled=all": [],
         "/api/employees/consistency": { status: "ok", databaseEmployees: 0, csvEmployees: 0, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
         "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
@@ -96,16 +96,21 @@ describe("App", () => {
       });
     });
 
-    const { container } = render(<App />);
-    const toggle = await screen.findByRole("button", { name: "ナビゲーションを閉じる" });
+    render(<App />);
 
-    fireEvent.click(toggle);
+    expect(await screen.findByText("DEVELOPMENT")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /正常/ }));
+    expect(screen.getByRole("dialog", { name: "システム状態" })).toBeInTheDocument();
+    expect(screen.getByText("2.1.0")).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(container.querySelector(".app-shell")).toHaveClass("sidebar-collapsed");
-    });
-    expect(screen.getByRole("button", { name: "ナビゲーションを開く" })).toBeInTheDocument();
-    expect(window.localStorage.getItem("division-overtime-sidebar-collapsed")).toBe("true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "システム状態" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "アカウントメニュー" }));
+    expect(screen.getByRole("menuitem", { name: "ログアウト" })).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menuitem", { name: "ログアウト" })).not.toBeInTheDocument();
   });
 
   it("社員一覧の検索条件を表示し、まとめて解除する", async () => {

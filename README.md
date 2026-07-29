@@ -263,3 +263,8 @@ VITE_NOTIFICATION_HISTORY_MOCK=true
 ```
 
 `npm --prefix frontend run dev` で起動すると、成功・一部失敗・失敗・dry-run・実行中・重複スキップ・保留を含む読み取り専用サンプルが表示されます。`import.meta.env.DEV` のときだけ有効なため、production buildと本番SQLiteには影響しません。
+
+
+### Web管理UIナビゲーション
+
+主要画面のナビゲーション、実行環境、health、ログアウト操作は共通ヘッダーへ集約しています。health表示からAPI・Frontend・Versionを確認できます。

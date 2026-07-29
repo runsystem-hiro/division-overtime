@@ -1,4 +1,12 @@
-import { type FormEvent, type MouseEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { NotificationHistory } from "./NotificationHistory";
 
 type Health = {
@@ -38,7 +46,6 @@ type Employee = {
   createdAt: string;
   updatedAt: string;
 };
-
 
 const syncActionLabels = {
   create: "新規",
@@ -158,14 +165,83 @@ async function responseError(response: Response): Promise<string> {
   }
 }
 
-
 function NavIcon({ name }: { name: "employees" | "sync" | "history" }) {
   const paths = {
-    employees: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
-    sync: <><path d="M20 7h-9" /><path d="m16 3 4 4-4 4" /><path d="M4 17h9" /><path d="m8 21-4-4 4-4" /></>,
-    history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
+    employees: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    sync: (
+      <>
+        <path d="M20 7h-9" />
+        <path d="m16 3 4 4-4 4" />
+        <path d="M4 17h9" />
+        <path d="m8 21-4-4 4-4" />
+      </>
+    ),
+    history: (
+      <>
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
   };
-  return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+  return (
+    <svg
+      className="nav-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+function UtilityIcon({ name }: { name: "power" | "logout" | "activity" }) {
+  const paths = {
+    power: (
+      <>
+        <path d="M12 2v10" />
+        <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M10 17l5-5-5-5" />
+        <path d="M15 12H3" />
+        <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
+      </>
+    ),
+    activity: (
+      <>
+        <path d="M3 12h4l2-7 4 14 2-7h6" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      className="utility-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
 }
 
 export function App() {
@@ -176,14 +252,18 @@ export function App() {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [enabledFilter, setEnabledFilter] = useState("all");
-  const [consistency, setConsistency] = useState<EmployeeConsistency | null>(null);
+  const [consistency, setConsistency] = useState<EmployeeConsistency | null>(
+    null,
+  );
   const [consistencyError, setConsistencyError] = useState<string | null>(null);
   const [loadingConsistency, setLoadingConsistency] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
-  const [editing, setEditing] = useState<Employee | null | undefined>(undefined);
+  const [editing, setEditing] = useState<Employee | null | undefined>(
+    undefined,
+  );
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null);
   const [selectedSyncCodes, setSelectedSyncCodes] = useState<string[]>([]);
@@ -200,9 +280,10 @@ export function App() {
   const [showOnLeave, setShowOnLeave] = useState(false);
 
   const [path, setPath] = useState(() => window.location.pathname);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
-    window.localStorage.getItem("division-overtime-sidebar-collapsed") === "true",
-  );
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const healthPopoverRef = useRef<HTMLDivElement>(null);
+  const accountPopoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handlePopState = () => setPath(window.location.pathname);
@@ -210,13 +291,29 @@ export function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  function toggleSidebar() {
-    setSidebarCollapsed((collapsed) => {
-      const next = !collapsed;
-      window.localStorage.setItem("division-overtime-sidebar-collapsed", String(next));
-      return next;
-    });
-  }
+  useEffect(() => {
+    if (!healthOpen && !accountOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setHealthOpen(false);
+      setAccountOpen(false);
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (healthOpen && !healthPopoverRef.current?.contains(target))
+        setHealthOpen(false);
+      if (accountOpen && !accountPopoverRef.current?.contains(target))
+        setAccountOpen(false);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [healthOpen, accountOpen]);
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, nextPath: string) {
     event.preventDefault();
@@ -227,7 +324,9 @@ export function App() {
   }
 
   const loadCurrentUser = useCallback(async () => {
-    const response = await fetch("/api/auth/status", { credentials: "same-origin" });
+    const response = await fetch("/api/auth/status", {
+      credentials: "same-origin",
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const status = (await response.json()) as AuthStatus;
     setUser(status.authenticated ? status.user : null);
@@ -248,15 +347,20 @@ export function App() {
       setConsistency((await response.json()) as EmployeeConsistency);
     } catch (reason: unknown) {
       setConsistency(null);
-      setConsistencyError(reason instanceof Error ? reason.message : "整合性を確認できませんでした");
+      setConsistencyError(
+        reason instanceof Error
+          ? reason.message
+          : "整合性を確認できませんでした",
+      );
     } finally {
       setLoadingConsistency(false);
     }
   }, []);
 
-
   const loadKotSyncStatus = useCallback(async () => {
-    const response = await fetch("/api/kot-sync/status", { credentials: "same-origin" });
+    const response = await fetch("/api/kot-sync/status", {
+      credentials: "same-origin",
+    });
     if (response.status === 403 || response.status === 503) {
       setSyncStatus(null);
       return;
@@ -269,7 +373,9 @@ export function App() {
     setLoadingEmployees(true);
     const params = new URLSearchParams({ enabled: enabledFilter });
     if (query.trim()) params.set("query", query.trim());
-    const response = await fetch(`/api/employees?${params}`, { credentials: "same-origin" });
+    const response = await fetch(`/api/employees?${params}`, {
+      credentials: "same-origin",
+    });
     setLoadingEmployees(false);
     if (response.status === 401) {
       setUser(null);
@@ -288,25 +394,34 @@ export function App() {
   useEffect(() => {
     if (!user) return;
     Promise.all([
-      fetch("/api/system/health", { credentials: "same-origin" }).then(async (response) => {
-        if (!response.ok) throw new Error(await responseError(response));
-        return response.json() as Promise<Health>;
-      }),
+      fetch("/api/system/health", { credentials: "same-origin" }).then(
+        async (response) => {
+          if (!response.ok) throw new Error(await responseError(response));
+          return response.json() as Promise<Health>;
+        },
+      ),
       loadEmployees(),
       loadConsistency(),
       loadKotSyncStatus(),
     ])
       .then(([healthResponse]) => setHealth(healthResponse))
       .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : "情報を取得できませんでした");
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "情報を取得できませんでした",
+        );
       });
   }, [loadConsistency, loadEmployees, loadKotSyncStatus, user]);
 
-  const counts = useMemo(() => ({
-    all: employees.length,
-    enabled: employees.filter((employee) => employee.isEnabled).length,
-    disabled: employees.filter((employee) => !employee.isEnabled).length,
-  }), [employees]);
+  const counts = useMemo(
+    () => ({
+      all: employees.length,
+      enabled: employees.filter((employee) => employee.isEnabled).length,
+      disabled: employees.filter((employee) => !employee.isEnabled).length,
+    }),
+    [employees],
+  );
 
   const hasEmployeeFilters = query !== "" || enabledFilter !== "all";
 
@@ -320,16 +435,18 @@ export function App() {
     if (!syncPreview) return [];
     return syncPreview.differences.filter((item) => {
       if (!syncActions[item.action]) return false;
-      if (!showNoAttendance && item.warnings.includes("勤怠管理なし")) return false;
+      if (!showNoAttendance && item.warnings.includes("勤怠管理なし"))
+        return false;
       if (!showOnLeave && item.warnings.includes("休職中")) return false;
       return true;
     });
   }, [showNoAttendance, showOnLeave, syncActions, syncPreview]);
 
   const selectableVisibleCodes = useMemo(
-    () => visibleSyncDifferences
-      .filter((item) => item.action !== "unchanged")
-      .map((item) => item.code),
+    () =>
+      visibleSyncDifferences
+        .filter((item) => item.action !== "unchanged")
+        .map((item) => item.code),
     [visibleSyncDifferences],
   );
 
@@ -338,25 +455,31 @@ export function App() {
   ).length;
 
   const selectedSyncCounts = useMemo(() => {
-    const selected = syncPreview?.differences.filter((item) =>
-      selectedSyncCodes.includes(item.code),
-    ) ?? [];
+    const selected =
+      syncPreview?.differences.filter((item) =>
+        selectedSyncCodes.includes(item.code),
+      ) ?? [];
     return {
       create: selected.filter((item) => item.action === "create").length,
       update: selected.filter((item) => item.action === "update").length,
-      reactivate: selected.filter((item) => item.action === "reactivate").length,
+      reactivate: selected.filter((item) => item.action === "reactivate")
+        .length,
       disable: selected.filter((item) => item.action === "disable").length,
     };
   }, [selectedSyncCodes, syncPreview]);
 
-  const allVisibleSelected = selectableVisibleCodes.length > 0
-    && selectableVisibleCodes.every((code) => selectedSyncCodes.includes(code));
+  const allVisibleSelected =
+    selectableVisibleCodes.length > 0 &&
+    selectableVisibleCodes.every((code) => selectedSyncCodes.includes(code));
 
   const warningCounts = useMemo(() => {
     const differences = syncPreview?.differences ?? [];
     return {
-      noAttendance: differences.filter((item) => item.warnings.includes("勤怠管理なし")).length,
-      onLeave: differences.filter((item) => item.warnings.includes("休職中")).length,
+      noAttendance: differences.filter((item) =>
+        item.warnings.includes("勤怠管理なし"),
+      ).length,
+      onLeave: differences.filter((item) => item.warnings.includes("休職中"))
+        .length,
     };
   }, [syncPreview]);
 
@@ -377,9 +500,11 @@ export function App() {
     });
     setSubmitting(false);
     if (!response.ok) {
-      setError(response.status === 429
-        ? "ログイン試行回数が上限に達しました。しばらく待ってから再試行してください。"
-        : "ユーザー名またはパスワードが正しくありません。");
+      setError(
+        response.status === 429
+          ? "ログイン試行回数が上限に達しました。しばらく待ってから再試行してください。"
+          : "ユーザー名またはパスワードが正しくありません。",
+      );
       return;
     }
     setUser((await response.json()) as CurrentUser);
@@ -387,7 +512,10 @@ export function App() {
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
     setUser(null);
     setHealth(null);
     setEmployees([]);
@@ -447,14 +575,17 @@ export function App() {
     const detail = {
       create: selected.filter((item) => item.action === "create").length,
       update: selected.filter((item) => item.action === "update").length,
-      reactivate: selected.filter((item) => item.action === "reactivate").length,
+      reactivate: selected.filter((item) => item.action === "reactivate")
+        .length,
       disable: selected.filter((item) => item.action === "disable").length,
     };
     const message = [
       `${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`,
       `新規 ${detail.create}件 / 更新 ${detail.update}件 / 再有効化 ${detail.reactivate}件 / 無効化 ${detail.disable}件`,
       detail.reactivate > 0 ? "再有効化した社員は通知対象へ戻ります。" : "",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     if (!window.confirm(message)) return;
     setSyncing(true);
     setError(null);
@@ -462,7 +593,10 @@ export function App() {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ previewId: syncPreview.previewId, employeeCodes: selectedSyncCodes }),
+      body: JSON.stringify({
+        previewId: syncPreview.previewId,
+        employeeCodes: selectedSyncCodes,
+      }),
     });
     setSyncing(false);
     if (!response.ok) {
@@ -470,10 +604,16 @@ export function App() {
       return;
     }
     const result = (await response.json()) as KotSyncApplyResult;
-    setNotice(`KOT社員差分を反映し、employeeKey.csvを再生成しました。再有効化 ${result.counts.reactivated}件。反映前バックアップを ${result.backupPath} へ保存しました。`);
+    setNotice(
+      `KOT社員差分を反映し、employeeKey.csvを再生成しました。再有効化 ${result.counts.reactivated}件。反映前バックアップを ${result.backupPath} へ保存しました。`,
+    );
     setSyncPreview(null);
     setSelectedSyncCodes([]);
-    await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
+    await Promise.all([
+      loadEmployees(),
+      loadConsistency(),
+      loadKotSyncStatus(),
+    ]);
   }
 
   async function deleteEmployee() {
@@ -502,11 +642,15 @@ export function App() {
     setSyncPreview(null);
     setSelectedSyncCodes([]);
     setNotice(
-      `社員 ${result.deletedEmployee.code} ${result.deletedEmployee.fullName} を削除しました。`
-      + ` employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。`
-      + ` 削除前バックアップを ${result.backupPath} へ保存しました。`,
+      `社員 ${result.deletedEmployee.code} ${result.deletedEmployee.fullName} を削除しました。` +
+        ` employeeKey.csvは有効社員${result.csv.employeeCount}件で再生成済みです。` +
+        ` 削除前バックアップを ${result.backupPath} へ保存しました。`,
     );
-    await Promise.all([loadEmployees(), loadConsistency(), loadKotSyncStatus()]);
+    await Promise.all([
+      loadEmployees(),
+      loadConsistency(),
+      loadKotSyncStatus(),
+    ]);
   }
 
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
@@ -517,17 +661,21 @@ export function App() {
     const payload = {
       ...form,
       employeeKey: form.employeeKey || null,
-      personalTargetMinutes: form.personalTargetMinutes === ""
-        ? null
-        : Number(form.personalTargetMinutes),
+      personalTargetMinutes:
+        form.personalTargetMinutes === ""
+          ? null
+          : Number(form.personalTargetMinutes),
     };
     const isCreate = editing === null;
-    const response = await fetch(isCreate ? "/api/employees" : `/api/employees/${editing?.code}`, {
-      method: isCreate ? "POST" : "PUT",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+      isCreate ? "/api/employees" : `/api/employees/${editing?.code}`,
+      {
+        method: isCreate ? "POST" : "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     setSubmitting(false);
     if (!response.ok) {
       setError(await responseError(response));
@@ -545,7 +693,11 @@ export function App() {
   }
 
   if (checkingAuth) {
-    return <main className="center-shell"><p className="muted">認証状態を確認しています…</p></main>;
+    return (
+      <main className="center-shell">
+        <p className="muted">認証状態を確認しています…</p>
+      </main>
+    );
   }
 
   if (!user) {
@@ -554,401 +706,1061 @@ export function App() {
         <section className="login-card">
           <p className="eyebrow">DIVISION OVERTIME</p>
           <h1>管理者ログイン</h1>
-          <p className="lead">社員設定を管理するため、認証情報を入力してください。</p>
+          <p className="lead">
+            社員設定を管理するため、認証情報を入力してください。
+          </p>
           <form className="login-form" onSubmit={handleLogin}>
-            <label>ユーザー名<input name="username" autoComplete="username" required autoFocus /></label>
-            <label>パスワード<input name="password" type="password" autoComplete="current-password" required /></label>
-            {error && <p className="error-message" role="alert">{error}</p>}
-            <button type="submit" disabled={submitting}>{submitting ? "ログイン中…" : "ログイン"}</button>
+            <label>
+              ユーザー名
+              <input
+                name="username"
+                autoComplete="username"
+                required
+                autoFocus
+              />
+            </label>
+            <label>
+              パスワード
+              <input
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+            {error && (
+              <p className="error-message" role="alert">
+                {error}
+              </p>
+            )}
+            <button type="submit" disabled={submitting}>
+              {submitting ? "ログイン中…" : "ログイン"}
+            </button>
           </form>
         </section>
       </main>
     );
   }
 
+  const environmentLabel =
+    health?.environment === "production" ? "PRODUCTION" : "DEVELOPMENT";
+  const healthLabel = health?.status === "ok" ? "正常" : "確認中";
+
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
-      <aside className="app-sidebar">
-        <div className="app-brand-row">
-          <div className="app-brand">
-            <div className="app-brand-copy">
-              <p className="eyebrow">DIVISION OVERTIME</p>
-              <strong>管理コンソール</strong>
-            </div>
-          </div>
-          <button
-            className="sidebar-toggle"
-            type="button"
-            aria-label={sidebarCollapsed ? "ナビゲーションを開く" : "ナビゲーションを閉じる"}
-            aria-expanded={!sidebarCollapsed}
-            onClick={toggleSidebar}
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="header-brand" aria-label="division overtime">
+          <strong>division overtime</strong>
+          <span
+            className={`environment-badge environment-${health?.environment === "production" ? "production" : "development"}`}
           >
-            <span aria-hidden="true">{sidebarCollapsed ? "›" : "‹"}</span>
-          </button>
+            {environmentLabel}
+          </span>
         </div>
+
         <nav className="app-nav" aria-label="管理画面">
-          <a className={path === "/" ? "active" : ""} href="/" title="社員管理" onClick={(event) => navigate(event, "/")}><NavIcon name="employees" /><span className="nav-label">社員管理</span></a>
-          <a className={path === "/kot-sync" ? "active" : ""} href="/kot-sync" title="KOT同期" onClick={(event) => navigate(event, "/kot-sync")}><NavIcon name="sync" /><span className="nav-label">KOT同期</span></a>
-          <a className={path === "/notifications" ? "active" : ""} href="/notifications" title="通知履歴" onClick={(event) => navigate(event, "/notifications")}><NavIcon name="history" /><span className="nav-label">通知履歴</span></a>
+          <a
+            className={path === "/" ? "active" : ""}
+            href="/"
+            onClick={(event) => navigate(event, "/")}
+          >
+            <NavIcon name="employees" />
+            <span>社員</span>
+          </a>
+          <a
+            className={path === "/kot-sync" ? "active" : ""}
+            href="/kot-sync"
+            onClick={(event) => navigate(event, "/kot-sync")}
+          >
+            <NavIcon name="sync" />
+            <span>同期</span>
+          </a>
+          <a
+            className={path === "/notifications" ? "active" : ""}
+            href="/notifications"
+            onClick={(event) => navigate(event, "/notifications")}
+          >
+            <NavIcon name="history" />
+            <span>履歴</span>
+          </a>
         </nav>
-        <div className="sidebar-status" role="status" aria-label={health?.status === "ok" ? "システム正常" : "状態確認中"} title={health?.status === "ok" ? "システム正常" : "状態確認中"}>
-          <span className={`status-dot ${health?.status === "ok" ? "status-dot-ok" : ""}`} />
-          <span>{health?.status === "ok" ? "システム正常" : "状態確認中"}</span>
+
+        <div className="header-actions">
+          <div className="header-popover-wrap" ref={healthPopoverRef}>
+            <button
+              className="health-trigger"
+              type="button"
+              aria-expanded={healthOpen}
+              aria-haspopup="dialog"
+              onClick={() => {
+                setHealthOpen((open) => !open);
+                setAccountOpen(false);
+              }}
+            >
+              <span
+                className={`status-dot ${health?.status === "ok" ? "status-dot-ok" : ""}`}
+              />
+              <span>{healthLabel}</span>
+            </button>
+            {healthOpen && (
+              <section
+                className="header-popover health-popover"
+                role="dialog"
+                aria-label="システム状態"
+              >
+                <div className="popover-heading">
+                  <UtilityIcon name="activity" />
+                  <strong>システム状態</strong>
+                </div>
+                <dl>
+                  <div>
+                    <dt>状態</dt>
+                    <dd>{healthLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>環境</dt>
+                    <dd>{environmentLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Version</dt>
+                    <dd>{health?.version ?? "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>Frontend</dt>
+                    <dd>{health?.status === "ok" ? "Built" : "-"}</dd>
+                  </div>
+                  <div>
+                    <dt>API</dt>
+                    <dd>{health?.status === "ok" ? "OK" : "確認中"}</dd>
+                  </div>
+                </dl>
+              </section>
+            )}
+          </div>
+          <strong className="header-user">{user.username}</strong>
+          <div className="header-popover-wrap" ref={accountPopoverRef}>
+            <button
+              className="icon-button power-button"
+              type="button"
+              aria-label="アカウントメニュー"
+              aria-expanded={accountOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                setAccountOpen((open) => !open);
+                setHealthOpen(false);
+              }}
+            >
+              <UtilityIcon name="power" />
+            </button>
+            {accountOpen && (
+              <div className="header-popover account-menu" role="menu">
+                <button type="button" role="menuitem" onClick={handleLogout}>
+                  <UtilityIcon name="logout" />
+                  <span>ログアウト</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </aside>
+      </header>
 
       <main className="app-main">
-        <header className="app-topbar">
-          <div>
-            <span className="muted">ログイン中</span>
-            <strong>{user.username}</strong>
-            {health?.environment === "development" && <span className="environment-badge">DEVELOPMENT</span>}
-          </div>
-          <button className="button-secondary" type="button" onClick={handleLogout}>ログアウト</button>
-        </header>
-
         <div className="page-shell">
-          {notice && <p className="success-message" role="status">{notice}</p>}
-          {error && editing === undefined && <p className="error-message global-error" role="alert">{error}</p>}
-          {path === "/" && <>
-      <section className="hero compact-hero">
-        <div>
-          <h1>社員管理</h1>
-          <p className="lead">SQLiteを正として社員情報を管理し、保存時に通知用CSVを安全に再生成します。</p>
-        </div>
-        <button className="button-primary" type="button" onClick={openCreate}>社員を追加</button>
-      </section>
-
-      <section className="summary-grid" aria-label="集計">
-        <article><span>検索結果</span><strong>{counts.all}</strong></article>
-        <article><span>結果内の有効</span><strong>{counts.enabled}</strong></article>
-        <article><span>結果内の無効</span><strong>{counts.disabled}</strong></article>
-        <article><span>Web状態</span><strong>{health?.status === "ok" ? "正常" : "確認中"}</strong></article>
-        <article>
-          <span>社員データ整合性</span>
-          <strong className={consistency?.status === "mismatch" ? "status-danger" : "status-ok"}>
-            {loadingConsistency ? "確認中" : consistency?.status === "ok" ? "一致" : consistency?.status === "mismatch" ? "不一致" : "確認失敗"}
-          </strong>
-        </article>
-      </section>
-
-      <section className="employee-card">
-        <div className="employee-list-heading">
-          <div>
-            <p className="eyebrow">EMPLOYEES</p>
-            <h2>社員一覧</h2>
-            <p className="muted">社員番号、氏名、メール、部署から対象を検索できます。</p>
-          </div>
-          <span className="employee-result-count" aria-live="polite">{loadingEmployees ? "読込中" : `${counts.all}件`}</span>
-        </div>
-        <form className="toolbar employee-toolbar" onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); }}>
-          <label className="search-field">検索<input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="社員番号・氏名・メール・部署" /></label>
-          <label>状態<select value={enabledFilter} onChange={(event) => setEnabledFilter(event.target.value)}>
-            <option value="all">すべて</option><option value="enabled">有効</option><option value="disabled">無効</option>
-          </select></label>
-          <div className="employee-toolbar-actions">
-            <button className="button-primary" type="submit">検索</button>
-            <button className="button-secondary" type="button" onClick={clearEmployeeFilters} disabled={!hasEmployeeFilters && queryInput === ""}>条件クリア</button>
-            <button className="button-secondary" type="button" onClick={() => Promise.all([loadEmployees(), loadConsistency()])} disabled={loadingEmployees || loadingConsistency}>再読込</button>
-          </div>
-        </form>
-        {hasEmployeeFilters && (
-          <div className="active-filter-summary" role="status">
-            <span>絞り込み中</span>
-            {query && <strong>検索: {query}</strong>}
-            {enabledFilter !== "all" && <strong>状態: {enabledFilter === "enabled" ? "有効" : "無効"}</strong>}
-            <button type="button" onClick={clearEmployeeFilters}>すべて解除</button>
-          </div>
-        )}
-        <div className={`consistency-panel ${consistency?.status === "mismatch" ? "consistency-panel-danger" : ""}`}>
-          <div>
-            <strong>SQLite / employeeKey.csv</strong>
-            {consistency?.status === "ok" && <p>整合しています（SQLite {consistency.databaseEmployees}件 / CSV {consistency.csvEmployees}件）。</p>}
-            {consistency?.status === "mismatch" && (
-              <p>
-                不一致があります（SQLiteのみ {consistency.databaseOnlyCodes.length}件 / CSVのみ {consistency.csvOnlyCodes.length}件 / 項目差分 {consistency.fieldDifferences.length}件）。
-              </p>
-            )}
-            {consistencyError && <p>確認失敗: {consistencyError}</p>}
-            {!consistency && !consistencyError && <p>整合性を確認しています。</p>}
-          </div>
-          <button className="button-secondary" type="button" onClick={loadConsistency} disabled={loadingConsistency}>
-            {loadingConsistency ? "確認中…" : "再確認"}
-          </button>
-          {consistency?.status === "mismatch" && (
-            <details className="consistency-details">
-              <summary>差分対象を表示</summary>
-              {consistency.databaseOnlyCodes.length > 0 && <p>SQLiteのみ: {consistency.databaseOnlyCodes.join(", ")}</p>}
-              {consistency.csvOnlyCodes.length > 0 && <p>CSVのみ: {consistency.csvOnlyCodes.join(", ")}</p>}
-              {consistency.fieldDifferences.map((item) => <p key={item.code}>項目差分 {item.code}: {item.fields.join(", ")}</p>)}
-            </details>
+          {notice && (
+            <p className="success-message" role="status">
+              {notice}
+            </p>
           )}
-        </div>
-        <div className="table-wrap">
-          <table className="employee-table">
-            <thead><tr><th>社員番号</th><th>社員情報</th><th>所属</th><th>上限分</th><th>状態・操作</th></tr></thead>
-            <tbody>
-              {employees.map((employee) => (
-                <tr key={employee.code}>
-                  <td className="mono employee-code" data-label="社員番号">{employee.code}</td>
-                  <td className="employee-identity" data-label="社員情報"><strong>{employee.fullName}</strong><span>{employee.email || "—"}</span></td>
-                  <td className="employee-meta" data-label="所属"><strong>{employee.divisionName || employee.divisionCode || "—"}</strong>{employee.divisionName && employee.divisionCode && <span>{employee.divisionCode}</span>}</td>
-                  <td className="employee-target" data-label="上限分">{employee.personalTargetMinutes ?? "—"}</td>
-                  <td data-label="状態・操作"><div className="employee-actions"><span className={`badge ${employee.isEnabled ? "badge-ok" : "badge-off"}`}>{employee.isEnabled ? "有効" : "無効"}</span><button className="table-action" type="button" onClick={() => openEdit(employee)}>編集</button></div></td>
-                </tr>
-              ))}
-              {!loadingEmployees && employees.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty-row">
-                    <div className="employee-empty-state">
-                      <strong>{hasEmployeeFilters ? "条件に一致する社員はいません" : "社員が登録されていません"}</strong>
-                      <span>{hasEmployeeFilters ? "検索条件を変更するか、すべて解除してください。" : "「社員を追加」から最初の社員を登録できます。"}</span>
-                      {hasEmployeeFilters && <button className="button-secondary" type="button" onClick={clearEmployeeFilters}>検索条件を解除</button>}
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {loadingEmployees && <p className="muted loading-line" role="status">社員一覧を読み込み中…</p>}
-      </section>
+          {error && editing === undefined && (
+            <p className="error-message global-error" role="alert">
+              {error}
+            </p>
+          )}
+          {path === "/" && (
+            <>
+              <section className="hero compact-hero">
+                <div>
+                  <p className="eyebrow">EMPLOYEE MANAGEMENT</p>
+                  <h1>社員管理</h1>
+                  <p className="lead">
+                    SQLiteを正として社員情報を管理し、保存時に通知用CSVを安全に再生成します。
+                  </p>
+                </div>
+                <button
+                  className="button-primary"
+                  type="button"
+                  onClick={openCreate}
+                >
+                  社員を追加
+                </button>
+              </section>
 
+              <section className="summary-grid" aria-label="集計">
+                <article>
+                  <span>検索結果</span>
+                  <strong>{counts.all}</strong>
+                </article>
+                <article>
+                  <span>結果内の有効</span>
+                  <strong>{counts.enabled}</strong>
+                </article>
+                <article>
+                  <span>結果内の無効</span>
+                  <strong>{counts.disabled}</strong>
+                </article>
+                <article>
+                  <span>社員データ整合性</span>
+                  <strong
+                    className={
+                      consistency?.status === "mismatch"
+                        ? "status-danger"
+                        : "status-ok"
+                    }
+                  >
+                    {loadingConsistency
+                      ? "確認中"
+                      : consistency?.status === "ok"
+                        ? "一致"
+                        : consistency?.status === "mismatch"
+                          ? "不一致"
+                          : "確認失敗"}
+                  </strong>
+                </article>
+              </section>
 
-            </>}
-          {path === "/kot-sync" && <>
+              <section className="employee-card">
+                <div className="employee-list-heading">
+                  <div>
+                    <p className="eyebrow">EMPLOYEES</p>
+                    <h2>社員一覧</h2>
+                    <p className="muted">
+                      社員番号、氏名、メール、部署から対象を検索できます。
+                    </p>
+                  </div>
+                  <span className="employee-result-count" aria-live="polite">
+                    {loadingEmployees ? "読込中" : `${counts.all}件`}
+                  </span>
+                </div>
+                <form
+                  className="toolbar employee-toolbar"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setQuery(queryInput.trim());
+                  }}
+                >
+                  <label className="search-field">
+                    検索
+                    <input
+                      value={queryInput}
+                      onChange={(event) => setQueryInput(event.target.value)}
+                      placeholder="社員番号・氏名・メール・部署"
+                    />
+                  </label>
+                  <label>
+                    状態
+                    <select
+                      value={enabledFilter}
+                      onChange={(event) => setEnabledFilter(event.target.value)}
+                    >
+                      <option value="all">すべて</option>
+                      <option value="enabled">有効</option>
+                      <option value="disabled">無効</option>
+                    </select>
+                  </label>
+                  <div className="employee-toolbar-actions">
+                    <button className="button-primary" type="submit">
+                      検索
+                    </button>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={clearEmployeeFilters}
+                      disabled={!hasEmployeeFilters && queryInput === ""}
+                    >
+                      条件クリア
+                    </button>
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={() =>
+                        Promise.all([loadEmployees(), loadConsistency()])
+                      }
+                      disabled={loadingEmployees || loadingConsistency}
+                    >
+                      再読込
+                    </button>
+                  </div>
+                </form>
+                {hasEmployeeFilters && (
+                  <div className="active-filter-summary" role="status">
+                    <span>絞り込み中</span>
+                    {query && <strong>検索: {query}</strong>}
+                    {enabledFilter !== "all" && (
+                      <strong>
+                        状態: {enabledFilter === "enabled" ? "有効" : "無効"}
+                      </strong>
+                    )}
+                    <button type="button" onClick={clearEmployeeFilters}>
+                      すべて解除
+                    </button>
+                  </div>
+                )}
+                <div
+                  className={`consistency-panel ${consistency?.status === "mismatch" ? "consistency-panel-danger" : ""}`}
+                >
+                  <div>
+                    <strong>SQLite / employeeKey.csv</strong>
+                    {consistency?.status === "ok" && (
+                      <p>
+                        整合しています（SQLite {consistency.databaseEmployees}件
+                        / CSV {consistency.csvEmployees}件）。
+                      </p>
+                    )}
+                    {consistency?.status === "mismatch" && (
+                      <p>
+                        不一致があります（SQLiteのみ{" "}
+                        {consistency.databaseOnlyCodes.length}件 / CSVのみ{" "}
+                        {consistency.csvOnlyCodes.length}件 / 項目差分{" "}
+                        {consistency.fieldDifferences.length}件）。
+                      </p>
+                    )}
+                    {consistencyError && <p>確認失敗: {consistencyError}</p>}
+                    {!consistency && !consistencyError && (
+                      <p>整合性を確認しています。</p>
+                    )}
+                  </div>
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={loadConsistency}
+                    disabled={loadingConsistency}
+                  >
+                    {loadingConsistency ? "確認中…" : "再確認"}
+                  </button>
+                  {consistency?.status === "mismatch" && (
+                    <details className="consistency-details">
+                      <summary>差分対象を表示</summary>
+                      {consistency.databaseOnlyCodes.length > 0 && (
+                        <p>
+                          SQLiteのみ: {consistency.databaseOnlyCodes.join(", ")}
+                        </p>
+                      )}
+                      {consistency.csvOnlyCodes.length > 0 && (
+                        <p>CSVのみ: {consistency.csvOnlyCodes.join(", ")}</p>
+                      )}
+                      {consistency.fieldDifferences.map((item) => (
+                        <p key={item.code}>
+                          項目差分 {item.code}: {item.fields.join(", ")}
+                        </p>
+                      ))}
+                    </details>
+                  )}
+                </div>
+                <div className="table-wrap">
+                  <table className="employee-table">
+                    <thead>
+                      <tr>
+                        <th>社員番号</th>
+                        <th>社員情報</th>
+                        <th>所属</th>
+                        <th>上限分</th>
+                        <th>状態・操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {employees.map((employee) => (
+                        <tr key={employee.code}>
+                          <td
+                            className="mono employee-code"
+                            data-label="社員番号"
+                          >
+                            {employee.code}
+                          </td>
+                          <td
+                            className="employee-identity"
+                            data-label="社員情報"
+                          >
+                            <strong>{employee.fullName}</strong>
+                            <span>{employee.email || "—"}</span>
+                          </td>
+                          <td className="employee-meta" data-label="所属">
+                            <strong>
+                              {employee.divisionName ||
+                                employee.divisionCode ||
+                                "—"}
+                            </strong>
+                            {employee.divisionName && employee.divisionCode && (
+                              <span>{employee.divisionCode}</span>
+                            )}
+                          </td>
+                          <td className="employee-target" data-label="上限分">
+                            {employee.personalTargetMinutes ?? "—"}
+                          </td>
+                          <td data-label="状態・操作">
+                            <div className="employee-actions">
+                              <span
+                                className={`badge ${employee.isEnabled ? "badge-ok" : "badge-off"}`}
+                              >
+                                {employee.isEnabled ? "有効" : "無効"}
+                              </span>
+                              <button
+                                className="table-action"
+                                type="button"
+                                onClick={() => openEdit(employee)}
+                              >
+                                編集
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {!loadingEmployees && employees.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="empty-row">
+                            <div className="employee-empty-state">
+                              <strong>
+                                {hasEmployeeFilters
+                                  ? "条件に一致する社員はいません"
+                                  : "社員が登録されていません"}
+                              </strong>
+                              <span>
+                                {hasEmployeeFilters
+                                  ? "検索条件を変更するか、すべて解除してください。"
+                                  : "「社員を追加」から最初の社員を登録できます。"}
+                              </span>
+                              {hasEmployeeFilters && (
+                                <button
+                                  className="button-secondary"
+                                  type="button"
+                                  onClick={clearEmployeeFilters}
+                                >
+                                  検索条件を解除
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {loadingEmployees && (
+                  <p className="muted loading-line" role="status">
+                    社員一覧を読み込み中…
+                  </p>
+                )}
+              </section>
+            </>
+          )}
+          {path === "/kot-sync" && (
+            <>
               <section className="hero">
                 <p className="eyebrow">KING OF TIME</p>
                 <h1>KOT社員同期</h1>
-                <p className="lead">差分を確認し、選択した変更だけを社員管理へ安全に反映します。</p>
+                <p className="lead">
+                  差分を確認し、選択した変更だけを社員管理へ安全に反映します。
+                </p>
               </section>
-      <section className="employee-card sync-card">
-        <div className="sync-heading">
-          <div>
-            <p className="eyebrow">KING OF TIME</p>
-            <h2>社員同期</h2>
-            <p className="muted">取得とプレビューだけでは本番データを変更しません。</p>
-            {health?.kotSyncMock && <p className="muted">開発用ダミーKOTデータを使用します。本番APIには接続しません。</p>}
-            {health && !health.kotSyncEnabled && <p className="muted">この環境ではKOT同期を停止しています。</p>}
-            {syncStatus?.blocked && <p className="error-message">API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。</p>}
-            {syncStatus?.running && <p className="muted">同期処理を実行中です。</p>}
-            {syncStatus?.lastRun && (
-              <div className="muted">
-                <p>最終実行: {new Date(syncStatus.lastRun.executed_at).toLocaleString("ja-JP")} / 新規 {syncStatus.lastRun.created_count} / 更新 {syncStatus.lastRun.updated_count} / 再有効化 {syncStatus.lastRun.reactivated_count} / 無効化 {syncStatus.lastRun.disabled_count}</p>
-                {syncStatus.lastRun.backup_path && <p>バックアップ: {syncStatus.lastRun.backup_path}</p>}
-              </div>
-            )}
-          </div>
-          <button className="button-secondary" type="button" onClick={loadKotPreview} disabled={!health?.kotSyncEnabled || syncing || syncStatus?.running || syncStatus?.blocked}>
-            {!health?.kotSyncEnabled ? "この環境では無効" : syncing || syncStatus?.running ? "実行中…" : health.kotSyncMock ? "ダミーKOTから取得" : "KOTから取得"}
-          </button>
-        </div>
-        {syncPreview && (
-          <>
-            <div className="sync-summary" aria-label="KOT同期プレビュー集計">
-              <div className="sync-summary-primary">
-                <article><span>同期対象</span><strong>{syncPreview.targetCount}</strong></article>
-                <article><span>表示中</span><strong>{visibleSyncDifferences.length}</strong></article>
-                <article><span>選択中</span><strong>{selectedSyncCodes.length}</strong></article>
-              </div>
-              <div className="sync-counts">
-                <span>全社取得 {syncPreview.fetchedCount}</span>
-                <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
-                <span>新規 {syncPreview.counts.create ?? 0}</span>
-                <span>更新 {syncPreview.counts.update ?? 0}</span>
-                <span>再有効化候補 {syncPreview.counts.reactivate ?? 0}</span>
-                <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
-                <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
-                <span>勤怠管理なし {warningCounts.noAttendance}</span>
-                <span>休職中 {warningCounts.onLeave}</span>
-              </div>
-            </div>
-            <div className="sync-filter-panel">
-              <div>
-                <p className="eyebrow">FILTERS</p>
-                <h3>表示する差分</h3>
-              </div>
-              <div className="sync-filters" aria-label="KOT同期プレビューフィルタ">
-              {(["create", "update", "reactivate", "disable", "unchanged"] as const).map((action) => (
-                <label key={action}>
-                  <input
-                    type="checkbox"
-                    checked={syncActions[action]}
-                    onChange={(event) => setSyncActions({
-                      ...syncActions,
-                      [action]: event.target.checked,
-                    })}
-                  />
-                  <span className={`sync-badge sync-badge-${action}`}>{syncActionLabels[action]}</span>
-                </label>
-              ))}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showNoAttendance}
-                  onChange={(event) => setShowNoAttendance(event.target.checked)}
-                />
-                勤怠管理なしを表示
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showOnLeave}
-                  onChange={(event) => setShowOnLeave(event.target.checked)}
-                />
-                休職中を表示
-              </label>
-              </div>
-            </div>
-            <div className="sync-selection-tools">
-              <div className="sync-selection-status" role="status" aria-live="polite">
-                <strong>{selectedSyncCodes.length}件を選択中</strong>
-                <span>新規 {selectedSyncCounts.create} / 更新 {selectedSyncCounts.update} / 再有効化 {selectedSyncCounts.reactivate} / 無効化 {selectedSyncCounts.disable}</span>
-              </div>
-              <div className="sync-selection-buttons">
-              <button
-                className="button-secondary"
-                type="button"
-                onClick={() => setSelectedSyncCodes(Array.from(new Set([
-                  ...selectedSyncCodes,
-                  ...selectableVisibleCodes,
-                ])))}
-                disabled={selectableVisibleCodes.length === 0 || allVisibleSelected}
-              >
-                {allVisibleSelected ? "表示中は選択済み" : "表示中を選択"}
-              </button>
-              <button
-                className="button-secondary"
-                type="button"
-                onClick={() => setSelectedSyncCodes(
-                  selectedSyncCodes.filter((code) => !selectableVisibleCodes.includes(code)),
-                )}
-                disabled={selectableVisibleCodes.length === 0}
-              >
-                表示中を解除
-              </button>
-              </div>
-              {hiddenSelectedCount > 0 && (
-                <span className="warning-text">フィルターで非表示の選択が {hiddenSelectedCount}件あります</span>
-              )}
-            </div>
-            <div className="table-wrap">
-              <table className="sync-table">
-                <thead><tr><th>反映</th><th>社員番号</th><th>判定</th><th>変更前</th><th>変更後</th><th>変更項目</th><th>注意</th></tr></thead>
-                <tbody>
-                  {visibleSyncDifferences.map((item) => {
-                    const selectable = item.action !== "unchanged";
-                    const checked = selectedSyncCodes.includes(item.code);
-                    const current = item.current as Record<string, string> | null;
-                    const proposed = item.proposed as Record<string, string> | null;
-                    const changedLabels: Record<string, string> = {
-                      lastName: "氏",
-                      firstName: "名",
-                      email: "メール",
-                      divisionCode: "部署コード",
-                      divisionName: "部署名",
-                      kotExists: "KOT存在状態",
-                      kotKey: "KOT Key変更あり",
-                    };
-                    const toggleSelection = () => {
-                      if (!selectable) return;
-                      setSelectedSyncCodes(checked
-                        ? selectedSyncCodes.filter((code) => code !== item.code)
-                        : [...selectedSyncCodes, item.code]);
-                    };
-                    return (
-                      <tr
-                        key={item.code}
-                        className={`sync-row sync-row-${item.action}${checked ? " sync-row-selected" : ""}${selectable ? " sync-row-selectable" : ""}`}
-                        aria-selected={selectable ? checked : undefined}
-                        tabIndex={selectable ? 0 : undefined}
-                        onClick={(event) => {
-                          if ((event.target as HTMLElement).closest("input, button, a")) return;
-                          toggleSelection();
-                        }}
-                        onKeyDown={(event) => {
-                          if (!selectable || (event.key !== "Enter" && event.key !== " ")) return;
-                          event.preventDefault();
-                          toggleSelection();
-                        }}
+              <section className="employee-card sync-card">
+                <div className="sync-heading">
+                  <div>
+                    <p className="eyebrow">KING OF TIME</p>
+                    <h2>社員同期</h2>
+                    <p className="muted">
+                      取得とプレビューだけでは本番データを変更しません。
+                    </p>
+                    {health?.kotSyncMock && (
+                      <p className="muted">
+                        開発用ダミーKOTデータを使用します。本番APIには接続しません。
+                      </p>
+                    )}
+                    {health && !health.kotSyncEnabled && (
+                      <p className="muted">
+                        この環境ではKOT同期を停止しています。
+                      </p>
+                    )}
+                    {syncStatus?.blocked && (
+                      <p className="error-message">
+                        API利用禁止時間帯です（08:30〜10:00、17:30〜18:30）。
+                      </p>
+                    )}
+                    {syncStatus?.running && (
+                      <p className="muted">同期処理を実行中です。</p>
+                    )}
+                    {syncStatus?.lastRun && (
+                      <div className="muted">
+                        <p>
+                          最終実行:{" "}
+                          {new Date(
+                            syncStatus.lastRun.executed_at,
+                          ).toLocaleString("ja-JP")}{" "}
+                          / 新規 {syncStatus.lastRun.created_count} / 更新{" "}
+                          {syncStatus.lastRun.updated_count} / 再有効化{" "}
+                          {syncStatus.lastRun.reactivated_count} / 無効化{" "}
+                          {syncStatus.lastRun.disabled_count}
+                        </p>
+                        {syncStatus.lastRun.backup_path && (
+                          <p>バックアップ: {syncStatus.lastRun.backup_path}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={loadKotPreview}
+                    disabled={
+                      !health?.kotSyncEnabled ||
+                      syncing ||
+                      syncStatus?.running ||
+                      syncStatus?.blocked
+                    }
+                  >
+                    {!health?.kotSyncEnabled
+                      ? "この環境では無効"
+                      : syncing || syncStatus?.running
+                        ? "実行中…"
+                        : health.kotSyncMock
+                          ? "ダミーKOTから取得"
+                          : "KOTから取得"}
+                  </button>
+                </div>
+                {syncPreview && (
+                  <>
+                    <div
+                      className="sync-summary"
+                      aria-label="KOT同期プレビュー集計"
+                    >
+                      <div className="sync-summary-primary">
+                        <article>
+                          <span>同期対象</span>
+                          <strong>{syncPreview.targetCount}</strong>
+                        </article>
+                        <article>
+                          <span>表示中</span>
+                          <strong>{visibleSyncDifferences.length}</strong>
+                        </article>
+                        <article>
+                          <span>選択中</span>
+                          <strong>{selectedSyncCodes.length}</strong>
+                        </article>
+                      </div>
+                      <div className="sync-counts">
+                        <span>全社取得 {syncPreview.fetchedCount}</span>
+                        <span>
+                          対象部署 {syncPreview.targetDivisionCodes.join(", ")}
+                        </span>
+                        <span>新規 {syncPreview.counts.create ?? 0}</span>
+                        <span>更新 {syncPreview.counts.update ?? 0}</span>
+                        <span>
+                          再有効化候補 {syncPreview.counts.reactivate ?? 0}
+                        </span>
+                        <span>
+                          無効化候補 {syncPreview.counts.disable ?? 0}
+                        </span>
+                        <span>
+                          変更なし {syncPreview.counts.unchanged ?? 0}
+                        </span>
+                        <span>勤怠管理なし {warningCounts.noAttendance}</span>
+                        <span>休職中 {warningCounts.onLeave}</span>
+                      </div>
+                    </div>
+                    <div className="sync-filter-panel">
+                      <div>
+                        <p className="eyebrow">FILTERS</p>
+                        <h3>表示する差分</h3>
+                      </div>
+                      <div
+                        className="sync-filters"
+                        aria-label="KOT同期プレビューフィルタ"
                       >
-                        <td data-label="反映"><input aria-label={`${item.code} ${syncActionLabels[item.action]}を反映`} type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={toggleSelection} /></td>
-                        <td className="mono" data-label="社員番号">{item.code}</td>
-                        <td data-label="判定"><span className={`sync-badge sync-badge-${item.action}`}>{syncActionLabels[item.action]}</span></td>
-                        <td data-label="変更前">{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
-                        <td data-label="変更後">{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
-                        <td data-label="変更項目">{item.changedFields.map((field) => changedLabels[field] ?? field).join("、") || "—"}</td>
-                        <td data-label="注意">{item.warnings.join("、") || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                  {visibleSyncDifferences.length === 0 && (
-                    <tr><td colSpan={7} className="empty-row"><div className="sync-empty-state"><strong>条件に一致する差分はありません</strong><span>判定や注意条件の表示設定を変更してください。</span></div></td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="sync-actions">
-              <div>
-                <strong>{selectedSyncCodes.length}件を反映</strong>
-                <p className="muted">選択した差分だけをSQLiteとemployeeKey.csvへ反映します。</p>
-              </div>
-              <button className="button-primary" type="button" disabled={syncing || selectedSyncCodes.length === 0} onClick={applyKotPreview}>
-                {syncing ? "反映中…" : selectedSyncCodes.length === 0 ? "差分を選択してください" : `選択した${selectedSyncCodes.length}件を反映`}
-              </button>
-            </div>
-          </>
-        )}
-      </section>
-
-            </>}
-          {path === "/notifications" && <>
+                        {(
+                          [
+                            "create",
+                            "update",
+                            "reactivate",
+                            "disable",
+                            "unchanged",
+                          ] as const
+                        ).map((action) => (
+                          <label key={action}>
+                            <input
+                              type="checkbox"
+                              checked={syncActions[action]}
+                              onChange={(event) =>
+                                setSyncActions({
+                                  ...syncActions,
+                                  [action]: event.target.checked,
+                                })
+                              }
+                            />
+                            <span className={`sync-badge sync-badge-${action}`}>
+                              {syncActionLabels[action]}
+                            </span>
+                          </label>
+                        ))}
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={showNoAttendance}
+                            onChange={(event) =>
+                              setShowNoAttendance(event.target.checked)
+                            }
+                          />
+                          勤怠管理なしを表示
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={showOnLeave}
+                            onChange={(event) =>
+                              setShowOnLeave(event.target.checked)
+                            }
+                          />
+                          休職中を表示
+                        </label>
+                      </div>
+                    </div>
+                    <div className="sync-selection-tools">
+                      <div
+                        className="sync-selection-status"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <strong>{selectedSyncCodes.length}件を選択中</strong>
+                        <span>
+                          新規 {selectedSyncCounts.create} / 更新{" "}
+                          {selectedSyncCounts.update} / 再有効化{" "}
+                          {selectedSyncCounts.reactivate} / 無効化{" "}
+                          {selectedSyncCounts.disable}
+                        </span>
+                      </div>
+                      <div className="sync-selection-buttons">
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          onClick={() =>
+                            setSelectedSyncCodes(
+                              Array.from(
+                                new Set([
+                                  ...selectedSyncCodes,
+                                  ...selectableVisibleCodes,
+                                ]),
+                              ),
+                            )
+                          }
+                          disabled={
+                            selectableVisibleCodes.length === 0 ||
+                            allVisibleSelected
+                          }
+                        >
+                          {allVisibleSelected
+                            ? "表示中は選択済み"
+                            : "表示中を選択"}
+                        </button>
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          onClick={() =>
+                            setSelectedSyncCodes(
+                              selectedSyncCodes.filter(
+                                (code) =>
+                                  !selectableVisibleCodes.includes(code),
+                              ),
+                            )
+                          }
+                          disabled={selectableVisibleCodes.length === 0}
+                        >
+                          表示中を解除
+                        </button>
+                      </div>
+                      {hiddenSelectedCount > 0 && (
+                        <span className="warning-text">
+                          フィルターで非表示の選択が {hiddenSelectedCount}
+                          件あります
+                        </span>
+                      )}
+                    </div>
+                    <div className="table-wrap">
+                      <table className="sync-table">
+                        <thead>
+                          <tr>
+                            <th>反映</th>
+                            <th>社員番号</th>
+                            <th>判定</th>
+                            <th>変更前</th>
+                            <th>変更後</th>
+                            <th>変更項目</th>
+                            <th>注意</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleSyncDifferences.map((item) => {
+                            const selectable = item.action !== "unchanged";
+                            const checked = selectedSyncCodes.includes(
+                              item.code,
+                            );
+                            const current = item.current as Record<
+                              string,
+                              string
+                            > | null;
+                            const proposed = item.proposed as Record<
+                              string,
+                              string
+                            > | null;
+                            const changedLabels: Record<string, string> = {
+                              lastName: "氏",
+                              firstName: "名",
+                              email: "メール",
+                              divisionCode: "部署コード",
+                              divisionName: "部署名",
+                              kotExists: "KOT存在状態",
+                              kotKey: "KOT Key変更あり",
+                            };
+                            const toggleSelection = () => {
+                              if (!selectable) return;
+                              setSelectedSyncCodes(
+                                checked
+                                  ? selectedSyncCodes.filter(
+                                      (code) => code !== item.code,
+                                    )
+                                  : [...selectedSyncCodes, item.code],
+                              );
+                            };
+                            return (
+                              <tr
+                                key={item.code}
+                                className={`sync-row sync-row-${item.action}${checked ? " sync-row-selected" : ""}${selectable ? " sync-row-selectable" : ""}`}
+                                aria-selected={selectable ? checked : undefined}
+                                tabIndex={selectable ? 0 : undefined}
+                                onClick={(event) => {
+                                  if (
+                                    (event.target as HTMLElement).closest(
+                                      "input, button, a",
+                                    )
+                                  )
+                                    return;
+                                  toggleSelection();
+                                }}
+                                onKeyDown={(event) => {
+                                  if (
+                                    !selectable ||
+                                    (event.key !== "Enter" && event.key !== " ")
+                                  )
+                                    return;
+                                  event.preventDefault();
+                                  toggleSelection();
+                                }}
+                              >
+                                <td data-label="反映">
+                                  <input
+                                    aria-label={`${item.code} ${syncActionLabels[item.action]}を反映`}
+                                    type="checkbox"
+                                    disabled={!selectable}
+                                    checked={selectable && checked}
+                                    onChange={toggleSelection}
+                                  />
+                                </td>
+                                <td className="mono" data-label="社員番号">
+                                  {item.code}
+                                </td>
+                                <td data-label="判定">
+                                  <span
+                                    className={`sync-badge sync-badge-${item.action}`}
+                                  >
+                                    {syncActionLabels[item.action]}
+                                  </span>
+                                </td>
+                                <td data-label="変更前">
+                                  {current
+                                    ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}`
+                                    : "—"}
+                                </td>
+                                <td data-label="変更後">
+                                  {proposed
+                                    ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}`
+                                    : "—"}
+                                </td>
+                                <td data-label="変更項目">
+                                  {item.changedFields
+                                    .map(
+                                      (field) => changedLabels[field] ?? field,
+                                    )
+                                    .join("、") || "—"}
+                                </td>
+                                <td data-label="注意">
+                                  {item.warnings.join("、") || "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {visibleSyncDifferences.length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="empty-row">
+                                <div className="sync-empty-state">
+                                  <strong>
+                                    条件に一致する差分はありません
+                                  </strong>
+                                  <span>
+                                    判定や注意条件の表示設定を変更してください。
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="sync-actions">
+                      <div>
+                        <strong>{selectedSyncCodes.length}件を反映</strong>
+                        <p className="muted">
+                          選択した差分だけをSQLiteとemployeeKey.csvへ反映します。
+                        </p>
+                      </div>
+                      <button
+                        className="button-primary"
+                        type="button"
+                        disabled={syncing || selectedSyncCodes.length === 0}
+                        onClick={applyKotPreview}
+                      >
+                        {syncing
+                          ? "反映中…"
+                          : selectedSyncCodes.length === 0
+                            ? "差分を選択してください"
+                            : `選択した${selectedSyncCodes.length}件を反映`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+          {path === "/notifications" && (
+            <>
               <section className="hero">
                 <p className="eyebrow">NOTIFICATION HISTORY</p>
                 <h1>通知履歴</h1>
-                <p className="lead">threshold・weekly・healthの実行結果と送信状況を確認します。</p>
+                <p className="lead">
+                  threshold・weekly・healthの実行結果と送信状況を確認します。
+                </p>
               </section>
-      <NotificationHistory />
-
-            </>}
+              <NotificationHistory />
+            </>
+          )}
           {!["/", "/kot-sync", "/notifications"].includes(path) && (
             <section className="empty-state" role="status">
               <p className="eyebrow">NOT FOUND</p>
               <h1>ページが見つかりません</h1>
-              <p className="lead">ナビゲーションから管理画面へ戻ってください。</p>
-              <a className="button-primary inline-link" href="/" onClick={(event) => navigate(event, "/")}>社員管理へ戻る</a>
+              <p className="lead">
+                ナビゲーションから管理画面へ戻ってください。
+              </p>
+              <a
+                className="button-primary inline-link"
+                href="/"
+                onClick={(event) => navigate(event, "/")}
+              >
+                社員管理へ戻る
+              </a>
             </section>
           )}
-      {editing !== undefined && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => !submitting && setEditing(undefined)}>
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="employee-form-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-heading"><div><p className="eyebrow">EMPLOYEE</p><h2 id="employee-form-title">{editing === null ? "社員を追加" : "社員を編集"}</h2></div><button className="icon-button" type="button" onClick={() => setEditing(undefined)}>×</button></div>
-            <form className="employee-form" onSubmit={saveEmployee}>
-              <div className="form-grid">
-                <label>社員番号<input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required disabled={editing !== null} /></label>
-                <label>KOT Key<input type="password" value={form.employeeKey} onChange={(e) => setForm({ ...form, employeeKey: e.target.value })} required={editing === null} placeholder={editing ? "変更時のみ入力" : "必須"} autoComplete="off" /></label>
-                <label>氏<input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></label>
-                <label>名<input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></label>
-                <label>部署コード<input value={form.divisionCode} onChange={(e) => setForm({ ...form, divisionCode: e.target.value })} required /></label>
-                <label>部署名<input value={form.divisionName} onChange={(e) => setForm({ ...form, divisionName: e.target.value })} /></label>
-                <label className="wide">メールアドレス<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-                <label>個人別残業上限分<input type="number" min="0" value={form.personalTargetMinutes} onChange={(e) => setForm({ ...form, personalTargetMinutes: e.target.value })} /></label>
-                <label className="switch-label"><input type="checkbox" checked={form.isEnabled} onChange={(e) => setForm({ ...form, isEnabled: e.target.checked, disabledReason: e.target.checked ? "" : form.disabledReason })} />有効社員</label>
-                {!form.isEnabled && <label className="wide">無効理由<input value={form.disabledReason} onChange={(e) => setForm({ ...form, disabledReason: e.target.value })} required /></label>}
-                <label className="wide">管理メモ<textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={3} /></label>
-              </div>
-              <p className="security-note">KOT Keyは保存専用です。画面・APIレスポンスには表示されません。</p>
-              {error && <p className="error-message" role="alert">{error}</p>}
-              <div className="form-actions">
-                {editing && <button className="button-danger" type="button" onClick={deleteEmployee} disabled={submitting}>{submitting ? "処理中…" : "社員を削除"}</button>}
-                <span className="form-actions-spacer" />
-                <button className="button-secondary" type="button" onClick={() => setEditing(undefined)} disabled={submitting}>キャンセル</button>
-                <button className="button-primary" type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存してCSV再生成"}</button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
+          {editing !== undefined && (
+            <div
+              className="modal-backdrop"
+              role="presentation"
+              onMouseDown={() => !submitting && setEditing(undefined)}
+            >
+              <section
+                className="modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="employee-form-title"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <div className="modal-heading">
+                  <div>
+                    <p className="eyebrow">EMPLOYEE</p>
+                    <h2 id="employee-form-title">
+                      {editing === null ? "社員を追加" : "社員を編集"}
+                    </h2>
+                  </div>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    onClick={() => setEditing(undefined)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <form className="employee-form" onSubmit={saveEmployee}>
+                  <div className="form-grid">
+                    <label>
+                      社員番号
+                      <input
+                        value={form.code}
+                        onChange={(e) =>
+                          setForm({ ...form, code: e.target.value })
+                        }
+                        required
+                        disabled={editing !== null}
+                      />
+                    </label>
+                    <label>
+                      KOT Key
+                      <input
+                        type="password"
+                        value={form.employeeKey}
+                        onChange={(e) =>
+                          setForm({ ...form, employeeKey: e.target.value })
+                        }
+                        required={editing === null}
+                        placeholder={editing ? "変更時のみ入力" : "必須"}
+                        autoComplete="off"
+                      />
+                    </label>
+                    <label>
+                      氏
+                      <input
+                        value={form.lastName}
+                        onChange={(e) =>
+                          setForm({ ...form, lastName: e.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <label>
+                      名
+                      <input
+                        value={form.firstName}
+                        onChange={(e) =>
+                          setForm({ ...form, firstName: e.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <label>
+                      部署コード
+                      <input
+                        value={form.divisionCode}
+                        onChange={(e) =>
+                          setForm({ ...form, divisionCode: e.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <label>
+                      部署名
+                      <input
+                        value={form.divisionName}
+                        onChange={(e) =>
+                          setForm({ ...form, divisionName: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="wide">
+                      メールアドレス
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      個人別残業上限分
+                      <input
+                        type="number"
+                        min="0"
+                        value={form.personalTargetMinutes}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            personalTargetMinutes: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="switch-label">
+                      <input
+                        type="checkbox"
+                        checked={form.isEnabled}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            isEnabled: e.target.checked,
+                            disabledReason: e.target.checked
+                              ? ""
+                              : form.disabledReason,
+                          })
+                        }
+                      />
+                      有効社員
+                    </label>
+                    {!form.isEnabled && (
+                      <label className="wide">
+                        無効理由
+                        <input
+                          value={form.disabledReason}
+                          onChange={(e) =>
+                            setForm({ ...form, disabledReason: e.target.value })
+                          }
+                          required
+                        />
+                      </label>
+                    )}
+                    <label className="wide">
+                      管理メモ
+                      <textarea
+                        value={form.note}
+                        onChange={(e) =>
+                          setForm({ ...form, note: e.target.value })
+                        }
+                        rows={3}
+                      />
+                    </label>
+                  </div>
+                  <p className="security-note">
+                    KOT
+                    Keyは保存専用です。画面・APIレスポンスには表示されません。
+                  </p>
+                  {error && (
+                    <p className="error-message" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  <div className="form-actions">
+                    {editing && (
+                      <button
+                        className="button-danger"
+                        type="button"
+                        onClick={deleteEmployee}
+                        disabled={submitting}
+                      >
+                        {submitting ? "処理中…" : "社員を削除"}
+                      </button>
+                    )}
+                    <span className="form-actions-spacer" />
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={() => setEditing(undefined)}
+                      disabled={submitting}
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      className="button-primary"
+                      type="submit"
+                      disabled={submitting}
+                    >
+                      {submitting ? "保存中…" : "保存してCSV再生成"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </div>
+          )}
         </div>
       </main>
     </div>
