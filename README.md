@@ -181,7 +181,7 @@ http://<raspberry-pi>:8000/
 - KING OF TIME社員同期のプレビューと選択適用
 - KOT同期履歴とバックアップ先の確認
 - KOT同期プレビューで判定別フィルター、表示中の一括選択、選択内訳、反映件数を確認
-- 通知実行履歴、送信結果、重複元の確認
+- 通知実行履歴の集計、成功・一部失敗・dry-runの判別、送信先別結果、重複元の確認
 
 Web管理UIの起動には`.env`の管理者認証・セッション設定が必要です。画面URLは`/`（社員管理）、`/kot-sync`（KOT同期）、`/notifications`（通知履歴）です。FastAPIのSPAフォールバックにより各URLを直接開けます。
 - 共通デザイントークンにより、配色・サーフェス・境界線・余白・フォーカス・軽量モーションを一元管理
@@ -253,3 +253,13 @@ Git、ZIP、patch、ログ、テスト出力へ次を含めないでください
 - 実KING OF TIMEレスポンス
 
 KOT KeyはWeb APIや画面へ既存値を返しません。バックアップと実データは所有者限定権限で管理します。
+
+### 通知履歴UIのローカル表示確認
+
+ローカル開発時に通知履歴の実データがない場合は、`frontend/.env.local` を作成して次を設定します。
+
+```dotenv
+VITE_NOTIFICATION_HISTORY_MOCK=true
+```
+
+`npm --prefix frontend run dev` で起動すると、成功・一部失敗・失敗・dry-run・実行中・重複スキップ・保留を含む読み取り専用サンプルが表示されます。`import.meta.env.DEV` のときだけ有効なため、production buildと本番SQLiteには影響しません。

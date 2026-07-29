@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  developmentNotificationRuns,
+  getDevelopmentNotificationDetail,
+  isDevelopmentNotificationMockEnabled,
+} from "./notificationHistoryMock";
 
 type NotificationRun = {
   runId: string;
@@ -53,10 +58,37 @@ function formatDateTime(value: string | null): string {
   return value ? new Date(value).toLocaleString("ja-JP") : "—";
 }
 
-function statusClass(status: string): string {
-  if (status === "succeeded" || status === "sent") return "badge-ok";
-  if (status === "failed") return "badge-danger";
-  return "badge-off";
+function modeLabel(mode: string): string {
+  if (mode === "threshold") return "閾値通知";
+  if (mode === "weekly") return "週次通知";
+  if (mode === "health") return "ヘルスチェック";
+  return mode;
+}
+
+function sourceLabel(source: NotificationRun["source"] | null): string {
+  if (source === "timer") return "定期実行";
+  if (source === "manual") return "手動実行";
+  if (source === "test") return "テスト";
+  return "不明";
+}
+
+function runStatus(run: NotificationRun): { label: string; className: string } {
+  if (run.dryRun) return { label: "dry-run", className: "badge-off" };
+  if (run.failedCount > 0 && run.sentCount > 0) {
+    return { label: "一部失敗", className: "badge-warning" };
+  }
+  if (run.status === "succeeded") return { label: "成功", className: "badge-ok" };
+  if (run.status === "failed") return { label: "失敗", className: "badge-danger" };
+  if (run.status === "running") return { label: "実行中", className: "badge-live" };
+  return { label: run.status, className: "badge-off" };
+}
+
+function attemptStatus(status: string): { label: string; className: string } {
+  if (status === "sent") return { label: "送信済み", className: "badge-ok" };
+  if (status === "failed") return { label: "失敗", className: "badge-danger" };
+  if (status === "skipped") return { label: "重複スキップ", className: "badge-off" };
+  if (status === "pending") return { label: "保留", className: "badge-warning" };
+  return { label: status, className: "badge-off" };
 }
 
 export function NotificationHistory() {
@@ -66,11 +98,26 @@ export function NotificationHistory() {
   const [detail, setDetail] = useState<NotificationRunDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const developmentMockEnabled = isDevelopmentNotificationMockEnabled();
+
+  const summary = useMemo(
+    () => ({
+      total: runs.length,
+      succeeded: runs.filter((run) => run.status === "succeeded" && run.failedCount === 0).length,
+      attention: runs.filter((run) => run.status === "failed" || run.failedCount > 0).length,
+      sent: runs.reduce((total, run) => total + run.sentCount, 0),
+    }),
+    [runs],
+  );
 
   const loadRuns = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      if (developmentMockEnabled) {
+        setRuns(developmentNotificationRuns as NotificationRun[]);
+        return;
+      }
       const response = await fetch("/api/notification-runs?limit=50", {
         credentials: "same-origin",
       });
@@ -82,7 +129,7 @@ export function NotificationHistory() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [developmentMockEnabled]);
 
   useEffect(() => {
     void loadRuns();
@@ -93,6 +140,12 @@ export function NotificationHistory() {
     setDetailError(null);
     setDetail(null);
     try {
+      if (developmentMockEnabled) {
+        const mockDetail = getDevelopmentNotificationDetail(runId);
+        if (!mockDetail) throw new Error("指定した通知実行履歴が見つかりません");
+        setDetail(mockDetail as NotificationRunDetail);
+        return;
+      }
       const response = await fetch(`/api/notification-runs/${encodeURIComponent(runId)}`, {
         credentials: "same-origin",
       });
@@ -114,11 +167,12 @@ export function NotificationHistory() {
 
   return (
     <section className="employee-card notification-history-card" id="notification-history">
-      <div className="sync-heading">
+      <div className="sync-heading notification-history-heading">
         <div>
           <p className="eyebrow">NOTIFICATION HISTORY</p>
           <h2>通知実行履歴</h2>
-          <p className="muted">週次通知・閾値通知の実行結果を読み取り専用で確認できます。</p>
+          <p className="muted">週次通知・閾値通知・ヘルスチェックの実行結果を読み取り専用で確認できます。</p>
+          {developmentMockEnabled && <span className="badge badge-warning notification-mock-badge">開発用サンプル表示中</span>}
         </div>
         <button className="button-secondary" type="button" onClick={loadRuns} disabled={loading}>
           {loading ? "読込中…" : "再読込"}
@@ -126,34 +180,52 @@ export function NotificationHistory() {
       </div>
 
       {error && <p className="error-message" role="alert">通知履歴の取得に失敗しました: {error}</p>}
-      {loading && <p className="muted loading-line">通知履歴を読み込んでいます…</p>}
+      {loading && <div className="notification-loading" role="status">通知履歴を読み込んでいます…</div>}
 
       {!loading && !error && (
-        <div className="table-wrap">
-          <table className="notification-history-table">
-            <thead>
-              <tr>
-                <th>実行日時</th><th>種別</th><th>実行元</th><th>実行</th><th>状態</th><th>対象</th><th>送信</th><th>失敗</th><th />
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => (
-                <tr key={run.runId}>
-                  <td data-label="実行日時">{formatDateTime(run.startedAt)}</td>
-                  <td data-label="種別"><span className="mono">{run.mode}</span></td>
-                  <td data-label="実行元"><span className="mono">{run.source}</span></td>
-                  <td data-label="実行">{run.dryRun ? <span className="badge badge-off">dry-run</span> : <span className="badge badge-live">本番</span>}</td>
-                  <td data-label="状態"><span className={`badge ${statusClass(run.status)}`}>{run.status}</span></td>
-                  <td data-label="対象">{run.targetCount}</td>
-                  <td data-label="送信">{run.sentCount} / {run.attemptCount}</td>
-                  <td data-label="失敗" className={run.failedCount > 0 ? "status-danger" : ""}>{run.failedCount}</td>
-                  <td className="card-action"><button className="table-action" type="button" onClick={() => void openDetail(run.runId)}>詳細</button></td>
-                </tr>
-              ))}
-              {runs.length === 0 && <tr><td colSpan={9} className="empty-row">通知実行履歴はありません。</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <section className="notification-summary" aria-label="通知履歴集計">
+            <article><span>表示中</span><strong>{summary.total}</strong></article>
+            <article><span>成功</span><strong>{summary.succeeded}</strong></article>
+            <article><span>要確認</span><strong className={summary.attention > 0 ? "status-danger" : ""}>{summary.attention}</strong></article>
+            <article><span>送信済み</span><strong>{summary.sent}</strong></article>
+          </section>
+
+          {runs.length === 0 ? (
+            <div className="notification-empty-state">
+              <strong>通知実行履歴はありません</strong>
+              <span>threshold、weekly、healthを実行すると、ここに結果が表示されます。</span>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="notification-history-table">
+                <thead>
+                  <tr>
+                    <th>実行日時</th><th>種別</th><th>実行元</th><th>実行</th><th>状態</th><th>対象</th><th>送信</th><th>失敗</th><th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.map((run) => {
+                    const outcome = runStatus(run);
+                    return (
+                      <tr key={run.runId} className={run.failedCount > 0 ? "notification-row-attention" : ""}>
+                        <td data-label="実行日時">{formatDateTime(run.startedAt)}</td>
+                        <td data-label="種別"><span className="notification-type">{modeLabel(run.mode)}</span><small className="mono notification-code">{run.mode}</small></td>
+                        <td data-label="実行元">{sourceLabel(run.source)}</td>
+                        <td data-label="実行">{run.dryRun ? <span className="badge badge-off">dry-run</span> : <span className="badge badge-live">本番</span>}</td>
+                        <td data-label="状態"><span className={`badge ${outcome.className}`}>{outcome.label}</span></td>
+                        <td data-label="対象">{run.targetCount}</td>
+                        <td data-label="送信">{run.sentCount} / {run.attemptCount}</td>
+                        <td data-label="失敗" className={run.failedCount > 0 ? "status-danger" : ""}>{run.failedCount}</td>
+                        <td className="card-action"><button className="table-action" type="button" onClick={() => void openDetail(run.runId)}>詳細</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
 
       {(detailLoading || detailError || detail) && (
@@ -163,48 +235,70 @@ export function NotificationHistory() {
               <div><p className="eyebrow">NOTIFICATION RUN</p><h2 id="notification-detail-title">通知実行詳細</h2></div>
               <button className="icon-button" type="button" onClick={closeDetail} aria-label="通知実行詳細を閉じる">×</button>
             </div>
-            {detailLoading && <p className="muted">詳細を読み込んでいます…</p>}
+            {detailLoading && <div className="notification-loading" role="status">詳細を読み込んでいます…</div>}
             {detailError && <p className="error-message" role="alert">{detailError}</p>}
-            {detail && (
-              <>
-                <dl className="notification-detail-grid">
-                  <div><dt>run ID</dt><dd className="mono">{detail.runId}</dd></div>
-                  <div><dt>実行日時</dt><dd>{formatDateTime(detail.startedAt)}</dd></div>
-                  <div><dt>種別</dt><dd>{detail.mode}</dd></div>
-                  <div><dt>実行元</dt><dd>{detail.source}</dd></div>
-                  <div><dt>実行</dt><dd>{detail.dryRun ? "dry-run" : "本番"}</dd></div>
-                  <div><dt>状態</dt><dd>{detail.status}</dd></div>
-                  <div><dt>件数</dt><dd>対象 {detail.targetCount} / 試行 {detail.attemptCount} / 送信 {detail.sentCount} / 失敗 {detail.failedCount} / skip {detail.skippedCount} / pending {detail.pendingCount}</dd></div>
-                </dl>
-                {detail.errorMessage && <p className="error-message">実行エラー: {detail.errorMessage}</p>}
-                <div className="table-wrap">
-                  <table className="notification-attempt-table">
-                    <thead><tr><th>社員番号</th><th>送信先</th><th>種別</th><th>状態</th><th>dedupe key</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
-                    <tbody>
-                      {detail.attempts.map((attempt) => (
-                        <tr key={attempt.id}>
-                          <td className="mono">{attempt.employeeCode}</td>
-                          <td>{attempt.recipient}</td>
-                          <td>{attempt.notificationType}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
-                          <td><span className={`badge ${statusClass(attempt.status)}`}>{attempt.status}</span></td>
-                          <td className="mono">{attempt.dedupeKey}</td>
-                          <td>
-                            {attempt.duplicateOfRunId ? (
-                              <button className="table-action" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
-                                {formatDateTime(attempt.duplicateOfStartedAt)} / {attempt.duplicateOfSource}
-                              </button>
-                            ) : "—"}
-                          </td>
-                          <td className="mono">{attempt.slackTimestamp || "—"}</td>
-                          <td>{attempt.errorMessage || "—"}</td>
-                        </tr>
-                      ))}
-                      {detail.attempts.length === 0 && <tr><td colSpan={8} className="empty-row">送信試行はありません。</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+            {detail && (() => {
+              const outcome = runStatus(detail);
+              return (
+                <>
+                  <div className="notification-detail-heading">
+                    <div>
+                      <span className={`badge ${outcome.className}`}>{outcome.label}</span>
+                      <strong>{modeLabel(detail.mode)}</strong>
+                      <span className="muted">{sourceLabel(detail.source)} / {detail.dryRun ? "dry-run" : "本番実行"}</span>
+                    </div>
+                    <span className="mono muted">{detail.runId}</span>
+                  </div>
+                  <dl className="notification-detail-grid">
+                    <div><dt>開始日時</dt><dd>{formatDateTime(detail.startedAt)}</dd></div>
+                    <div><dt>終了日時</dt><dd>{formatDateTime(detail.finishedAt)}</dd></div>
+                    <div><dt>対象</dt><dd>{detail.targetCount}</dd></div>
+                    <div><dt>試行</dt><dd>{detail.attemptCount}</dd></div>
+                    <div><dt>送信済み</dt><dd>{detail.sentCount}</dd></div>
+                    <div><dt>失敗</dt><dd className={detail.failedCount > 0 ? "status-danger" : ""}>{detail.failedCount}</dd></div>
+                    <div><dt>スキップ</dt><dd>{detail.skippedCount}</dd></div>
+                    <div><dt>保留</dt><dd>{detail.pendingCount}</dd></div>
+                  </dl>
+                  {detail.errorMessage && <p className="error-message">実行エラー: {detail.errorMessage}</p>}
+                  <div className="notification-attempt-heading">
+                    <div><p className="eyebrow">DELIVERY RESULTS</p><h3>送信先別結果</h3></div>
+                    <span>{detail.attempts.length}件</span>
+                  </div>
+                  {detail.attempts.length === 0 ? (
+                    <div className="notification-empty-state compact"><strong>送信試行はありません</strong></div>
+                  ) : (
+                    <div className="table-wrap">
+                      <table className="notification-attempt-table">
+                        <thead><tr><th>社員番号</th><th>送信先</th><th>種別</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
+                        <tbody>
+                          {detail.attempts.map((attempt) => {
+                            const attemptOutcome = attemptStatus(attempt.status);
+                            return (
+                              <tr key={attempt.id}>
+                                <td data-label="社員番号" className="mono">{attempt.employeeCode || "—"}</td>
+                                <td data-label="送信先">{attempt.recipient}</td>
+                                <td data-label="種別">{modeLabel(attempt.notificationType)}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
+                                <td data-label="状態"><span className={`badge ${attemptOutcome.className}`}>{attemptOutcome.label}</span></td>
+                                <td data-label="試行">{attempt.attemptCount}</td>
+                                <td data-label="重複元">
+                                  {attempt.duplicateOfRunId ? (
+                                    <button className="table-action" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
+                                      {formatDateTime(attempt.duplicateOfStartedAt)} / {sourceLabel(attempt.duplicateOfSource)}
+                                    </button>
+                                  ) : "—"}
+                                </td>
+                                <td data-label="Slack timestamp" className="mono">{attempt.slackTimestamp || "—"}</td>
+                                <td data-label="エラー" className="notification-error-cell">{attempt.errorMessage || "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </section>
         </div>
       )}

@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationHistory } from "../src/NotificationHistory";
 
 const run = {
@@ -27,12 +27,37 @@ const run = {
   pendingCount: 0,
 };
 
+beforeEach(() => {
+  vi.stubEnv("VITE_NOTIFICATION_HISTORY_MOCK", "false");
+});
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("NotificationHistory", () => {
+
+  it("開発用サンプルを有効にするとAPIを使わず一覧と詳細を表示する", async () => {
+    vi.stubEnv("VITE_NOTIFICATION_HISTORY_MOCK", "true");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    render(<NotificationHistory />);
+
+    expect(await screen.findByText("開発用サンプル表示中")).toBeInTheDocument();
+    expect(screen.getByText("一部失敗")).toBeInTheDocument();
+    expect(screen.getAllByText("dry-run").length).toBeGreaterThan(0);
+    expect(screen.getByText("実行中")).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const detailButtons = screen.getAllByRole("button", { name: "詳細" });
+    fireEvent.click(detailButtons[1]);
+
+    expect(await screen.findByText("manager-delta@example.com")).toBeInTheDocument();
+    expect(screen.getAllByText("重複スキップ").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("保留").length).toBeGreaterThan(0);
+  });
   it("通知履歴一覧から詳細を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
@@ -78,15 +103,17 @@ describe("NotificationHistory", () => {
 
     render(<NotificationHistory />);
 
-    expect(await screen.findByText("weekly")).toBeInTheDocument();
-    expect(screen.getByText("timer")).toBeInTheDocument();
+    expect(await screen.findByText("週次通知")).toBeInTheDocument();
+    expect(screen.getByText("weekly")).toBeInTheDocument();
+    expect(screen.getByText("定期実行")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "通知履歴集計" })).toHaveTextContent("表示中1");
     expect(screen.getByText("本番")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "詳細" }));
 
     expect(
       await screen.findByRole("heading", { name: "通知実行詳細" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("timer").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("定期実行").length).toBeGreaterThan(0);
     expect(screen.getByText("manager@example.com")).toBeInTheDocument();
     expect(screen.getByText("123.456")).toBeInTheDocument();
   });
@@ -136,7 +163,7 @@ describe("NotificationHistory", () => {
 
     render(<NotificationHistory />);
     fireEvent.click(await screen.findByRole("button", { name: "詳細" }));
-    const originButton = await screen.findByRole("button", { name: /2026.*test/ });
+    const originButton = await screen.findByRole("button", { name: /2026.*テスト/ });
     fireEvent.click(originButton);
 
     await waitFor(() => {
@@ -155,7 +182,7 @@ describe("NotificationHistory", () => {
     render(<NotificationHistory />);
 
     expect(
-      await screen.findByText("通知実行履歴はありません。"),
+      await screen.findByText("通知実行履歴はありません"),
     ).toBeInTheDocument();
   });
 
