@@ -7,7 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { NotificationHistory } from "./NotificationHistory";
+import { Toast } from "./Toast";
 
 type Health = {
   status: string;
@@ -149,6 +151,11 @@ type EmployeeConsistency = {
   fieldDifferences: { code: string; fields: string[] }[];
 };
 
+type ConfirmAction =
+  | { kind: "sync"; title: string; description: string }
+  | { kind: "delete"; title: string; description: string }
+  | null;
+
 type EmployeeForm = {
   code: string;
   employeeKey: string;
@@ -281,6 +288,7 @@ export function App() {
   const [loadingConsistency, setLoadingConsistency] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [editing, setEditing] = useState<Employee | null | undefined>(
@@ -342,6 +350,8 @@ export function App() {
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, "", nextPath);
       setPath(nextPath);
+      setNotice(null);
+      setError(null);
     }
   }
 
@@ -542,6 +552,8 @@ export function App() {
     setHealth(null);
     setEmployees([]);
     setError(null);
+    setNotice(null);
+    setConfirmAction(null);
   }
 
   function openCreate() {
@@ -601,14 +613,23 @@ export function App() {
         .length,
       disable: selected.filter((item) => item.action === "disable").length,
     };
-    const message = [
+    const description = [
       `${selectedSyncCodes.length}件をSQLiteとemployeeKey.csvへ反映します。`,
       `新規 ${detail.create}件 / 更新 ${detail.update}件 / 再有効化 ${detail.reactivate}件 / 無効化 ${detail.disable}件`,
       detail.reactivate > 0 ? "再有効化した社員は通知対象へ戻ります。" : "",
     ]
       .filter(Boolean)
       .join("\n");
-    if (!window.confirm(message)) return;
+    setConfirmAction({
+      kind: "sync",
+      title: "KOT社員差分を反映しますか",
+      description,
+    });
+  }
+
+  async function executeKotPreview() {
+    if (!syncPreview || selectedSyncCodes.length === 0) return;
+    setConfirmAction(null);
     setSyncing(true);
     setError(null);
     const response = await fetch("/api/kot-sync/apply", {
@@ -640,13 +661,21 @@ export function App() {
 
   async function deleteEmployee() {
     if (!editing) return;
-    const message = [
+    const description = [
       `社員 ${editing.code} ${editing.fullName} を社員管理から削除します。`,
       "削除後はemployeeKey.csvから除外されます。",
       "KOTに在籍中の場合は、次回同期で新規候補として再表示されることがあります。",
     ].join("\n");
-    if (!window.confirm(message)) return;
+    setConfirmAction({
+      kind: "delete",
+      title: "社員を削除しますか",
+      description,
+    });
+  }
 
+  async function executeDeleteEmployee() {
+    if (!editing) return;
+    setConfirmAction(null);
     setSubmitting(true);
     setError(null);
     setNotice(null);
@@ -890,16 +919,23 @@ export function App() {
 
       <main className="app-main">
         <div className="page-shell">
-          {notice && (
-            <p className="success-message" role="status">
-              {notice}
-            </p>
-          )}
-          {error && editing === undefined && (
-            <p className="error-message global-error" role="alert">
-              {error}
-            </p>
-          )}
+          <div className="app-toast-region" aria-label="通知">
+            {notice && (
+              <Toast
+                kind="success"
+                message={notice}
+                duration={5000}
+                onClose={() => setNotice(null)}
+              />
+            )}
+            {error && editing === undefined && (
+              <Toast
+                kind="error"
+                message={error}
+                onClose={() => setError(null)}
+              />
+            )}
+          </div>
           {path === "/" && (
             <>
               <section className="hero compact-hero">
@@ -1609,6 +1645,23 @@ export function App() {
                 社員管理へ戻る
               </a>
             </section>
+          )}
+          {confirmAction && (
+            <ConfirmDialog
+              title={confirmAction.title}
+              description={confirmAction.description}
+              confirmLabel={
+                confirmAction.kind === "delete" ? "削除する" : "反映する"
+              }
+              tone={confirmAction.kind === "delete" ? "danger" : "primary"}
+              busy={submitting || syncing}
+              onCancel={() => setConfirmAction(null)}
+              onConfirm={
+                confirmAction.kind === "delete"
+                  ? executeDeleteEmployee
+                  : executeKotPreview
+              }
+            />
           )}
           {editing !== undefined && (
             <div
