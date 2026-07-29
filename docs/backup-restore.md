@@ -8,11 +8,13 @@
 - 社員削除前バックアップ: `var/backups/employee-delete/`
 
 バックアップファイルはGitへ追加しません。
+> 本番固有のインストールパス、service / timer名、実行ユーザー、バックアップ保存先、世代数はリポジトリ外の運用手順で管理してください。
+
 
 ## 稼働中SQLiteの手動バックアップ
 
 ```bash
-cd /home/pi/division-overtime
+cd <app-root>
 .venv/bin/division-overtime --root . database backup
 ```
 
@@ -44,7 +46,7 @@ sqlite3 "$BACKUP" 'PRAGMA integrity_check;'
 期待値:
 
 - 権限`600`
-- 所有者`pi`
+- 所有者が実行ユーザー
 - `integrity_check`が`ok`
 
 ## 復元前の原則
@@ -81,13 +83,13 @@ sqlite3 /path/to/backup.sqlite3 \
 実施前に通知timerの次回起動まで十分な時間があることを確認します。
 
 ```bash
-cd /home/pi/division-overtime
+cd <app-root>
 
-sudo systemctl stop division-overtime-web.service
-sudo systemctl stop division-overtime-threshold.timer
-sudo systemctl stop division-overtime-weekly.timer
-sudo systemctl stop division-overtime-health.timer
-sudo systemctl stop division-overtime-employee-consistency.timer
+sudo systemctl stop <web-service>
+sudo systemctl stop <notification-timer-1>
+sudo systemctl stop <notification-timer-2>
+sudo systemctl stop <health-timer>
+sudo systemctl stop <consistency-timer>
 
 .venv/bin/division-overtime --root . database backup
 cp -a data/employeeKey.csv "data/employeeKey.csv.before-restore-$(date +%Y%m%d_%H%M%S)"
@@ -103,14 +105,14 @@ rm -f var/division_overtime.sqlite3-wal var/division_overtime.sqlite3-shm
 .venv/bin/division-overtime --root . employees check-consistency
 .venv/bin/division-overtime --root . health
 
-sudo systemctl start division-overtime-web.service
-sudo systemctl start division-overtime-threshold.timer
-sudo systemctl start division-overtime-weekly.timer
-sudo systemctl start division-overtime-health.timer
-sudo systemctl start division-overtime-employee-consistency.timer
+sudo systemctl start <web-service>
+sudo systemctl start <notification-timer-1>
+sudo systemctl start <notification-timer-2>
+sudo systemctl start <health-timer>
+sudo systemctl start <consistency-timer>
 
-curl -fsS http://127.0.0.1:8000/api/system/health
-systemctl list-timers --all | grep division-overtime
+curl -fsS <health-url>/api/system/health
+systemctl list-timers --all | grep <timer-name-pattern>
 ```
 
 不一致や整合性エラーがある場合はtimerを再開せず、退避した現状または別の正常世代へ戻します。

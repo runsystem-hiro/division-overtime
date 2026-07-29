@@ -4,62 +4,44 @@
 
 - 通知serviceを止めない
 - 本番データ変更前にpreview、対象、件数を確認する
-- KING OF TIME API利用禁止時間帯を避ける
+- 外部APIの利用制限時間帯を避ける
 - Web管理UIと通知処理は別プロセスとして扱う
 - SQLiteと`employeeKey.csv`の整合性を維持する
 - 本番確認でtoken、KOT Key、実社員情報をログやGitへ残さない
+- 本番固有のホスト名、ポート、パス、unit名、実行時刻、通知先はリポジトリ外で管理する
 
-## KING OF TIME API利用禁止時間帯
+## 定期実行
 
-JST:
-
-- 08:30〜10:00
-- 17:30〜18:30
-
-thresholdは平日10:30、weeklyは金曜21:30に設定されています。手動実行とdry-runでも禁止時間帯を避けます。
+threshold、weekly、health、社員データ整合性確認はsystemd timerで実行します。具体的な時刻と外部APIの利用制限時間帯は環境ごとの設定および社内運用手順を正とします。
 
 ## 日常確認
 
-```bash
-cd /home/pi/division-overtime
+公開ドキュメントでは環境固有値をプレースホルダーで表します。
 
-curl -fsS http://127.0.0.1:8000/api/system/health
+```bash
+APP_ROOT=<app-root>
+HEALTH_URL=<health-url>
+WEB_SERVICE=<web-service>
+TIMER_PATTERN=<timer-name-pattern>
+
+cd "$APP_ROOT"
+curl -fsS "$HEALTH_URL/api/system/health"
 .venv/bin/division-overtime --root . health
 .venv/bin/division-overtime --root . database status
 .venv/bin/division-overtime --root . employees check-consistency
-systemctl list-timers --all | grep division-overtime
+systemctl status "$WEB_SERVICE" --no-pager
+systemctl list-timers --all | grep "$TIMER_PATTERN"
 ```
 
-## systemd
+ログ確認では、環境ごとのservice名を使用して`journalctl`を実行します。実際のunit一覧、確認件数、保管期間は社内運用手順で管理してください。
 
-### スケジュール
+### 通知service定義の確認
 
-- threshold: 月曜〜金曜 10:30
-- weekly: 金曜 21:30
-- health: 起動10分後、その後1時間ごと
-- employee consistency: 毎日 03:15
-
-### 状態確認
-
-リポジトリ内のunit更新は正式デプロイ時に`/etc/systemd/system/`へ反映されます。通知実行履歴の`source`確認時は、実際に読み込まれているservice定義も確認します。
+unit名はコードと運用の対応関係を示すため公開し、ホスト名、配置先、実行時刻、通知先はリポジトリ外で管理します。正式デプロイ時に`/etc/systemd/system/`へ反映された定義を確認します。
 
 ```bash
 systemctl cat division-overtime-threshold.service
 systemctl cat division-overtime-weekly.service
-systemctl status division-overtime-web.service --no-pager
-systemctl status division-overtime-threshold.timer --no-pager
-systemctl status division-overtime-weekly.timer --no-pager
-systemctl status division-overtime-health.timer --no-pager
-systemctl status division-overtime-employee-consistency.timer --no-pager
-```
-
-### ログ
-
-```bash
-journalctl -u division-overtime-threshold.service -n 100 --no-pager
-journalctl -u division-overtime-weekly.service -n 100 --no-pager
-journalctl -u division-overtime-health.service -n 100 --no-pager
-journalctl -u division-overtime-web.service -n 100 --no-pager
 ```
 
 ## 手動実行
@@ -97,11 +79,11 @@ Web保存はSQLiteとCSVを一体更新し、失敗時は元へ戻します。KO
 
 ## KOT社員同期
 
-1. API利用禁止時間帯外で「KOTから取得」を実行
+1. 外部API利用可能時間帯に取得を実行
 2. create / update / reactivate / disable / unchangedを確認
 3. 反映対象だけを選択
 4. 適用
-5. 件数、履歴、バックアップ先、SQLite/CSV整合性を確認
+5. 件数、履歴、バックアップ、SQLite/CSV整合性を確認
 
 previewだけではSQLiteとCSVを変更しません。KOT退職済みかつSQLite未登録の社員は候補から除外されます。
 
@@ -127,4 +109,4 @@ Web管理UIで次を確認できます。
 8. `.env`とTOML
 9. 外部API利用時間帯と接続状況
 
-復旧でDBやCSVを変更する場合は[バックアップ・復旧](backup-restore.md)を参照してください。
+具体的なホスト、unit、ログ保存場所、連絡先、復旧判断基準は社内運用手順で管理します。DBやCSVを変更する場合は[バックアップ・復旧](backup-restore.md)を参照してください。

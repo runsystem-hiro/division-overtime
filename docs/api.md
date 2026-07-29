@@ -6,7 +6,7 @@ Web APIはFastAPIで提供します。healthとversion、ログイン、認証�
 
 ### `GET /api/system/health`
 
-Web serviceの稼働状態、version、時刻、timezone、frontend build、KOT同期設定を返します。外部サービスへ接続しません。
+Web serviceの稼働状態、version、時刻、timezone、frontend build、KOT同期設定を返します。外部サービスへ接続しません。v2.2.0本番では`status=ok`、`version=2.2.0`、`frontendBuilt=true`を確認します。
 
 ### `GET /api/version`
 

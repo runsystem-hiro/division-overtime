@@ -9,7 +9,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_public_versions_are_2_1_0_and_consistent() -> None:
+def test_public_versions_are_2_2_0_and_consistent() -> None:
     expected = (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
     with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
         python_version = tomllib.load(handle)["project"]["version"]
@@ -17,7 +17,7 @@ def test_public_versions_are_2_1_0_and_consistent() -> None:
     lock = json.loads((PROJECT_ROOT / "frontend/package-lock.json").read_text(encoding="utf-8"))
     module_text = (PROJECT_ROOT / "src/division_overtime/__init__.py").read_text(encoding="utf-8")
 
-    assert expected == "2.1.0"
+    assert expected == "2.2.0"
     assert python_version == expected
     assert frontend["version"] == expected
     assert lock["version"] == expected
@@ -35,7 +35,7 @@ def test_version_check_script_succeeds() -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout.strip() == "version_check=ok version=2.1.0"
+    assert result.stdout.strip() == "version_check=ok version=2.2.0"
 
 
 def test_verify_and_deploy_enforce_version_checks() -> None:

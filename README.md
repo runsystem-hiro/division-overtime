@@ -46,8 +46,8 @@ Web administration UI
 
 ### 本番
 
-- Raspberry Pi 4B 64-bit
-- systemdを利用できるLinux
+- 64-bit Linux（systemd利用環境）
+- 本番確認環境はRaspberry Pi
 - Python `>=3.11,<3.14`（本番確認環境はPython 3.13）
 - Node.js `>=20.19.0,<25`
 - npm `>=9.2.0`
@@ -69,7 +69,7 @@ Python依存は`uv.lock`、frontend依存は`frontend/package-lock.json`で固�
 ### 1. リポジトリを配置
 
 ```bash
-cd /home/pi
+cd <install-parent>
 git clone <repository-url> division-overtime
 cd division-overtime
 ```
@@ -117,13 +117,7 @@ KING OF TIME API利用禁止時間帯を避けて実行します。
 
 通知先、社員情報、dry-run結果を確認してから有効化します。
 
-```bash
-sudo systemctl enable --now division-overtime-threshold.timer
-sudo systemctl enable --now division-overtime-weekly.timer
-sudo systemctl enable --now division-overtime-health.timer
-sudo systemctl enable --now division-overtime-employee-consistency.timer
-sudo systemctl enable --now division-overtime-web.service
-```
+systemd unitは`systemd/`配下に同梱しています。実際のunit名、配置先、起動順序、監視方法は環境ごとの運用手順で管理してください。
 
 導入・移行時の詳細確認は[移行ガイド](docs/migration.md)を参照してください。
 
@@ -168,12 +162,12 @@ sudo systemctl enable --now division-overtime-web.service
 Webサービスの既定URLは次です。
 
 ```text
-http://<raspberry-pi>:8000/
+http://<host>:<port>/
 ```
 
 主な機能:
 
-- 開閉状態を保存できる共通サイドナビゲーションによる社員管理・KOT同期・通知履歴の画面遷移
+- 共通ヘッダーによる社員管理・KOT同期・通知履歴の画面遷移
 - ログイン・ログアウト
 - 社員一覧、検索、追加、編集
 - 無効化、再有効化、削除
@@ -183,40 +177,47 @@ http://<raspberry-pi>:8000/
 - KOT同期プレビューで判定別フィルター、表示中の一括選択、選択内訳、反映件数を確認
 - 通知実行履歴の集計、成功・一部失敗・dry-runの判別、送信先別結果、重複元の確認
 
-Web管理UIの起動には`.env`の管理者認証・セッション設定が必要です。画面URLは`/`（社員管理）、`/kot-sync`（KOT同期）、`/notifications`（通知履歴）です。FastAPIのSPAフォールバックにより各URLを直接開けます。
-- 共通デザイントークンにより、配色・サーフェス・境界線・余白・フォーカス・軽量モーションを一元管理
+Web管理UIの起動には`.env`の管理者認証・セッション設定が必要です。画面URLは`/`（社員管理）、`/kot-sync`（KOT同期）、`/notifications`（通知履歴）です。FastAPIのSPAフォールバックにより各URLを直接開けます。共通ヘッダーには環境表示、主要画面ナビゲーション、health表示、アカウント操作を集約しています。
+
+### 画面
+
+#### 社員管理
+
+![社員管理](docs/images/employee-management.png)
+
+SQLiteを正本として社員情報を管理し、保存時に通知処理用の`employeeKey.csv`を安全に再生成します。検索、追加、編集、無効化、再有効化、削除、SQLiteとCSVの整合性確認に対応します。
+
+#### KOT社員同期
+
+![KOT社員同期](docs/images/kot-sync.png)
+
+KING OF TIMEとの差分をcreate / update / reactivate / disable / unchangedで確認し、選択した差分だけを反映します。previewだけでは本番データを変更しません。
+
+#### 通知履歴
+
+![通知履歴](docs/images/notification-history.png)
+
+threshold / weekly / healthの実行結果、実行元、dry-run、本番実行、成功、一部失敗、失敗、送信先別結果、重複元を読み取り専用で確認できます。
+
+共通デザイントークンにより、配色、サーフェス、境界線、余白、フォーカス、軽量モーションを一元管理しています。PCとタブレットではテーブル表示を維持し、モバイル幅でカード表示へ切り替えます。
 
 
 ## 通知とスケジュール
 
-- threshold: 月曜〜金曜 10:30
-- weekly: 金曜 21:30
-- health: 起動10分後、その後1時間ごと
-- employee consistency: 毎日 03:15
+通知処理、health check、社員データ整合性確認はsystemd timerで定期実行します。具体的な時刻、外部APIの利用制限時間帯、通知先は環境ごとの設定および運用手順で管理し、公開ドキュメントには固定値を記載しません。
 
-thresholdとweeklyの通知識別キーにはISO年・ISO週が含まれます。同じ週、社員、通知種別、到達閾値、受信者の組み合わせは重複送信しません。週が変わると新しい通知識別キーになります。
-
-KING OF TIME API利用禁止時間帯（JST）:
-
-- 08:30〜10:00
-- 17:30〜18:30
-
-手動実行とdry-runでもこの時間帯を避けます。healthはKING OF TIME APIとSlackを呼び出しません。
+thresholdとweeklyの通知識別キーにはISO年・ISO週が含まれます。同じ週、社員、通知種別、到達閾値、受信者の組み合わせは重複送信しません。週が変わると新しい通知識別キーになります。healthはKING OF TIME APIとSlackを呼び出しません。
 
 ## 本番デプロイ
 
 Windows側Gitリポジトリを正本とし、mainへsquash merge後、Raspberry Piで手動デプロイします。
 
 ```bash
-cd /home/pi/division-overtime
+cd <app-root>
 ./scripts/deploy.sh
 ```
 
-デプロイ後の確認:
-
-```bash
-curl -fsS http://127.0.0.1:8000/api/system/health
-```
+デプロイ後は、環境ごとに定義したhealth URLで`/api/system/health`を確認します。ホスト名、ポート、SSH接続先、インストールパス、systemd unit名などの実運用値はリポジトリ外の運用手順で管理します。
 
 期待する主要項目:
 
