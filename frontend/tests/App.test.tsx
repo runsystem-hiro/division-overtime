@@ -155,6 +155,9 @@ describe("App", () => {
       screen.getByRole("dialog", { name: "システム状態" }),
     ).toBeInTheDocument();
     expect(screen.getByText(packageJson.version)).toBeInTheDocument();
+    const healthPopover = screen.getByRole("dialog", { name: "システム状態" });
+    expect(healthPopover.parentElement).toBe(document.body);
+    expect(healthPopover).toHaveClass("header-popover-portal");
 
     fireEvent.click(screen.getByRole("button", { name: "アカウントメニュー" }));
     expect(
@@ -163,10 +166,12 @@ describe("App", () => {
     expect(
       screen.getByRole("menuitem", { name: "ログアウト" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "アカウントメニュー" }).parentElement,
-    ).toHaveClass("is-open");
+    const accountMenu = screen.getByRole("menu");
+    expect(accountMenu.parentElement).toBe(document.body);
+    expect(accountMenu).toHaveClass("header-popover-portal");
 
+    fireEvent.pointerDown(screen.getByRole("menuitem", { name: "ログアウト" }));
+    expect(screen.getByRole("menuitem", { name: "ログアウト" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("menuitem", { name: "ログアウト" }));
     expect(
       await screen.findByRole("heading", { name: "管理者ログイン" }),

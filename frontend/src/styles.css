@@ -2679,10 +2679,6 @@ tbody tr:hover {
 }
 .header-popover-wrap {
   position: relative;
-  z-index: 0;
-}
-.header-popover-wrap.is-open {
-  z-index: 120;
 }
 .health-trigger {
   display: inline-flex;
@@ -2727,10 +2723,7 @@ tbody tr:hover {
 }
 
 .header-popover {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 121;
+  z-index: 1000;
   min-width: 250px;
   padding: 14px;
   border: 1px solid var(--border-default);
@@ -2739,6 +2732,14 @@ tbody tr:hover {
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
 }
+
+.header-popover-portal {
+  position: fixed;
+  right: auto;
+  margin: 0;
+  pointer-events: auto;
+}
+
 .popover-heading {
   display: flex;
   align-items: center;
@@ -3175,37 +3176,37 @@ body:has(.modal-backdrop) {
   content: "";
   position: fixed;
   z-index: -1;
-  width: min(46rem, 58vw);
+  width: min(42rem, 54vw);
   aspect-ratio: 1;
   border-radius: 50%;
   filter: blur(120px);
-  opacity: 0.16;
+  opacity: 0.1;
   pointer-events: none;
   will-change: transform;
 }
 
 .ambient-shell::before {
-  top: -24rem;
-  right: -12rem;
-  background: rgb(59 130 246 / 78%);
-  animation: ambient-drift-a 32s ease-in-out infinite alternate;
+  top: -28rem;
+  left: -20rem;
+  background: rgb(59 130 246 / 72%);
+  animation: ambient-orbit-a 72s linear infinite;
 }
 
 .ambient-shell::after {
+  right: -24rem;
   bottom: -30rem;
-  left: -16rem;
-  background: rgb(139 92 246 / 62%);
-  animation: ambient-drift-b 40s ease-in-out infinite alternate;
+  background: rgb(139 92 246 / 54%);
+  animation: ambient-orbit-b 88s linear infinite;
 }
 
 .login-shell.ambient-shell::before,
 .login-shell.ambient-shell::after {
-  opacity: 0.25;
+  opacity: 0.14;
 }
 
-.app-shell[data-page="employees"]::after { background: rgb(14 165 233 / 50%); }
-.app-shell[data-page="sync"]::after { background: rgb(124 58 237 / 50%); }
-.app-shell[data-page="history"]::after { background: rgb(71 85 105 / 62%); }
+.app-shell[data-page="employees"]::after { background: rgb(14 165 233 / 46%); }
+.app-shell[data-page="sync"]::after { background: rgb(124 58 237 / 46%); }
+.app-shell[data-page="history"]::after { background: rgb(71 85 105 / 56%); }
 
 .login-card,
 .app-topbar,
@@ -3274,15 +3275,25 @@ body:has(.modal-backdrop) {
   animation: button-busy-spin 700ms linear infinite;
 }
 
-@keyframes ambient-drift-a {
-  0% { transform: translate3d(-8vw, -4vh, 0) scale(0.9); opacity: 0.72; }
-  50% { transform: translate3d(6vw, 12vh, 0) scale(1.12); opacity: 1; }
-  100% { transform: translate3d(14vw, 3vh, 0) scale(0.98); opacity: 0.82; }
+@keyframes ambient-orbit-a {
+  0% { transform: translate3d(0, 0, 0) scale(0.98); }
+  14% { transform: translate3d(54vw, -3vh, 0) scale(1.02); }
+  29% { transform: translate3d(102vw, 18vh, 0) scale(1); }
+  43% { transform: translate3d(96vw, 72vh, 0) scale(1.04); }
+  58% { transform: translate3d(58vw, 105vh, 0) scale(0.99); }
+  73% { transform: translate3d(4vw, 92vh, 0) scale(1.03); }
+  87% { transform: translate3d(-8vw, 42vh, 0) scale(1); }
+  100% { transform: translate3d(0, 0, 0) scale(0.98); }
 }
-@keyframes ambient-drift-b {
-  0% { transform: translate3d(-4vw, 10vh, 0) scale(1.08); opacity: 0.78; }
-  45% { transform: translate3d(10vw, -10vh, 0) scale(0.92); opacity: 1; }
-  100% { transform: translate3d(18vw, 4vh, 0) scale(1.14); opacity: 0.86; }
+@keyframes ambient-orbit-b {
+  0% { transform: translate3d(0, 0, 0) scale(1.02); }
+  17% { transform: translate3d(-46vw, 8vh, 0) scale(0.98); }
+  33% { transform: translate3d(-98vw, -10vh, 0) scale(1.03); }
+  49% { transform: translate3d(-106vw, -62vh, 0) scale(1); }
+  64% { transform: translate3d(-62vw, -98vh, 0) scale(1.02); }
+  79% { transform: translate3d(-8vw, -88vh, 0) scale(0.99); }
+  91% { transform: translate3d(7vw, -38vh, 0) scale(1.03); }
+  100% { transform: translate3d(0, 0, 0) scale(1.02); }
 }
 @keyframes page-content-enter {
   from { opacity: 0; transform: translate3d(8px, 0, 0); }
