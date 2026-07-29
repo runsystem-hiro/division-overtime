@@ -73,7 +73,7 @@ Therefore, the same recipient and condition are deduplicated within an ISO week.
 
 ## Web frontend navigation
 
-認証後の管理画面は共通サイドナビゲーションを持ち、次のURLへ分離しています。
+認証後の管理画面は共通ヘッダーを持ち、次のURLへ分離しています。
 
 - `/`: 社員管理
 - `/kot-sync`: KING OF TIME社員同期
@@ -94,4 +94,4 @@ KOT同期プレビューは取得件数・表示件数・選択件数を分離�
 
 ## Web管理UIヘッダー
 
-Web管理UIは左サイドバーを使用せず、共通ヘッダーに環境表示、社員・同期・履歴ナビゲーション、healthポップオーバー、アカウントメニューを集約する。URLとAPI構成は変更しない。
+Web管理UIは左サイドバーを使用せず、共通ヘッダーに環境表示、社員・同期・履歴ナビゲーション、healthポップオーバー、アカウントメニューを集約します。PCとタブレットでは一覧性を優先してテーブル表示を維持し、モバイル幅でカード表示へ切り替えます。URLとAPI構成は変更しません。

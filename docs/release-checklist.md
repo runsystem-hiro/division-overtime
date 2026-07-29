@@ -38,6 +38,8 @@ git diff --check
 
 CIはmergeの必須条件ではなく、必須ステータスチェックには設定せず、補助確認として扱います。ローカル検証成功後にmergeできますが、CI失敗を認識した場合は原因を確認し、未解決のまま本番反映しません。
 
+本番固有のホスト名、SSH接続先、インストールパス、ポート、systemd unit名は公開ドキュメントへ記載せず、リポジトリ外の運用手順を参照します。
+
 ## バージョンリリース
 
 正式リリースの場合だけ、次の整合性を確認します。
@@ -53,22 +55,22 @@ CIはmergeの必須条件ではなく、必須ステータスチェックには�
 uv run python .\scripts\check_version.py --root .
 ```
 
-## Raspberry Pi反映
+## 本番環境への反映
 
 ```bash
-cd /home/pi/division-overtime
+cd <app-root>
 git switch main
 git status --short
 ./scripts/deploy.sh
 ```
 
-## 実機確認
+## 本番環境での確認
 
 ```bash
-curl -fsS http://127.0.0.1:8000/api/system/health
+curl -fsS <health-url>/api/system/health
 .venv/bin/division-overtime --root . database status
 .venv/bin/division-overtime --root . employees check-consistency
-systemctl list-timers --all | grep division-overtime
+systemctl list-timers --all | grep <timer-name-pattern>
 ```
 
 確認項目:
