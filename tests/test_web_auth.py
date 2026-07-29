@@ -16,6 +16,8 @@ def _service(max_age: int = 60) -> AuthService:
         login_max_attempts=5,
         login_window_seconds=900,
         login_lockout_seconds=900,
+        viewer_username="viewer",
+        viewer_password_hash=PasswordHasher().hash("view-secret"),
     )
 
 
@@ -34,3 +36,11 @@ def test_session_token_is_revoked():
     assert service.get_user(token) is not None
     service.delete_session(token)
     assert service.get_user(token) is None
+
+
+def test_authenticate_returns_configured_role():
+    service = _service()
+
+    assert service.authenticate("hiro", "secret") == "admin"
+    assert service.authenticate("viewer", "view-secret") == "viewer"
+    assert service.authenticate("viewer", "wrong") is None

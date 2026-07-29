@@ -14,7 +14,11 @@ from division_overtime.kot_employee_sync import (
 )
 from division_overtime.web.auth import AuthenticatedUser
 from division_overtime.web.config import WebConfig
-from division_overtime.web.dependencies import get_current_user, get_web_config
+from division_overtime.web.dependencies import (
+    get_current_admin_user,
+    get_current_user,
+    get_web_config,
+)
 
 router = APIRouter(prefix="/api/kot-sync", tags=["kot-sync"])
 _operation_lock = Lock()
@@ -64,7 +68,7 @@ def _diff(diff: SyncDifference) -> dict[str, object]:
 
 @router.post("/preview")
 def preview(
-    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[KotEmployeeSyncService, Depends(get_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> dict[str, object]:
@@ -97,7 +101,7 @@ def preview(
 @router.post("/apply")
 def apply(
     payload: ApplyRequest,
-    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    user: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[KotEmployeeSyncService, Depends(get_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> dict[str, object]:

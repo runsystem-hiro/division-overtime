@@ -25,7 +25,9 @@ type EnvironmentPresentation = {
   className: string;
 };
 
-function getEnvironmentPresentation(environment?: string): EnvironmentPresentation {
+function getEnvironmentPresentation(
+  environment?: string,
+): EnvironmentPresentation {
   switch (environment) {
     case "production":
       return { label: "PRODUCTION", className: "environment-production" };
@@ -40,6 +42,7 @@ function getEnvironmentPresentation(environment?: string): EnvironmentPresentati
 
 type CurrentUser = {
   username: string;
+  role: "admin" | "viewer";
   expiresAt: string;
 };
 
@@ -264,6 +267,7 @@ function UtilityIcon({ name }: { name: "power" | "logout" | "activity" }) {
 
 export function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
+  const isAdmin = user?.role !== "viewer";
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [health, setHealth] = useState<Health | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -419,7 +423,7 @@ export function App() {
         },
       ),
       loadEmployees(),
-      loadConsistency(),
+      ...(isAdmin ? [loadConsistency()] : []),
       loadKotSyncStatus(),
     ])
       .then(([healthResponse]) => setHealth(healthResponse))
@@ -430,7 +434,7 @@ export function App() {
             : "情報を取得できませんでした",
         );
       });
-  }, [loadConsistency, loadEmployees, loadKotSyncStatus, user]);
+  }, [isAdmin, loadConsistency, loadEmployees, loadKotSyncStatus, user]);
 
   const counts = useMemo(
     () => ({
@@ -629,7 +633,7 @@ export function App() {
     setSelectedSyncCodes([]);
     await Promise.all([
       loadEmployees(),
-      loadConsistency(),
+      ...(isAdmin ? [loadConsistency()] : []),
       loadKotSyncStatus(),
     ]);
   }
@@ -666,7 +670,7 @@ export function App() {
     );
     await Promise.all([
       loadEmployees(),
-      loadConsistency(),
+      ...(isAdmin ? [loadConsistency()] : []),
       loadKotSyncStatus(),
     ]);
   }
@@ -760,7 +764,9 @@ export function App() {
     );
   }
 
-  const environmentPresentation = getEnvironmentPresentation(health?.environment);
+  const environmentPresentation = getEnvironmentPresentation(
+    health?.environment,
+  );
   const environmentLabel = environmentPresentation.label;
   const healthLabel = health?.status === "ok" ? "正常" : "確認中";
 
@@ -908,6 +914,12 @@ export function App() {
                   className="button-primary"
                   type="button"
                   onClick={openCreate}
+                  disabled={!isAdmin}
+                  title={
+                    !isAdmin
+                      ? "閲覧専用ユーザーは社員を追加できません"
+                      : undefined
+                  }
                 >
                   社員を追加
                 </button>
@@ -935,13 +947,15 @@ export function App() {
                         : "status-ok"
                     }
                   >
-                    {loadingConsistency
-                      ? "確認中"
-                      : consistency?.status === "ok"
-                        ? "一致"
-                        : consistency?.status === "mismatch"
-                          ? "不一致"
-                          : "確認失敗"}
+                    {!isAdmin
+                      ? "閲覧のみ"
+                      : loadingConsistency
+                        ? "確認中"
+                        : consistency?.status === "ok"
+                          ? "一致"
+                          : consistency?.status === "mismatch"
+                            ? "不一致"
+                            : "確認失敗"}
                   </strong>
                 </article>
               </section>
@@ -1051,7 +1065,12 @@ export function App() {
                     className="button-secondary"
                     type="button"
                     onClick={loadConsistency}
-                    disabled={loadingConsistency}
+                    disabled={!isAdmin || loadingConsistency}
+                    title={
+                      !isAdmin
+                        ? "閲覧専用ユーザーは整合性を再確認できません"
+                        : undefined
+                    }
                   >
                     {loadingConsistency ? "確認中…" : "再確認"}
                   </button>
@@ -1125,6 +1144,12 @@ export function App() {
                                 className="table-action"
                                 type="button"
                                 onClick={() => openEdit(employee)}
+                                disabled={!isAdmin}
+                                title={
+                                  !isAdmin
+                                    ? "閲覧専用ユーザーは社員を編集できません"
+                                    : undefined
+                                }
                               >
                                 編集
                               </button>
@@ -1228,19 +1253,22 @@ export function App() {
                     type="button"
                     onClick={loadKotPreview}
                     disabled={
+                      !isAdmin ||
                       !health?.kotSyncEnabled ||
                       syncing ||
                       syncStatus?.running ||
                       syncStatus?.blocked
                     }
                   >
-                    {!health?.kotSyncEnabled
-                      ? "この環境では無効"
-                      : syncing || syncStatus?.running
-                        ? "実行中…"
-                        : health.kotSyncMock
-                          ? "ダミーKOTから取得"
-                          : "KOTから取得"}
+                    {!isAdmin
+                      ? "閲覧専用"
+                      : !health?.kotSyncEnabled
+                        ? "この環境では無効"
+                        : syncing || syncStatus?.running
+                          ? "実行中…"
+                          : health.kotSyncMock
+                            ? "ダミーKOTから取得"
+                            : "KOTから取得"}
                   </button>
                 </div>
                 {syncPreview && (

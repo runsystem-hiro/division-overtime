@@ -7,20 +7,25 @@ import threading
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+
+UserRole = Literal["admin", "viewer"]
 
 
 @dataclass(frozen=True, slots=True)
 class AuthenticatedUser:
     username: str
+    role: UserRole
     expires_at: datetime
 
 
 @dataclass(slots=True)
 class _Session:
     username: str
+    role: UserRole
     expires_at: datetime
 
 
@@ -72,9 +77,13 @@ class AuthService:
         login_max_attempts: int,
         login_window_seconds: int,
         login_lockout_seconds: int,
+        viewer_username: str | None = None,
+        viewer_password_hash: str | None = None,
     ) -> None:
         self._admin_username = admin_username
         self._admin_password_hash = admin_password_hash
+        self._viewer_username = viewer_username
+        self._viewer_password_hash = viewer_password_hash
         self._secret = session_secret.encode("utf-8")
         self._session_max_age = timedelta(seconds=session_max_age_seconds)
         self._sessions: dict[str, _Session] = {}
@@ -86,22 +95,40 @@ class AuthService:
             lockout_seconds=login_lockout_seconds,
         )
 
-    def authenticate(self, username: str, password: str) -> bool:
-        username_matches = hmac.compare_digest(username, self._admin_username)
-        try:
-            password_matches = self._password_hasher.verify(self._admin_password_hash, password)
-        except (InvalidHashError, VerificationError, VerifyMismatchError):
-            password_matches = False
-        return username_matches and password_matches
+    def authenticate(self, username: str, password: str) -> UserRole | None:
+        credentials: tuple[tuple[UserRole, str, str], ...] = (
+            ("admin", self._admin_username, self._admin_password_hash),
+        )
+        if self._viewer_username is not None and self._viewer_password_hash is not None:
+            credentials += (("viewer", self._viewer_username, self._viewer_password_hash),)
 
-    def create_session(self, username: str, now: datetime | None = None) -> tuple[str, datetime]:
+        authenticated_role: UserRole | None = None
+        for role, configured_username, configured_password_hash in credentials:
+            username_matches = hmac.compare_digest(username, configured_username)
+            try:
+                password_matches = self._password_hasher.verify(configured_password_hash, password)
+            except (InvalidHashError, VerificationError, VerifyMismatchError):
+                password_matches = False
+            if username_matches and password_matches:
+                authenticated_role = role
+        return authenticated_role
+
+    def create_session(
+        self,
+        username: str,
+        now: datetime | None = None,
+        *,
+        role: UserRole = "admin",
+    ) -> tuple[str, datetime]:
         now = now or datetime.now(UTC)
         raw_token = secrets.token_urlsafe(48)
         token_digest = self._digest(raw_token)
         expires_at = now + self._session_max_age
         with self._lock:
             self._purge_expired(now)
-            self._sessions[token_digest] = _Session(username=username, expires_at=expires_at)
+            self._sessions[token_digest] = _Session(
+                username=username, role=role, expires_at=expires_at
+            )
         return raw_token, expires_at
 
     def get_user(
@@ -116,7 +143,9 @@ class AuthService:
             session = self._sessions.get(token_digest)
             if session is None or session.expires_at <= now:
                 return None
-            return AuthenticatedUser(username=session.username, expires_at=session.expires_at)
+            return AuthenticatedUser(
+                username=session.username, role=session.role, expires_at=session.expires_at
+            )
 
     def delete_session(self, raw_token: str | None) -> None:
         if not raw_token:

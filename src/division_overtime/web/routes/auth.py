@@ -43,7 +43,8 @@ def login(
             detail="Too many login attempts. Try again later.",
         )
 
-    if not auth.authenticate(payload.username, payload.password):
+    role = auth.authenticate(payload.username, payload.password)
+    if role is None:
         auth.rate_limiter.record_failure(key, now)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,7 +52,7 @@ def login(
         )
 
     auth.rate_limiter.clear(key)
-    token, expires_at = auth.create_session(payload.username, now)
+    token, expires_at = auth.create_session(payload.username, now, role=role)
     response.set_cookie(
         key=config.session_cookie_name,
         value=token,
@@ -61,7 +62,11 @@ def login(
         samesite="strict",
         path="/",
     )
-    return {"username": payload.username, "expiresAt": expires_at.isoformat()}
+    return {
+        "username": payload.username,
+        "role": role,
+        "expiresAt": expires_at.isoformat(),
+    }
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -89,10 +94,18 @@ def auth_status(
         return {"authenticated": False, "user": None}
     return {
         "authenticated": True,
-        "user": {"username": user.username, "expiresAt": user.expires_at.isoformat()},
+        "user": {
+            "username": user.username,
+            "role": user.role,
+            "expiresAt": user.expires_at.isoformat(),
+        },
     }
 
 
 @router.get("/me")
 def me(user: Annotated[AuthenticatedUser, Depends(get_current_user)]) -> dict[str, str]:
-    return {"username": user.username, "expiresAt": user.expires_at.isoformat()}
+    return {
+        "username": user.username,
+        "role": user.role,
+        "expiresAt": user.expires_at.isoformat(),
+    }

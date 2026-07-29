@@ -43,6 +43,8 @@ def test_load_web_config_does_not_require_external_tokens(tmp_path, monkeypatch)
     assert config.session_cookie_name == "division_overtime_session"
     assert config.session_cookie_secure is False
     assert config.session_max_age_seconds == 28800
+    assert config.viewer_username is None
+    assert config.viewer_password_hash is None
 
 
 def test_load_web_config_rejects_invalid_port(tmp_path, monkeypatch):
@@ -97,3 +99,25 @@ mock_enabled = true
     assert config.environment == "development"
     assert config.kot_enabled is False
     assert config.kot_mock_enabled is True
+
+
+def test_load_web_config_accepts_optional_viewer_credentials(tmp_path, monkeypatch):
+    _write_default(tmp_path)
+    _set_auth_env(monkeypatch)
+    monkeypatch.setenv("WEB_VIEWER_USERNAME", "viewer")
+    monkeypatch.setenv("WEB_VIEWER_PASSWORD_HASH", "$argon2id$viewer")
+
+    config = load_web_config(tmp_path)
+
+    assert config.viewer_username == "viewer"
+    assert config.viewer_password_hash == "$argon2id$viewer"
+
+
+def test_load_web_config_requires_complete_viewer_credentials(tmp_path, monkeypatch):
+    _write_default(tmp_path)
+    _set_auth_env(monkeypatch)
+    monkeypatch.setenv("WEB_VIEWER_USERNAME", "viewer")
+    monkeypatch.delenv("WEB_VIEWER_PASSWORD_HASH", raising=False)
+
+    with pytest.raises(WebConfigError, match="must be set together"):
+        load_web_config(tmp_path)
