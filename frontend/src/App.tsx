@@ -20,6 +20,24 @@ type Health = {
   kotSyncMock: boolean;
 };
 
+type EnvironmentPresentation = {
+  label: "PRODUCTION" | "DEVELOPMENT" | "TEST" | "UNKNOWN";
+  className: string;
+};
+
+function getEnvironmentPresentation(environment?: string): EnvironmentPresentation {
+  switch (environment) {
+    case "production":
+      return { label: "PRODUCTION", className: "environment-production" };
+    case "development":
+      return { label: "DEVELOPMENT", className: "environment-development" };
+    case "test":
+      return { label: "TEST", className: "environment-test" };
+    default:
+      return { label: "UNKNOWN", className: "environment-unknown" };
+  }
+}
+
 type CurrentUser = {
   username: string;
   expiresAt: string;
@@ -742,8 +760,8 @@ export function App() {
     );
   }
 
-  const environmentLabel =
-    health?.environment === "production" ? "PRODUCTION" : "DEVELOPMENT";
+  const environmentPresentation = getEnvironmentPresentation(health?.environment);
+  const environmentLabel = environmentPresentation.label;
   const healthLabel = health?.status === "ok" ? "正常" : "確認中";
 
   return (
@@ -752,7 +770,7 @@ export function App() {
         <div className="header-brand" aria-label="division overtime">
           <strong>division overtime</strong>
           <span
-            className={`environment-badge environment-${health?.environment === "production" ? "production" : "development"}`}
+            className={`environment-badge ${environmentPresentation.className}`}
           >
             {environmentLabel}
           </span>
