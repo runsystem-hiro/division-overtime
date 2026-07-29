@@ -174,15 +174,26 @@ export function NotificationHistory() {
           <p className="muted">週次通知・閾値通知・ヘルスチェックの実行結果を読み取り専用で確認できます。</p>
           {developmentMockEnabled && <span className="badge badge-warning notification-mock-badge">開発用サンプル表示中</span>}
         </div>
-        <button className="button-secondary" type="button" onClick={loadRuns} disabled={loading}>
-          {loading ? "読込中…" : "再読込"}
+        <button className="button-secondary" type="button" onClick={loadRuns} disabled={loading} aria-busy={loading}>
+          {loading ? "更新中…" : "再読込"}
         </button>
       </div>
 
       {error && <p className="error-message" role="alert">通知履歴の取得に失敗しました: {error}</p>}
-      {loading && <div className="notification-loading" role="status">通知履歴を読み込んでいます…</div>}
+      {loading && runs.length === 0 && (
+        <div className="notification-skeleton" role="status" aria-label="通知履歴を読み込んでいます">
+          <div className="skeleton-summary" aria-hidden="true">
+            {Array.from({ length: 4 }, (_, index) => <span key={index} className="skeleton-card" />)}
+          </div>
+          <div className="skeleton-table" aria-hidden="true">
+            {Array.from({ length: 5 }, (_, index) => <span key={index} className="skeleton-table-row" />)}
+          </div>
+        </div>
+      )}
 
-      {!loading && !error && (
+      {loading && runs.length > 0 && <div className="updating-indicator" role="status">通知履歴を更新中…</div>}
+
+      {(!loading || runs.length > 0) && !error && (
         <>
           <section className="notification-summary" aria-label="通知履歴集計">
             <article><span>表示中</span><strong>{summary.total}</strong></article>
