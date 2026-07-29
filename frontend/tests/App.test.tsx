@@ -144,4 +144,59 @@ describe("App", () => {
     expect(screen.getByLabelText("検索")).toHaveValue("");
     expect(screen.getByLabelText("状態")).toHaveValue("all");
   });
+  it("KOT同期プレビューで表示中の差分を選択し、反映件数を確認できる", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": { authenticated: true, user: { username: "admin", expiresAt: null } },
+        "/api/system/health": { status: "ok", environment: "development", kotSyncEnabled: true, kotSyncMock: true },
+        "/api/employees?enabled=all": [],
+        "/api/employees/consistency": { status: "ok", databaseEmployees: 0, csvEmployees: 0, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
+        "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
+        "/api/kot-sync/preview": {
+          previewId: "preview-1",
+          counts: { create: 1, update: 1, reactivate: 0, disable: 0, unchanged: 1 },
+          fetchedCount: 3,
+          targetCount: 3,
+          targetDivisionCodes: ["156"],
+          differences: [
+            { code: "90001", action: "create", current: null, proposed: { lastName: "山田", firstName: "太郎", divisionName: "営業部" }, warnings: [], changedFields: [] },
+            { code: "90002", action: "update", current: { lastName: "佐藤", firstName: "花子", divisionName: "開発部" }, proposed: { lastName: "佐藤", firstName: "花子", divisionName: "開発本部" }, warnings: [], changedFields: ["divisionName"] },
+            { code: "90003", action: "unchanged", current: {}, proposed: {}, warnings: [], changedFields: [] },
+          ],
+        },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    window.history.replaceState({}, "", "/kot-sync");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "KOT社員同期" });
+    fireEvent.click(screen.getByRole("button", { name: "ダミーKOTから取得" }));
+
+    expect(await screen.findByText("同期対象")).toBeInTheDocument();
+    expect(screen.getAllByText("新規").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "表示中を選択" }));
+
+    expect(screen.getByText("2件を選択中")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "選択した2件を反映" })).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "90001 新規を反映" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "90002 更新を反映" })).toBeChecked();
+
+    fireEvent.click(screen.getByText("山田太郎 / 営業部"));
+    expect(screen.getByRole("checkbox", { name: "90001 新規を反映" })).not.toBeChecked();
+    expect(screen.getByText("1件を選択中")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByText("佐藤花子 / 開発部").closest("tr")!, { key: "Enter" });
+    expect(screen.getByRole("checkbox", { name: "90002 更新を反映" })).not.toBeChecked();
+    expect(screen.getByText("0件を選択中")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "変更なし" }));
+    expect(screen.getByRole("checkbox", { name: "90003 変更なしを反映" })).toBeDisabled();
+  });
+
 });
