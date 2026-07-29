@@ -2308,7 +2308,7 @@ tbody tr:hover {
 }
 
 /* issue #145 responsive notification history list */
-@media (max-width: 1040px) {
+@media (max-width: 720px) {
   .notification-history-card > .table-wrap {
     overflow-x: visible;
   }
@@ -2470,7 +2470,7 @@ tbody tr:hover {
 }
 
 /* issue #145 narrow notification history cards */
-@media (max-width: 1180px) {
+@media (max-width: 720px) {
   .notification-history-table tr {
     width: auto;
   }
@@ -2678,9 +2678,14 @@ tbody tr:hover {
   height: 19px;
 }
 .power-button {
-  width: 38px;
-  height: 38px;
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  padding: 0;
   color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: 12px;
 }
 .power-button:hover,
 .power-button[aria-expanded="true"] {
@@ -2848,7 +2853,53 @@ body:has(.modal-backdrop) {
   overflow: hidden;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1180px) and (min-width: 721px) {
+  .sync-card > .table-wrap {
+    overflow-x: hidden;
+  }
+  .sync-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+  .sync-table th,
+  .sync-table td {
+    min-width: 0;
+    padding-inline: 10px;
+    overflow-wrap: anywhere;
+  }
+  .sync-table th:nth-child(1),
+  .sync-table td:nth-child(1) {
+    width: 6%;
+  }
+  .sync-table th:nth-child(2),
+  .sync-table td:nth-child(2) {
+    width: 10%;
+  }
+  .sync-table th:nth-child(3),
+  .sync-table td:nth-child(3) {
+    width: 11%;
+  }
+  .sync-table th:nth-child(4),
+  .sync-table td:nth-child(4),
+  .sync-table th:nth-child(5),
+  .sync-table td:nth-child(5) {
+    width: 22%;
+  }
+  .sync-table th:nth-child(6),
+  .sync-table td:nth-child(6) {
+    width: 17%;
+  }
+  .sync-table th:nth-child(7),
+  .sync-table td:nth-child(7) {
+    width: 12%;
+  }
+  .sync-table .sync-badge {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 720px) {
   .sync-card > .table-wrap {
     overflow-x: visible;
   }
@@ -2874,6 +2925,7 @@ body:has(.modal-backdrop) {
     display: grid;
     grid-template-columns: minmax(96px, 30%) minmax(0, 1fr);
     gap: 10px;
+    width: auto;
     min-width: 0;
     padding: 0;
     border: 0;
