@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import packageJson from "../package.json";
 import { App } from "../src/App";
 
 afterEach(() => {
@@ -41,7 +42,7 @@ describe("App", () => {
         "/api/system/health": {
           status: "ok",
           service: "division-overtime-web",
-          version: "2.1.0",
+          version: packageJson.version,
           serverTime: "2026-07-28T17:00:00+09:00",
           timezone: "Asia/Tokyo",
           environment: "development",
@@ -85,7 +86,7 @@ describe("App", () => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
       const responses: Record<string, unknown> = {
         "/api/auth/status": { authenticated: true, user: { username: "admin", expiresAt: null } },
-        "/api/system/health": { status: "ok", environment: "development", version: "2.1.0" },
+        "/api/system/health": { status: "ok", environment: "development", version: packageJson.version },
         "/api/employees?enabled=all": [],
         "/api/employees/consistency": { status: "ok", databaseEmployees: 0, csvEmployees: 0, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
         "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
@@ -101,7 +102,7 @@ describe("App", () => {
     expect(await screen.findByText("DEVELOPMENT")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /正常/ }));
     expect(screen.getByRole("dialog", { name: "システム状態" })).toBeInTheDocument();
-    expect(screen.getByText("2.1.0")).toBeInTheDocument();
+    expect(screen.getByText(packageJson.version)).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "システム状態" })).not.toBeInTheDocument();
@@ -111,6 +112,33 @@ describe("App", () => {
 
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menuitem", { name: "ログアウト" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["production", "PRODUCTION", "environment-production"],
+    ["development", "DEVELOPMENT", "environment-development"],
+    ["test", "TEST", "environment-test"],
+    ["staging", "UNKNOWN", "environment-unknown"],
+  ])("環境 %s を適切なバッジとして表示する", async (environment, label, className) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": { authenticated: true, user: { username: "admin", expiresAt: null } },
+        "/api/system/health": { status: "ok", environment, version: packageJson.version },
+        "/api/employees?enabled=all": [],
+        "/api/employees/consistency": { status: "ok", databaseEmployees: 0, csvEmployees: 0, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
+        "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    render(<App />);
+
+    const badge = await screen.findByText(label);
+    expect(badge).toHaveClass("environment-badge", className);
   });
 
   it("社員一覧の検索条件を表示し、まとめて解除する", async () => {

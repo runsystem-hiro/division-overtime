@@ -2577,15 +2577,25 @@ tbody tr:hover {
   line-height: 1.35;
   letter-spacing: 0.11em;
 }
+.environment-production {
+  color: var(--status-reactivate);
+  border-color: var(--status-reactivate-border);
+  background: var(--status-reactivate-bg);
+}
 .environment-development {
+  color: var(--status-update);
+  border-color: var(--status-update-border);
+  background: var(--status-update-bg);
+}
+.environment-test {
   color: var(--status-create);
   border-color: var(--status-create-border);
   background: var(--status-create-bg);
 }
-.environment-production {
-  color: var(--status-update);
-  border-color: var(--status-update-border);
-  background: var(--status-update-bg);
+.environment-unknown {
+  color: var(--status-disable);
+  border-color: var(--status-disable-border);
+  background: var(--status-disable-bg);
 }
 
 .app-topbar .app-nav {
