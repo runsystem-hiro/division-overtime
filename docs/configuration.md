@@ -25,6 +25,8 @@ WEB_PORT=8000
 WEB_LOG_LEVEL=INFO
 WEB_ADMIN_USERNAME=hiro
 WEB_ADMIN_PASSWORD_HASH=replace_with_argon2_hash
+WEB_VIEWER_USERNAME=viewer
+WEB_VIEWER_PASSWORD_HASH=replace_with_argon2_hash
 WEB_SESSION_SECRET=replace_with_at_least_32_random_characters
 WEB_SESSION_COOKIE_NAME=division_overtime_session
 WEB_SESSION_COOKIE_SECURE=false
@@ -43,6 +45,8 @@ WEB_LOGIN_LOCKOUT_SECONDS=900
 
 - `WEB_ADMIN_USERNAME`
 - `WEB_ADMIN_PASSWORD_HASH`
+- `WEB_VIEWER_USERNAME`（任意。閲覧専用ユーザー名）
+- `WEB_VIEWER_PASSWORD_HASH`（任意。閲覧専用ユーザーのArgon2ハッシュ）
 - `WEB_SESSION_SECRET`（32文字以上）
 
 Web単体起動ではSlack tokenを必須としません。KOT同期は`KINGOFTIME_TOKEN`が未設定の場合、またはTOMLでKOTが無効の場合に利用できません。
@@ -126,3 +130,11 @@ ALL = ["admin@example.com"]
 - `var/backups/`
 
 これらはGitへ追加しません。
+
+
+## Web管理UIのロール
+
+- `admin`: 社員追加・編集・削除、整合性の再確認、KOT取得・同期反映を含む全操作
+- `viewer`: 社員一覧・検索・再読み込み、KOT同期画面の表示、通知履歴一覧・詳細の閲覧のみ
+
+閲覧専用アカウントを使用する場合は、`WEB_VIEWER_USERNAME`と`WEB_VIEWER_PASSWORD_HASH`を両方設定します。片方だけ設定した場合、Webアプリは設定エラーとして起動しません。画面上のボタン無効化に加え、更新系APIはサーバー側でもHTTP 403で拒否します。

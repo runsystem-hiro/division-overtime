@@ -43,6 +43,8 @@ class WebConfig:
     environment: str = "production"
     kot_enabled: bool = True
     kot_mock_enabled: bool = False
+    viewer_username: str | None = None
+    viewer_password_hash: str | None = None
 
 
 def _required_env(name: str) -> str:
@@ -128,6 +130,13 @@ def load_web_config(root: Path | None = None) -> WebConfig:
     if len(session_secret) < 32:
         raise WebConfigError("WEB_SESSION_SECRET must be at least 32 characters")
 
+    viewer_username = os.getenv("WEB_VIEWER_USERNAME", "").strip() or None
+    viewer_password_hash = os.getenv("WEB_VIEWER_PASSWORD_HASH", "").strip() or None
+    if (viewer_username is None) != (viewer_password_hash is None):
+        raise WebConfigError(
+            "WEB_VIEWER_USERNAME and WEB_VIEWER_PASSWORD_HASH must be set together"
+        )
+
     return WebConfig(
         root=root,
         timezone=timezone,
@@ -158,4 +167,6 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         environment=os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower(),
         kot_enabled=bool(raw.get("king_of_time", {}).get("enabled", True)),
         kot_mock_enabled=bool(raw.get("king_of_time", {}).get("mock_enabled", False)),
+        viewer_username=viewer_username,
+        viewer_password_hash=viewer_password_hash,
     )

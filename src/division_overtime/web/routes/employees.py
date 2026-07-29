@@ -19,7 +19,11 @@ from division_overtime.employee_management import (
 from division_overtime.employee_repository import ManagedEmployee
 from division_overtime.web.auth import AuthenticatedUser
 from division_overtime.web.config import WebConfig
-from division_overtime.web.dependencies import get_current_user, get_web_config
+from division_overtime.web.dependencies import (
+    get_current_admin_user,
+    get_current_user,
+    get_web_config,
+)
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -187,7 +191,7 @@ def list_employees(
 
 @router.get("/consistency", response_model=EmployeeConsistencyResponse)
 def get_employee_consistency(
-    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
 ) -> EmployeeConsistencyResponse:
     try:
@@ -225,7 +229,7 @@ def get_employee(
 @router.post("", response_model=EmployeeWriteResponse, status_code=status.HTTP_201_CREATED)
 def create_employee(
     payload: EmployeeWriteRequest,
-    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> EmployeeWriteResponse:
@@ -242,7 +246,7 @@ def create_employee(
 def update_employee(
     code: str,
     payload: EmployeeWriteRequest,
-    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> EmployeeWriteResponse:
@@ -258,7 +262,7 @@ def update_employee(
 @router.delete("/{code}", response_model=EmployeeDeleteResponse)
 def delete_employee(
     code: str,
-    _: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _: Annotated[AuthenticatedUser, Depends(get_current_admin_user)],
     service: Annotated[EmployeeManagementService, Depends(get_employee_service)],
     config: Annotated[WebConfig, Depends(get_web_config)],
 ) -> EmployeeDeleteResponse:

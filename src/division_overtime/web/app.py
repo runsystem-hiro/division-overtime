@@ -67,6 +67,8 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
         login_max_attempts=web_config.login_max_attempts,
         login_window_seconds=web_config.login_window_seconds,
         login_lockout_seconds=web_config.login_lockout_seconds,
+        viewer_username=web_config.viewer_username,
+        viewer_password_hash=web_config.viewer_password_hash,
     )
     app.include_router(auth_router)
     app.include_router(system_router)

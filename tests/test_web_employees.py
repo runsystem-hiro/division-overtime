@@ -39,6 +39,8 @@ def _config(root: Path) -> WebConfig:
         kot_read_timeout=30.0,
         kot_retry_count=1,
         kot_retry_backoff=0.0,
+        viewer_username="viewer",
+        viewer_password_hash=PasswordHasher().hash("viewer-password"),
     )
 
 
@@ -221,3 +223,33 @@ def test_employee_delete_unknown_code_returns_404(tmp_path):
     response = client.delete("/api/employees/99999")
 
     assert response.status_code == 404
+
+
+def test_viewer_can_read_employees_but_cannot_run_admin_operations(tmp_path):
+    config = _config(tmp_path)
+    client = TestClient(create_app(config))
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "viewer", "password": "viewer-password"},
+    )
+    assert login.status_code == 200
+
+    assert client.get("/api/employees").status_code == 200
+    assert client.get("/api/employees/consistency").status_code == 403
+
+    payload = {
+        "code": "00002",
+        "employeeKey": "key-2",
+        "lastName": "佐藤",
+        "firstName": "花子",
+        "email": "b@example.com",
+        "divisionCode": "301",
+        "divisionName": "開発部",
+        "personalTargetMinutes": None,
+        "isEnabled": True,
+        "disabledReason": "",
+        "note": "",
+    }
+    assert client.post("/api/employees", json=payload).status_code == 403
+    assert client.put("/api/employees/00002", json=payload).status_code == 403
+    assert client.delete("/api/employees/00002").status_code == 403

@@ -32,3 +32,13 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required."
         )
     return user
+
+
+def get_current_admin_user(
+    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> AuthenticatedUser:
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Administrator privileges required."
+        )
+    return user

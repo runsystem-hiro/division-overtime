@@ -35,6 +35,8 @@ def _config(root: Path, *, max_attempts: int = 5, max_age: int = 28800) -> WebCo
         kot_read_timeout=30.0,
         kot_retry_count=1,
         kot_retry_backoff=0.0,
+        viewer_username="viewer",
+        viewer_password_hash=PasswordHasher().hash("viewer-password"),
     )
 
 
@@ -86,6 +88,7 @@ def test_login_me_logout_flow_and_cookie_attributes(tmp_path):
     login = _login(client)
     assert login.status_code == 200
     assert login.json()["username"] == "hiro"
+    assert login.json()["role"] == "admin"
     cookie = login.headers["set-cookie"].lower()
     assert "httponly" in cookie
     assert "samesite=strict" in cookie
@@ -95,10 +98,12 @@ def test_login_me_logout_flow_and_cookie_attributes(tmp_path):
     assert status.status_code == 200
     assert status.json()["authenticated"] is True
     assert status.json()["user"]["username"] == "hiro"
+    assert status.json()["user"]["role"] == "admin"
 
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json()["username"] == "hiro"
+    assert me.json()["role"] == "admin"
 
     logout = client.post("/api/auth/logout")
     assert logout.status_code == 204
@@ -124,3 +129,16 @@ def test_login_rate_limit(tmp_path):
     assert _login(client, "wrong-1").status_code == 401
     assert _login(client, "wrong-2").status_code == 401
     assert _login(client).status_code == 429
+
+
+def test_viewer_login_returns_viewer_role(tmp_path):
+    client = TestClient(create_app(_config(tmp_path)))
+
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "viewer", "password": "viewer-password"},
+    )
+
+    assert login.status_code == 200
+    assert login.json()["role"] == "viewer"
+    assert client.get("/api/auth/me").json()["role"] == "viewer"
