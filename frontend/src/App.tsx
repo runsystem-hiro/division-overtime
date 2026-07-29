@@ -40,6 +40,14 @@ type Employee = {
 };
 
 
+const syncActionLabels = {
+  create: "新規",
+  update: "更新",
+  reactivate: "再有効化",
+  disable: "無効化",
+  unchanged: "変更なし",
+} as const;
+
 type SyncDifference = {
   code: string;
   action: "create" | "update" | "reactivate" | "disable" | "unchanged";
@@ -328,6 +336,21 @@ export function App() {
   const hiddenSelectedCount = selectedSyncCodes.filter(
     (code) => !selectableVisibleCodes.includes(code),
   ).length;
+
+  const selectedSyncCounts = useMemo(() => {
+    const selected = syncPreview?.differences.filter((item) =>
+      selectedSyncCodes.includes(item.code),
+    ) ?? [];
+    return {
+      create: selected.filter((item) => item.action === "create").length,
+      update: selected.filter((item) => item.action === "update").length,
+      reactivate: selected.filter((item) => item.action === "reactivate").length,
+      disable: selected.filter((item) => item.action === "disable").length,
+    };
+  }, [selectedSyncCodes, syncPreview]);
+
+  const allVisibleSelected = selectableVisibleCodes.length > 0
+    && selectableVisibleCodes.every((code) => selectedSyncCodes.includes(code));
 
   const warningCounts = useMemo(() => {
     const differences = syncPreview?.differences ?? [];
@@ -722,20 +745,30 @@ export function App() {
         </div>
         {syncPreview && (
           <>
-            <div className="sync-counts">
-              <span>全社取得 {syncPreview.fetchedCount}</span>
-              <span>同期対象 {syncPreview.targetCount}</span>
-              <span>表示中 {visibleSyncDifferences.length}</span>
-              <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
-              <span>新規 {syncPreview.counts.create ?? 0}</span>
-              <span>更新 {syncPreview.counts.update ?? 0}</span>
-              <span>再有効化候補 {syncPreview.counts.reactivate ?? 0}</span>
-              <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
-              <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
-              <span>勤怠管理なし {warningCounts.noAttendance}</span>
-              <span>休職中 {warningCounts.onLeave}</span>
+            <div className="sync-summary" aria-label="KOT同期プレビュー集計">
+              <div className="sync-summary-primary">
+                <article><span>同期対象</span><strong>{syncPreview.targetCount}</strong></article>
+                <article><span>表示中</span><strong>{visibleSyncDifferences.length}</strong></article>
+                <article><span>選択中</span><strong>{selectedSyncCodes.length}</strong></article>
+              </div>
+              <div className="sync-counts">
+                <span>全社取得 {syncPreview.fetchedCount}</span>
+                <span>対象部署 {syncPreview.targetDivisionCodes.join(", ")}</span>
+                <span>新規 {syncPreview.counts.create ?? 0}</span>
+                <span>更新 {syncPreview.counts.update ?? 0}</span>
+                <span>再有効化候補 {syncPreview.counts.reactivate ?? 0}</span>
+                <span>無効化候補 {syncPreview.counts.disable ?? 0}</span>
+                <span>変更なし {syncPreview.counts.unchanged ?? 0}</span>
+                <span>勤怠管理なし {warningCounts.noAttendance}</span>
+                <span>休職中 {warningCounts.onLeave}</span>
+              </div>
             </div>
-            <div className="sync-filters" aria-label="KOT同期プレビューフィルタ">
+            <div className="sync-filter-panel">
+              <div>
+                <p className="eyebrow">FILTERS</p>
+                <h3>表示する差分</h3>
+              </div>
+              <div className="sync-filters" aria-label="KOT同期プレビューフィルタ">
               {(["create", "update", "reactivate", "disable", "unchanged"] as const).map((action) => (
                 <label key={action}>
                   <input
@@ -746,7 +779,7 @@ export function App() {
                       [action]: event.target.checked,
                     })}
                   />
-                  {action}
+                  <span className={`sync-badge sync-badge-${action}`}>{syncActionLabels[action]}</span>
                 </label>
               ))}
               <label>
@@ -765,8 +798,14 @@ export function App() {
                 />
                 休職中を表示
               </label>
+              </div>
             </div>
             <div className="sync-selection-tools">
+              <div className="sync-selection-status" role="status" aria-live="polite">
+                <strong>{selectedSyncCodes.length}件を選択中</strong>
+                <span>新規 {selectedSyncCounts.create} / 更新 {selectedSyncCounts.update} / 再有効化 {selectedSyncCounts.reactivate} / 無効化 {selectedSyncCounts.disable}</span>
+              </div>
+              <div className="sync-selection-buttons">
               <button
                 className="button-secondary"
                 type="button"
@@ -774,9 +813,9 @@ export function App() {
                   ...selectedSyncCodes,
                   ...selectableVisibleCodes,
                 ])))}
-                disabled={selectableVisibleCodes.length === 0}
+                disabled={selectableVisibleCodes.length === 0 || allVisibleSelected}
               >
-                表示中を選択
+                {allVisibleSelected ? "表示中は選択済み" : "表示中を選択"}
               </button>
               <button
                 className="button-secondary"
@@ -788,8 +827,9 @@ export function App() {
               >
                 表示中を解除
               </button>
+              </div>
               {hiddenSelectedCount > 0 && (
-                <span className="warning-text">非表示の選択 {hiddenSelectedCount}件</span>
+                <span className="warning-text">フィルターで非表示の選択が {hiddenSelectedCount}件あります</span>
               )}
             </div>
             <div className="table-wrap">
@@ -810,11 +850,31 @@ export function App() {
                       kotExists: "KOT存在状態",
                       kotKey: "KOT Key変更あり",
                     };
+                    const toggleSelection = () => {
+                      if (!selectable) return;
+                      setSelectedSyncCodes(checked
+                        ? selectedSyncCodes.filter((code) => code !== item.code)
+                        : [...selectedSyncCodes, item.code]);
+                    };
                     return (
-                      <tr key={item.code} className={`sync-row sync-row-${item.action}`}>
-                        <td data-label="反映"><input type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={(event) => setSelectedSyncCodes(event.target.checked ? [...selectedSyncCodes, item.code] : selectedSyncCodes.filter((code) => code !== item.code))} /></td>
+                      <tr
+                        key={item.code}
+                        className={`sync-row sync-row-${item.action}${checked ? " sync-row-selected" : ""}${selectable ? " sync-row-selectable" : ""}`}
+                        aria-selected={selectable ? checked : undefined}
+                        tabIndex={selectable ? 0 : undefined}
+                        onClick={(event) => {
+                          if ((event.target as HTMLElement).closest("input, button, a")) return;
+                          toggleSelection();
+                        }}
+                        onKeyDown={(event) => {
+                          if (!selectable || (event.key !== "Enter" && event.key !== " ")) return;
+                          event.preventDefault();
+                          toggleSelection();
+                        }}
+                      >
+                        <td data-label="反映"><input aria-label={`${item.code} ${syncActionLabels[item.action]}を反映`} type="checkbox" disabled={!selectable} checked={selectable && checked} onChange={toggleSelection} /></td>
                         <td className="mono" data-label="社員番号">{item.code}</td>
-                        <td data-label="判定"><span className={`sync-badge sync-badge-${item.action}`}>{item.action}</span></td>
+                        <td data-label="判定"><span className={`sync-badge sync-badge-${item.action}`}>{syncActionLabels[item.action]}</span></td>
                         <td data-label="変更前">{current ? `${current.lastName ?? ""}${current.firstName ?? ""} / ${current.divisionName ?? current.divisionCode ?? ""}` : "—"}</td>
                         <td data-label="変更後">{proposed ? `${proposed.lastName ?? ""}${proposed.firstName ?? ""} / ${proposed.divisionName ?? proposed.divisionCode ?? ""}` : "—"}</td>
                         <td data-label="変更項目">{item.changedFields.map((field) => changedLabels[field] ?? field).join("、") || "—"}</td>
@@ -823,14 +883,19 @@ export function App() {
                     );
                   })}
                   {visibleSyncDifferences.length === 0 && (
-                    <tr><td colSpan={7} className="empty-row">条件に一致する差分はありません。</td></tr>
+                    <tr><td colSpan={7} className="empty-row"><div className="sync-empty-state"><strong>条件に一致する差分はありません</strong><span>判定や注意条件の表示設定を変更してください。</span></div></td></tr>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="sync-actions">
-              <span className="muted">選択 {selectedSyncCodes.length}件</span>
-              <button className="button-primary" type="button" disabled={syncing || selectedSyncCodes.length === 0} onClick={applyKotPreview}>選択した差分を反映</button>
+              <div>
+                <strong>{selectedSyncCodes.length}件を反映</strong>
+                <p className="muted">選択した差分だけをSQLiteとemployeeKey.csvへ反映します。</p>
+              </div>
+              <button className="button-primary" type="button" disabled={syncing || selectedSyncCodes.length === 0} onClick={applyKotPreview}>
+                {syncing ? "反映中…" : selectedSyncCodes.length === 0 ? "差分を選択してください" : `選択した${selectedSyncCodes.length}件を反映`}
+              </button>
             </div>
           </>
         )}
