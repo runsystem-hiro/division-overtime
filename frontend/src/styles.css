@@ -577,6 +577,10 @@ tbody tr:hover { background: var(--surface-hover); }
     gap: 8px 12px;
   }
   .sync-table .sync-badge { justify-self: start; }
+  .sync-table .sync-row-selectable:hover td,
+  .sync-table .sync-row-selected:hover td {
+    background: transparent;
+  }
 
   .employee-table tr,
   .notification-history-table tr,

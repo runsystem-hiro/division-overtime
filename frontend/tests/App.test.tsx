@@ -176,7 +176,7 @@ describe("App", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: "KOT社員同期" });
-    fireEvent.click(screen.getByRole("button", { name: "ダミーKOTから取得" }));
+    fireEvent.click(await screen.findByRole("button", { name: "ダミーKOTから取得" }));
 
     expect(await screen.findByText("同期対象")).toBeInTheDocument();
     expect(screen.getAllByText("新規").length).toBeGreaterThan(0);
