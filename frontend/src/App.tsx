@@ -1,12 +1,15 @@
 import {
+  type CSSProperties,
   type FormEvent,
   type MouseEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NotificationHistory } from "./NotificationHistory";
 import { Toast } from "./Toast";
@@ -312,8 +315,13 @@ export function App() {
   const [path, setPath] = useState(() => window.location.pathname);
   const [healthOpen, setHealthOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const healthPopoverRef = useRef<HTMLDivElement>(null);
+  const [healthPopoverStyle, setHealthPopoverStyle] = useState<CSSProperties>();
+  const [accountPopoverStyle, setAccountPopoverStyle] = useState<CSSProperties>();
+  const healthTriggerRef = useRef<HTMLButtonElement>(null);
+  const accountTriggerRef = useRef<HTMLButtonElement>(null);
+  const healthPopoverRef = useRef<HTMLElement>(null);
   const accountPopoverRef = useRef<HTMLDivElement>(null);
+  const logoutButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handlePopState = () => setPath(window.location.pathname);
@@ -321,20 +329,83 @@ export function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  useLayoutEffect(() => {
+    if (!healthOpen && !accountOpen) return;
+
+    const placePopover = (
+      trigger: HTMLElement | null,
+      width: number,
+      setStyle: (style: CSSProperties) => void,
+      placement: "below-end" | "below-start",
+    ) => {
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const viewportPadding = 16;
+      const availableWidth = Math.max(0, window.innerWidth - viewportPadding * 2);
+      const actualWidth = Math.min(width, availableWidth);
+      const preferredLeft =
+        placement === "below-start"
+          ? rect.left - actualWidth - 10
+          : rect.right - actualWidth;
+      const left = Math.min(
+        Math.max(viewportPadding, preferredLeft),
+        Math.max(
+          viewportPadding,
+          window.innerWidth - actualWidth - viewportPadding,
+        ),
+      );
+      setStyle({ top: rect.bottom + 10, left, width: actualWidth });
+    };
+
+    const updatePositions = () => {
+      if (healthOpen)
+        placePopover(
+          healthTriggerRef.current,
+          250,
+          setHealthPopoverStyle,
+          "below-start",
+        );
+      if (accountOpen)
+        placePopover(
+          accountTriggerRef.current,
+          168,
+          setAccountPopoverStyle,
+          "below-end",
+        );
+    };
+
+    updatePositions();
+    window.addEventListener("resize", updatePositions);
+    window.addEventListener("scroll", updatePositions, true);
+    return () => {
+      window.removeEventListener("resize", updatePositions);
+      window.removeEventListener("scroll", updatePositions, true);
+    };
+  }, [healthOpen, accountOpen]);
+
   useEffect(() => {
     if (!healthOpen && !accountOpen) return;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+    const closePopovers = (restoreFocus: boolean) => {
+      const trigger = accountOpen
+        ? accountTriggerRef.current
+        : healthTriggerRef.current;
       setHealthOpen(false);
       setAccountOpen(false);
+      if (restoreFocus) window.requestAnimationFrame(() => trigger?.focus());
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePopovers(true);
     };
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (healthOpen && !healthPopoverRef.current?.contains(target))
-        setHealthOpen(false);
-      if (accountOpen && !accountPopoverRef.current?.contains(target))
-        setAccountOpen(false);
+      const insideHealth =
+        healthTriggerRef.current?.contains(target) ||
+        healthPopoverRef.current?.contains(target);
+      const insideAccount =
+        accountTriggerRef.current?.contains(target) ||
+        accountPopoverRef.current?.contains(target);
+      if (!insideHealth && !insideAccount) closePopovers(false);
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -344,6 +415,10 @@ export function App() {
       document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [healthOpen, accountOpen]);
+
+  useEffect(() => {
+    if (accountOpen) logoutButtonRef.current?.focus();
+  }, [accountOpen, accountPopoverStyle]);
 
   function navigate(event: MouseEvent<HTMLAnchorElement>, nextPath: string) {
     event.preventDefault();
@@ -849,11 +924,9 @@ export function App() {
         </nav>
 
         <div className="header-actions">
-          <div
-            className={`header-popover-wrap ${healthOpen ? "is-open" : ""}`}
-            ref={healthPopoverRef}
-          >
+          <div className="header-popover-wrap">
             <button
+              ref={healthTriggerRef}
               className="health-trigger"
               type="button"
               aria-expanded={healthOpen}
@@ -868,47 +941,50 @@ export function App() {
               />
               <span>{healthLabel}</span>
             </button>
-            {healthOpen && (
-              <section
-                className="header-popover health-popover"
-                role="dialog"
-                aria-label="システム状態"
-              >
-                <div className="popover-heading">
-                  <UtilityIcon name="activity" />
-                  <strong>システム状態</strong>
-                </div>
-                <dl>
-                  <div>
-                    <dt>状態</dt>
-                    <dd>{healthLabel}</dd>
+            {healthOpen &&
+              healthPopoverStyle &&
+              createPortal(
+                <section
+                  ref={healthPopoverRef}
+                  className="header-popover health-popover header-popover-portal"
+                  style={healthPopoverStyle}
+                  role="dialog"
+                  aria-label="システム状態"
+                >
+                  <div className="popover-heading">
+                    <UtilityIcon name="activity" />
+                    <strong>システム状態</strong>
                   </div>
-                  <div>
-                    <dt>環境</dt>
-                    <dd>{environmentLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>Version</dt>
-                    <dd>{health?.version ?? "-"}</dd>
-                  </div>
-                  <div>
-                    <dt>Frontend</dt>
-                    <dd>{health?.status === "ok" ? "Built" : "-"}</dd>
-                  </div>
-                  <div>
-                    <dt>API</dt>
-                    <dd>{health?.status === "ok" ? "OK" : "確認中"}</dd>
-                  </div>
-                </dl>
-              </section>
-            )}
+                  <dl>
+                    <div>
+                      <dt>状態</dt>
+                      <dd>{healthLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>環境</dt>
+                      <dd>{environmentLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Version</dt>
+                      <dd>{health?.version ?? "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>Frontend</dt>
+                      <dd>{health?.status === "ok" ? "Built" : "-"}</dd>
+                    </div>
+                    <div>
+                      <dt>API</dt>
+                      <dd>{health?.status === "ok" ? "OK" : "確認中"}</dd>
+                    </div>
+                  </dl>
+                </section>,
+                document.body,
+              )}
           </div>
           <strong className="header-user">{user.username}</strong>
-          <div
-            className={`header-popover-wrap ${accountOpen ? "is-open" : ""}`}
-            ref={accountPopoverRef}
-          >
+          <div className="header-popover-wrap">
             <button
+              ref={accountTriggerRef}
               className="icon-button power-button"
               type="button"
               aria-label="アカウントメニュー"
@@ -921,14 +997,27 @@ export function App() {
             >
               <UtilityIcon name="power" />
             </button>
-            {accountOpen && (
-              <div className="header-popover account-menu" role="menu">
-                <button type="button" role="menuitem" onClick={handleLogout}>
-                  <UtilityIcon name="logout" />
-                  <span>ログアウト</span>
-                </button>
-              </div>
-            )}
+            {accountOpen &&
+              accountPopoverStyle &&
+              createPortal(
+                <div
+                  ref={accountPopoverRef}
+                  className="header-popover account-menu header-popover-portal"
+                  style={accountPopoverStyle}
+                  role="menu"
+                >
+                  <button
+                    ref={logoutButtonRef}
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                  >
+                    <UtilityIcon name="logout" />
+                    <span>ログアウト</span>
+                  </button>
+                </div>,
+                document.body,
+              )}
           </div>
         </div>
       </header>
