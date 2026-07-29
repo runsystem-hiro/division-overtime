@@ -849,7 +849,10 @@ export function App() {
         </nav>
 
         <div className="header-actions">
-          <div className="header-popover-wrap" ref={healthPopoverRef}>
+          <div
+            className={`header-popover-wrap ${healthOpen ? "is-open" : ""}`}
+            ref={healthPopoverRef}
+          >
             <button
               className="health-trigger"
               type="button"
@@ -901,7 +904,10 @@ export function App() {
             )}
           </div>
           <strong className="header-user">{user.username}</strong>
-          <div className="header-popover-wrap" ref={accountPopoverRef}>
+          <div
+            className={`header-popover-wrap ${accountOpen ? "is-open" : ""}`}
+            ref={accountPopoverRef}
+          >
             <button
               className="icon-button power-button"
               type="button"

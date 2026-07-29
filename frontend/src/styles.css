@@ -2553,7 +2553,7 @@ tbody tr:hover {
 .app-topbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 100;
   display: grid;
   grid-template-columns: minmax(170px, auto) minmax(320px, 1fr) minmax(
       220px,
@@ -2679,6 +2679,10 @@ tbody tr:hover {
 }
 .header-popover-wrap {
   position: relative;
+  z-index: 0;
+}
+.header-popover-wrap.is-open {
+  z-index: 120;
 }
 .health-trigger {
   display: inline-flex;
@@ -2726,7 +2730,7 @@ tbody tr:hover {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 30;
+  z-index: 121;
   min-width: 250px;
   padding: 14px;
   border: 1px solid var(--border-default);
@@ -3175,7 +3179,7 @@ body:has(.modal-backdrop) {
   aspect-ratio: 1;
   border-radius: 50%;
   filter: blur(120px);
-  opacity: 0.11;
+  opacity: 0.16;
   pointer-events: none;
   will-change: transform;
 }
@@ -3184,19 +3188,19 @@ body:has(.modal-backdrop) {
   top: -24rem;
   right: -12rem;
   background: rgb(59 130 246 / 78%);
-  animation: ambient-drift-a 62s ease-in-out infinite alternate;
+  animation: ambient-drift-a 32s ease-in-out infinite alternate;
 }
 
 .ambient-shell::after {
   bottom: -30rem;
   left: -16rem;
   background: rgb(139 92 246 / 62%);
-  animation: ambient-drift-b 78s ease-in-out infinite alternate;
+  animation: ambient-drift-b 40s ease-in-out infinite alternate;
 }
 
 .login-shell.ambient-shell::before,
 .login-shell.ambient-shell::after {
-  opacity: 0.18;
+  opacity: 0.25;
 }
 
 .app-shell[data-page="employees"]::after { background: rgb(14 165 233 / 50%); }
@@ -3271,12 +3275,14 @@ body:has(.modal-backdrop) {
 }
 
 @keyframes ambient-drift-a {
-  from { transform: translate3d(-2vw, -1vh, 0) scale(0.96); }
-  to { transform: translate3d(7vw, 7vh, 0) scale(1.08); }
+  0% { transform: translate3d(-8vw, -4vh, 0) scale(0.9); opacity: 0.72; }
+  50% { transform: translate3d(6vw, 12vh, 0) scale(1.12); opacity: 1; }
+  100% { transform: translate3d(14vw, 3vh, 0) scale(0.98); opacity: 0.82; }
 }
 @keyframes ambient-drift-b {
-  from { transform: translate3d(1vw, 4vh, 0) scale(1.02); }
-  to { transform: translate3d(8vw, -5vh, 0) scale(0.94); }
+  0% { transform: translate3d(-4vw, 10vh, 0) scale(1.08); opacity: 0.78; }
+  45% { transform: translate3d(10vw, -10vh, 0) scale(0.92); opacity: 1; }
+  100% { transform: translate3d(18vw, 4vh, 0) scale(1.14); opacity: 0.86; }
 }
 @keyframes page-content-enter {
   from { opacity: 0; transform: translate3d(8px, 0, 0); }
