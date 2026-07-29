@@ -107,4 +107,41 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "ナビゲーションを開く" })).toBeInTheDocument();
     expect(window.localStorage.getItem("division-overtime-sidebar-collapsed")).toBe("true");
   });
+
+  it("社員一覧の検索条件を表示し、まとめて解除する", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": { authenticated: true, user: { username: "admin", expiresAt: null } },
+        "/api/system/health": { status: "ok", environment: "development" },
+        "/api/employees?enabled=all": [],
+        "/api/employees?enabled=disabled&query=%E9%96%8B%E7%99%BA": [],
+        "/api/employees/consistency": { status: "ok", databaseEmployees: 0, csvEmployees: 0, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
+        "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "社員一覧" });
+    fireEvent.change(screen.getByLabelText("検索"), { target: { value: "開発" } });
+    fireEvent.change(screen.getByLabelText("状態"), { target: { value: "disabled" } });
+    fireEvent.click(screen.getByRole("button", { name: "検索" }));
+
+    expect(await screen.findByText("検索: 開発")).toBeInTheDocument();
+    expect(screen.getByText("状態: 無効")).toBeInTheDocument();
+    expect(screen.getByText("条件に一致する社員はいません")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "すべて解除" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("検索: 開発")).not.toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("検索")).toHaveValue("");
+    expect(screen.getByLabelText("状態")).toHaveValue("all");
+  });
 });
