@@ -156,20 +156,25 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(packageJson.version)).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "アカウントメニュー" }));
     expect(
       screen.queryByRole("dialog", { name: "システム状態" }),
     ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "アカウントメニュー" }));
     expect(
       screen.getByRole("menuitem", { name: "ログアウト" }),
     ).toBeInTheDocument();
-
-    fireEvent.pointerDown(document.body);
     expect(
-      screen.queryByRole("menuitem", { name: "ログアウト" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "アカウントメニュー" }).parentElement,
+    ).toHaveClass("is-open");
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "ログアウト" }));
+    expect(
+      await screen.findByRole("heading", { name: "管理者ログイン" }),
+    ).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
   });
 
   it.each([
