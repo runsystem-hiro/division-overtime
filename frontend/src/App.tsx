@@ -300,6 +300,14 @@ export function App() {
     disabled: employees.filter((employee) => !employee.isEnabled).length,
   }), [employees]);
 
+  const hasEmployeeFilters = query !== "" || enabledFilter !== "all";
+
+  function clearEmployeeFilters() {
+    setQueryInput("");
+    setQuery("");
+    setEnabledFilter("all");
+  }
+
   const visibleSyncDifferences = useMemo(() => {
     if (!syncPreview) return [];
     return syncPreview.differences.filter((item) => {
@@ -602,15 +610,33 @@ export function App() {
       </section>
 
       <section className="employee-card">
-        <form className="toolbar" onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); }}>
-          <label className="search-field">検索<input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="社員番号・氏名・部署" /></label>
+        <div className="employee-list-heading">
+          <div>
+            <p className="eyebrow">EMPLOYEES</p>
+            <h2>社員一覧</h2>
+            <p className="muted">社員番号、氏名、メール、部署から対象を検索できます。</p>
+          </div>
+          <span className="employee-result-count" aria-live="polite">{loadingEmployees ? "読込中" : `${counts.all}件`}</span>
+        </div>
+        <form className="toolbar employee-toolbar" onSubmit={(event) => { event.preventDefault(); setQuery(queryInput.trim()); }}>
+          <label className="search-field">検索<input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="社員番号・氏名・メール・部署" /></label>
           <label>状態<select value={enabledFilter} onChange={(event) => setEnabledFilter(event.target.value)}>
             <option value="all">すべて</option><option value="enabled">有効</option><option value="disabled">無効</option>
           </select></label>
-          <button className="button-primary" type="submit">検索</button>
-          <button className="button-secondary" type="button" onClick={() => { setQueryInput(""); setQuery(""); setEnabledFilter("all"); }}>条件クリア</button>
-          <button className="button-secondary" type="button" onClick={() => Promise.all([loadEmployees(), loadConsistency()])}>再読込</button>
+          <div className="employee-toolbar-actions">
+            <button className="button-primary" type="submit">検索</button>
+            <button className="button-secondary" type="button" onClick={clearEmployeeFilters} disabled={!hasEmployeeFilters && queryInput === ""}>条件クリア</button>
+            <button className="button-secondary" type="button" onClick={() => Promise.all([loadEmployees(), loadConsistency()])} disabled={loadingEmployees || loadingConsistency}>再読込</button>
+          </div>
         </form>
+        {hasEmployeeFilters && (
+          <div className="active-filter-summary" role="status">
+            <span>絞り込み中</span>
+            {query && <strong>検索: {query}</strong>}
+            {enabledFilter !== "all" && <strong>状態: {enabledFilter === "enabled" ? "有効" : "無効"}</strong>}
+            <button type="button" onClick={clearEmployeeFilters}>すべて解除</button>
+          </div>
+        )}
         <div className={`consistency-panel ${consistency?.status === "mismatch" ? "consistency-panel-danger" : ""}`}>
           <div>
             <strong>SQLite / employeeKey.csv</strong>
@@ -648,11 +674,21 @@ export function App() {
                   <td data-label="状態・操作"><div className="employee-actions"><span className={`badge ${employee.isEnabled ? "badge-ok" : "badge-off"}`}>{employee.isEnabled ? "有効" : "無効"}</span><button className="table-action" type="button" onClick={() => openEdit(employee)}>編集</button></div></td>
                 </tr>
               ))}
-              {!loadingEmployees && employees.length === 0 && <tr><td colSpan={5} className="empty-row">該当する社員はいません。</td></tr>}
+              {!loadingEmployees && employees.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="empty-row">
+                    <div className="employee-empty-state">
+                      <strong>{hasEmployeeFilters ? "条件に一致する社員はいません" : "社員が登録されていません"}</strong>
+                      <span>{hasEmployeeFilters ? "検索条件を変更するか、すべて解除してください。" : "「社員を追加」から最初の社員を登録できます。"}</span>
+                      {hasEmployeeFilters && <button className="button-secondary" type="button" onClick={clearEmployeeFilters}>検索条件を解除</button>}
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {loadingEmployees && <p className="muted loading-line">読み込み中…</p>}
+        {loadingEmployees && <p className="muted loading-line" role="status">社員一覧を読み込み中…</p>}
       </section>
 
 
