@@ -3520,3 +3520,190 @@ body:has(.modal-backdrop) {
     align-self: stretch;
   }
 }
+
+
+/* issue #174 notification detail table readability and error details */
+.notification-history-modal {
+  scrollbar-color: rgb(100 116 139 / 72%) rgb(15 23 42 / 28%);
+  scrollbar-width: thin;
+}
+.notification-history-modal::-webkit-scrollbar { width: 8px; }
+.notification-history-modal::-webkit-scrollbar-track { background: rgb(15 23 42 / 28%); }
+.notification-history-modal::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(100 116 139 / 68%);
+  background-clip: padding-box;
+}
+.notification-history-modal::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184 / 78%);
+  background-clip: padding-box;
+}
+.notification-attempt-table { table-layout: fixed; }
+.notification-attempt-table th:nth-child(1), .notification-attempt-table td:nth-child(1) { width: 11%; }
+.notification-attempt-table th:nth-child(2), .notification-attempt-table td:nth-child(2) { width: 12%; }
+.notification-attempt-table th:nth-child(3), .notification-attempt-table td:nth-child(3) { width: 20%; }
+.notification-attempt-table th:nth-child(4), .notification-attempt-table td:nth-child(4) { width: 11%; }
+.notification-attempt-table th:nth-child(5), .notification-attempt-table td:nth-child(5) { width: 6%; }
+.notification-attempt-table th:nth-child(6), .notification-attempt-table td:nth-child(6) { width: 18%; }
+.notification-attempt-table th:nth-child(7), .notification-attempt-table td:nth-child(7) { width: 14%; }
+.notification-attempt-table th:nth-child(8), .notification-attempt-table td:nth-child(8) { width: 8%; }
+.notification-employee-name strong,
+.notification-attempt-status .badge,
+.notification-attempt-type > span,
+.notification-attempt-type > small,
+.notification-duplicate-link > span,
+.notification-duplicate-link > small {
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.notification-employee-name strong { overflow-wrap: normal; }
+.notification-attempt-type { min-width: 0; }
+.notification-attempt-type-content {
+  display: inline-flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.notification-attempt-type small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.notification-attempt-recipient {
+  overflow: hidden;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notification-attempt-status .badge { min-width: max-content; }
+.notification-duplicate-link {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 9px;
+  text-align: left;
+}
+.notification-duplicate-link small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+.notification-attempt-timestamp { white-space: nowrap; }
+.notification-copy-value {
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  border: 0;
+  background: transparent;
+  cursor: copy;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notification-copy-value:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.notification-error-detail-button {
+  min-width: 56px;
+  padding: 6px 10px;
+  color: #fecaca;
+  border: 1px solid rgb(248 113 113 / 44%);
+  border-radius: 8px;
+  background: rgb(127 29 29 / 28%);
+  cursor: pointer;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.notification-error-detail-button:hover {
+  border-color: rgb(248 113 113 / 72%);
+  background: rgb(127 29 29 / 42%);
+}
+.notification-error-backdrop { z-index: 1500; }
+.notification-error-modal { width: min(760px, 100%); }
+.notification-error-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.notification-error-meta > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-panel-muted);
+}
+.notification-error-meta-wide { grid-column: 1 / -1; }
+.notification-error-meta dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.notification-error-meta dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+.notification-error-message-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.notification-error-message-heading h3 { margin: 0; }
+.notification-error-message-full {
+  max-height: 42dvh;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: #fecaca;
+  border: 1px solid rgb(248 113 113 / 30%);
+  border-radius: 10px;
+  background: rgb(69 10 10 / 26%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+}
+.notification-copy-feedback {
+  margin: 10px 0 0;
+  color: var(--status-reactivate);
+  font-size: 0.78rem;
+}
+@media (max-width: 1040px) {
+  .notification-attempt-table th:nth-child(n),
+  .notification-attempt-table td:nth-child(n) { width: auto; }
+  .notification-attempt-recipient {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .notification-attempt-status .badge { align-self: flex-start; }
+  .notification-duplicate-link { width: auto; }
+}
+@media (max-width: 720px) {
+  .notification-error-modal {
+    align-self: flex-start;
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+  }
+  .notification-error-message-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .notification-error-message-heading .button-secondary { width: 100%; }
+  .notification-attempt-timestamp,
+  .notification-attempt-timestamp::before { text-align: left; }
+  .notification-attempt-timestamp .notification-copy-value {
+    display: block;
+    margin-inline: 0;
+    text-align: left;
+  }
+}
