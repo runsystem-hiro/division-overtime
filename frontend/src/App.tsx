@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { NotificationHistory } from "./NotificationHistory";
+import { ModalLayer } from "./ModalLayer";
 import { Toast } from "./Toast";
 
 type Health = {
@@ -1784,17 +1785,15 @@ export function App() {
             />
           )}
           {editing !== undefined && (
-            <div
-              className="modal-backdrop"
-              role="presentation"
-              onMouseDown={() => !submitting && setEditing(undefined)}
+            <ModalLayer
+              closeOnBackdrop={false}
+              onRequestClose={() => !submitting && setEditing(undefined)}
             >
               <section
-                className="modal"
+                className="modal employee-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="employee-form-title"
-                onMouseDown={(event) => event.stopPropagation()}
               >
                 <div className="modal-heading">
                   <div>
@@ -1978,7 +1977,7 @@ export function App() {
                   </div>
                 </form>
               </section>
-            </div>
+            </ModalLayer>
           )}
         </div>
       </main>

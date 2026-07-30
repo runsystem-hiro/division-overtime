@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ModalLayer } from "./ModalLayer";
 
 type ConfirmDialogProps = {
   title: string;
@@ -31,10 +32,10 @@ export function ConfirmDialog({
   }, [busy, onCancel]);
 
   return (
-    <div
-      className="modal-backdrop confirm-backdrop"
-      role="presentation"
-      onMouseDown={() => !busy && onCancel()}
+    <ModalLayer
+      className="confirm-backdrop"
+      closeOnBackdrop={!busy}
+      onRequestClose={onCancel}
     >
       <section
         className="modal confirm-dialog"
@@ -42,7 +43,6 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
-        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="confirm-dialog-mark" aria-hidden="true">!</div>
         <div>
@@ -72,6 +72,6 @@ export function ConfirmDialog({
           </button>
         </div>
       </section>
-    </div>
+    </ModalLayer>
   );
 }
