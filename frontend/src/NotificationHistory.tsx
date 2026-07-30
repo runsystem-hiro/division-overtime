@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ModalLayer } from "./ModalLayer";
 import {
   developmentNotificationRuns,
@@ -100,6 +100,10 @@ export function NotificationHistory() {
   const [detail, setDetail] = useState<NotificationRunDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedError, setSelectedError] = useState<NotificationAttempt | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const errorDialogCloseRef = useRef<HTMLButtonElement | null>(null);
+  const errorDialogTriggerRef = useRef<HTMLButtonElement | null>(null);
   const developmentMockEnabled = isDevelopmentNotificationMockEnabled();
 
   const summary = useMemo(
@@ -162,10 +166,37 @@ export function NotificationHistory() {
   }
 
   function closeDetail() {
+    setSelectedError(null);
+    setCopyFeedback(null);
     setDetail(null);
     setDetailError(null);
     setDetailLoading(false);
   }
+
+  async function copyText(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyFeedback(`${label}をコピーしました`);
+    } catch {
+      setCopyFeedback(`${label}をコピーできませんでした`);
+    }
+  }
+
+  function openErrorDetail(attempt: NotificationAttempt, trigger: HTMLButtonElement) {
+    errorDialogTriggerRef.current = trigger;
+    setCopyFeedback(null);
+    setSelectedError(attempt);
+  }
+
+  function closeErrorDetail() {
+    setSelectedError(null);
+    setCopyFeedback(null);
+    requestAnimationFrame(() => errorDialogTriggerRef.current?.focus());
+  }
+
+  useEffect(() => {
+    if (selectedError) errorDialogCloseRef.current?.focus();
+  }, [selectedError]);
 
   return (
     <section className="employee-card notification-history-card" id="notification-history">
@@ -282,7 +313,7 @@ export function NotificationHistory() {
                   ) : (
                     <div className="table-wrap">
                       <table className="notification-attempt-table">
-                        <thead><tr><th>社員</th><th>送信先</th><th>種別</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
+                        <thead><tr><th>社員</th><th>種別</th><th>送信先</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
                         <tbody>
                           {detail.attempts.map((attempt) => {
                             const attemptOutcome = attemptStatus(attempt.status);
@@ -300,19 +331,40 @@ export function NotificationHistory() {
                                     </span>
                                   </div>
                                 </td>
-                                <td data-label="送信先" className="notification-attempt-recipient">{attempt.recipient}</td>
-                                <td data-label="種別" className="notification-attempt-type">{modeLabel(attempt.notificationType)}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
+                                <td data-label="種別" className="notification-attempt-type">
+                                  <span className="notification-attempt-type-content">
+                                    <span>{modeLabel(attempt.notificationType)}</span>
+                                    {attempt.thresholdPercent !== null && <small>{attempt.thresholdPercent}%</small>}
+                                  </span>
+                                </td>
+                                <td data-label="送信先" className="notification-attempt-recipient" title={attempt.recipient}>{attempt.recipient}</td>
                                 <td data-label="状態" className="notification-attempt-status"><span className={`badge ${attemptOutcome.className}`}>{attemptOutcome.label}</span></td>
                                 <td data-label="試行" className="notification-attempt-count">{attempt.attemptCount}</td>
                                 <td data-label="重複元" className="notification-attempt-duplicate">
                                   {attempt.duplicateOfRunId ? (
-                                    <button className="table-action" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
-                                      {formatDateTime(attempt.duplicateOfStartedAt)} / {sourceLabel(attempt.duplicateOfSource)}
+                                    <button className="table-action notification-duplicate-link" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
+                                      <span>{formatDateTime(attempt.duplicateOfStartedAt)}</span>
+                                      <small>{sourceLabel(attempt.duplicateOfSource)}</small>
                                     </button>
                                   ) : "—"}
                                 </td>
-                                <td data-label="Slack timestamp" className="mono notification-attempt-timestamp">{attempt.slackTimestamp || "—"}</td>
-                                <td data-label="エラー" className="notification-error-cell notification-attempt-error">{attempt.errorMessage || "—"}</td>
+                                <td data-label="Slack timestamp" className="mono notification-attempt-timestamp">
+                                  {attempt.slackTimestamp ? (
+                                    <button
+                                      className="notification-copy-value"
+                                      type="button"
+                                      title={`${attempt.slackTimestamp} をコピー`}
+                                      onClick={() => void copyText(attempt.slackTimestamp!, "Slack timestamp")}
+                                    >
+                                      {attempt.slackTimestamp.length > 13 ? `${attempt.slackTimestamp.slice(0, 13)}…` : attempt.slackTimestamp}
+                                    </button>
+                                  ) : "—"}
+                                </td>
+                                <td data-label="エラー" className="notification-error-cell notification-attempt-error">
+                                  {attempt.errorMessage ? (
+                                    <button className="notification-error-detail-button" type="button" onClick={(event) => openErrorDetail(attempt, event.currentTarget)}>詳細</button>
+                                  ) : "—"}
+                                </td>
                               </tr>
                             );
                           })}
@@ -323,6 +375,32 @@ export function NotificationHistory() {
                 </>
               );
             })()}
+          </section>
+        </ModalLayer>
+      )}
+
+      {selectedError && (
+        <ModalLayer closeOnBackdrop={false} onRequestClose={closeErrorDetail} className="notification-error-backdrop">
+          <section className="modal notification-error-modal" role="dialog" aria-modal="true" aria-labelledby="notification-error-title">
+            <div className="modal-heading">
+              <div><p className="eyebrow">DELIVERY ERROR</p><h2 id="notification-error-title">送信エラー詳細</h2></div>
+              <button ref={errorDialogCloseRef} className="icon-button" type="button" onClick={closeErrorDetail} aria-label="送信エラー詳細を閉じる">×</button>
+            </div>
+            <dl className="notification-error-meta">
+              <div><dt>社員番号</dt><dd className="mono">{selectedError.employeeCode || "—"}</dd></div>
+              <div><dt>氏名</dt><dd>{selectedError.employeeName || "氏名不明"}</dd></div>
+              <div className="notification-error-meta-wide"><dt>送信先</dt><dd>{selectedError.recipient}</dd></div>
+              <div><dt>種別</dt><dd>{modeLabel(selectedError.notificationType)}{selectedError.thresholdPercent === null ? "" : ` ${selectedError.thresholdPercent}%`}</dd></div>
+              <div><dt>状態</dt><dd>{attemptStatus(selectedError.status).label}</dd></div>
+              <div><dt>試行</dt><dd>{selectedError.attemptCount}</dd></div>
+              <div><dt>実行日時</dt><dd>{formatDateTime(selectedError.updatedAt)}</dd></div>
+            </dl>
+            <div className="notification-error-message-heading">
+              <h3>エラー全文</h3>
+              <button className="button-secondary" type="button" onClick={() => void copyText(selectedError.errorMessage || "", "エラー全文")}>全文をコピー</button>
+            </div>
+            <pre className="notification-error-message-full">{selectedError.errorMessage}</pre>
+            {copyFeedback && <p className="notification-copy-feedback" role="status">{copyFeedback}</p>}
           </section>
         </ModalLayer>
       )}

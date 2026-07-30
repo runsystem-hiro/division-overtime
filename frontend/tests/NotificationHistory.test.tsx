@@ -201,6 +201,60 @@ describe("NotificationHistory", () => {
     });
   });
 
+
+  it("送信エラーは詳細ボタンから全文を確認してコピーできる", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/notification-runs?limit=50") {
+        return new Response(JSON.stringify([{ ...run, failedCount: 1, sentCount: 0 }]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/notification-runs/run-1") {
+        return new Response(JSON.stringify({
+          ...run,
+          failedCount: 1,
+          sentCount: 0,
+          attempts: [{
+            id: 9,
+            dedupeKey: "weekly:2026-W30:00001",
+            employeeCode: "00001",
+            employeeName: "山田太郎",
+            recipient: "taro.yamada@example.com",
+            notificationType: "threshold",
+            thresholdPercent: 80,
+            status: "failed",
+            attemptCount: 2,
+            slackTimestamp: null,
+            errorMessage: "Slack APIへの送信に失敗しました\nHTTP 500",
+            createdAt: run.startedAt,
+            updatedAt: run.finishedAt,
+            duplicateOfAttemptId: null,
+            duplicateOfRunId: null,
+            duplicateOfStartedAt: null,
+            duplicateOfSource: null,
+          }],
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(<NotificationHistory />);
+    fireEvent.click(await screen.findByRole("button", { name: "詳細" }));
+    const runDialog = await screen.findByRole("dialog", { name: "通知実行詳細" });
+    const errorDetailTrigger = within(runDialog).getByRole("button", { name: "詳細" });
+    fireEvent.click(errorDetailTrigger);
+
+    const errorDialog = await screen.findByRole("dialog", { name: "送信エラー詳細" });
+    await waitFor(() => expect(within(errorDialog).getByRole("button", { name: "送信エラー詳細を閉じる" })).toHaveFocus());
+    expect(within(errorDialog).getByText(/Slack APIへの送信に失敗しました/)).toBeInTheDocument();
+    fireEvent.click(within(errorDialog).getByRole("button", { name: "全文をコピー" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("Slack APIへの送信に失敗しました\nHTTP 500"));
+    expect(within(errorDialog).getByRole("status")).toHaveTextContent("エラー全文をコピーしました");
+    fireEvent.click(within(errorDialog).getByRole("button", { name: "送信エラー詳細を閉じる" }));
+    await waitFor(() => expect(errorDetailTrigger).toHaveFocus());
+  });
+
   it("一覧が空の場合に空状態を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify([]), {
