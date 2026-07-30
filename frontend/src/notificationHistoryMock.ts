@@ -18,7 +18,8 @@ export type NotificationRunMock = {
 export type NotificationAttemptMock = {
   id: number;
   dedupeKey: string;
-  employeeCode: string;
+  employeeCode: string | null;
+  employeeName: string | null;
   recipient: string;
   notificationType: string;
   thresholdPercent: number | null;
@@ -133,6 +134,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 101,
           dedupeKey: "weekly:2026-W31:00101",
           employeeCode: "00101",
+          employeeName: "山田 太郎",
           recipient: "manager-alpha@example.com",
           notificationType: "weekly",
           thresholdPercent: null,
@@ -151,6 +153,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 102,
           dedupeKey: "weekly:2026-W31:00102",
           employeeCode: "00102",
+          employeeName: "佐藤 花子",
           recipient: "manager-beta-with-a-very-long-address@example.com",
           notificationType: "weekly",
           thresholdPercent: null,
@@ -177,6 +180,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 201,
           dedupeKey: "threshold:2026-07:00201:80",
           employeeCode: "00201",
+          employeeName: "鈴木 一郎",
           recipient: "manager-gamma@example.com",
           notificationType: "threshold",
           thresholdPercent: 80,
@@ -195,6 +199,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 202,
           dedupeKey: "threshold:2026-07:00202:100",
           employeeCode: "00202",
+          employeeName: "高橋 美咲",
           recipient: "manager-delta@example.com",
           notificationType: "threshold",
           thresholdPercent: 100,
@@ -213,6 +218,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 203,
           dedupeKey: "threshold:2026-07:00203:80",
           employeeCode: "00203",
+          employeeName: "伊藤 健",
           recipient: "manager-epsilon@example.com",
           notificationType: "threshold",
           thresholdPercent: 80,
@@ -231,6 +237,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 204,
           dedupeKey: "threshold:2026-07:00204:80",
           employeeCode: "00204",
+          employeeName: "渡辺 彩",
           recipient: "manager-zeta@example.com",
           notificationType: "threshold",
           thresholdPercent: 80,
@@ -258,6 +265,7 @@ const details = new Map<string, NotificationRunDetailMock>([
           id: 401,
           dedupeKey: "weekly:2026-W31:00401",
           employeeCode: "00401",
+          employeeName: "中村 誠",
           recipient: "dry-run-recipient@example.com",
           notificationType: "weekly",
           thresholdPercent: null,

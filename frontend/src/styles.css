@@ -3428,3 +3428,95 @@ body:has(.modal-backdrop) {
     );
   }
 }
+
+
+/* issue #172 notification history employee identity and compact mobile grids */
+.notification-employee-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notification-employee-code,
+.notification-employee-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.notification-employee-code small,
+.notification-employee-name small {
+  display: none;
+}
+
+.notification-employee-code {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.notification-employee-name strong {
+  color: var(--text-primary);
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .notification-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .notification-history-table tr,
+  .notification-attempt-table tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
+    row-gap: 12px;
+  }
+
+  .notification-history-table td,
+  .notification-attempt-table td {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .notification-history-table td::before,
+  .notification-attempt-table td::before {
+    line-height: 1.2;
+  }
+
+  .notification-history-table .card-action,
+  .notification-attempt-employee,
+  .notification-attempt-recipient,
+  .notification-attempt-duplicate,
+  .notification-attempt-timestamp,
+  .notification-attempt-error {
+    grid-column: 1 / -1;
+  }
+
+  .notification-employee-identity {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 14px;
+  }
+
+  .notification-employee-code small,
+  .notification-employee-name small {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .notification-attempt-employee::before {
+    display: none;
+  }
+
+  .notification-attempt-type,
+  .notification-attempt-status,
+  .notification-attempt-count {
+    align-self: stretch;
+  }
+}
