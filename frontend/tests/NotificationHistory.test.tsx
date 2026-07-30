@@ -137,6 +137,8 @@ describe("NotificationHistory", () => {
     expect(
       await screen.findByRole("heading", { name: "通知実行詳細" }),
     ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "通知実行詳細" });
+    expect(dialog.closest(".modal-backdrop")?.parentElement).toBe(document.body);
     expect(screen.getAllByText("定期実行").length).toBeGreaterThan(0);
     expect(screen.getByText("manager@example.com")).toBeInTheDocument();
     expect(screen.getByText("123.456")).toBeInTheDocument();

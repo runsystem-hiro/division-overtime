@@ -3345,3 +3345,86 @@ body:has(.modal-backdrop) {
     animation-duration: 1ms !important;
   }
 }
+
+
+/* issue #170: viewport-bound mobile modal sheets */
+.modal-backdrop {
+  z-index: 1400;
+  overscroll-behavior: contain;
+}
+
+.modal {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+  .modal-backdrop {
+    align-items: flex-start;
+    justify-items: stretch;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      8px
+      max(8px, env(safe-area-inset-bottom));
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(
+      100dvh - max(8px, env(safe-area-inset-top)) -
+        max(8px, env(safe-area-inset-bottom))
+    );
+    margin: 0;
+    overflow-y: auto;
+    border-radius: 20px;
+  }
+
+  .modal-heading {
+    position: sticky;
+    top: -22px;
+    z-index: 3;
+    margin: -22px -18px 18px;
+    padding: 22px 18px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--surface-panel) 96%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .employee-modal .employee-form .form-actions {
+    position: sticky;
+    bottom: -22px;
+    z-index: 3;
+    margin: 0 -18px -22px;
+    padding: 14px 18px max(14px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--surface-panel) 96%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .employee-modal .form-actions {
+    flex-wrap: wrap;
+  }
+
+  .employee-modal .form-actions-spacer {
+    display: none;
+  }
+
+  .employee-modal .form-actions button {
+    flex: 1 1 9rem;
+  }
+
+  .notification-history-modal {
+    max-height: calc(
+      100dvh - max(8px, env(safe-area-inset-top)) -
+        max(8px, env(safe-area-inset-bottom))
+    );
+  }
+
+  .confirm-dialog {
+    align-self: flex-start;
+    max-height: calc(
+      100dvh - max(8px, env(safe-area-inset-top)) -
+        max(8px, env(safe-area-inset-bottom))
+    );
+  }
+}

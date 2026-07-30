@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ModalLayer } from "./ModalLayer";
 import {
   developmentNotificationRuns,
   getDevelopmentNotificationDetail,
@@ -240,8 +241,8 @@ export function NotificationHistory() {
       )}
 
       {(detailLoading || detailError || detail) && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={closeDetail}>
-          <section className="modal notification-history-modal" role="dialog" aria-modal="true" aria-labelledby="notification-detail-title" onMouseDown={(event) => event.stopPropagation()}>
+        <ModalLayer closeOnBackdrop={false} onRequestClose={closeDetail}>
+          <section className="modal notification-history-modal" role="dialog" aria-modal="true" aria-labelledby="notification-detail-title">
             <div className="modal-heading">
               <div><p className="eyebrow">NOTIFICATION RUN</p><h2 id="notification-detail-title">通知実行詳細</h2></div>
               <button className="icon-button" type="button" onClick={closeDetail} aria-label="通知実行詳細を閉じる">×</button>
@@ -311,7 +312,7 @@ export function NotificationHistory() {
               );
             })()}
           </section>
-        </div>
+        </ModalLayer>
       )}
     </section>
   );
