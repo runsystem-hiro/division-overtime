@@ -28,6 +28,7 @@ class NotificationAttempt:
     id: int
     dedupe_key: str
     employee_code: str | None
+    employee_name: str | None
     recipient: str
     notification_type: str
     threshold_percent: int | None
@@ -108,6 +109,10 @@ class NotificationHistoryRepository:
                     a.id,
                     a.dedupe_key,
                     a.employee_code,
+                    COALESCE(
+                        snapshot.employee_name,
+                        NULLIF(TRIM(employee.last_name || ' ' || employee.first_name), '')
+                    ) AS employee_name,
                     a.recipient,
                     a.notification_type,
                     a.threshold_percent,
@@ -122,6 +127,11 @@ class NotificationHistoryRepository:
                     original_run.started_at AS duplicate_of_started_at,
                     original_run.source AS duplicate_of_source
                 FROM notification_attempts AS a
+                LEFT JOIN overtime_snapshots AS snapshot
+                    ON snapshot.run_id = a.run_id
+                    AND snapshot.employee_code = a.employee_code
+                LEFT JOIN employees AS employee
+                    ON employee.code = a.employee_code
                 LEFT JOIN notification_attempts AS original
                     ON original.id = a.duplicate_of_attempt_id
                 LEFT JOIN execution_runs AS original_run
@@ -139,6 +149,7 @@ class NotificationHistoryRepository:
                     id=int(row["id"]),
                     dedupe_key=str(row["dedupe_key"]),
                     employee_code=row["employee_code"],
+                    employee_name=row["employee_name"],
                     recipient=str(row["recipient"]),
                     notification_type=str(row["notification_type"]),
                     threshold_percent=row["threshold_percent"],

@@ -99,7 +99,8 @@ describe("NotificationHistory", () => {
               {
                 id: 1,
                 dedupeKey: "weekly:2026-W30:00524",
-                employeeCode: "00524",
+                employeeCode: "00001",
+                employeeName: "山田 太郎",
                 recipient: "manager@example.com",
                 notificationType: "weekly",
                 thresholdPercent: null,
@@ -141,6 +142,8 @@ describe("NotificationHistory", () => {
     expect(dialog.closest(".modal-backdrop")?.parentElement).toBe(document.body);
     expect(screen.getAllByText("定期実行").length).toBeGreaterThan(0);
     expect(screen.getByText("manager@example.com")).toBeInTheDocument();
+    expect(screen.getByText("山田 太郎")).toBeInTheDocument();
+    expect(screen.getByText("00001")).toBeInTheDocument();
     expect(screen.getByText("123.456")).toBeInTheDocument();
   });
 
@@ -161,7 +164,8 @@ describe("NotificationHistory", () => {
           attempts: [{
             id: 2,
             dedupeKey: "weekly:2026-W30:00524",
-            employeeCode: "00524",
+            employeeCode: "00001",
+            employeeName: "山田 太郎",
             recipient: "manager@example.com",
             notificationType: "weekly",
             thresholdPercent: null,

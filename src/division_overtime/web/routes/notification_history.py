@@ -22,6 +22,7 @@ class NotificationAttemptResponse(BaseModel):
     id: int
     dedupeKey: str
     employeeCode: str | None
+    employeeName: str | None
     recipient: str
     notificationType: str
     thresholdPercent: int | None
@@ -86,6 +87,7 @@ def _attempt_response(attempt: NotificationAttempt) -> NotificationAttemptRespon
         id=attempt.id,
         dedupeKey=attempt.dedupe_key,
         employeeCode=attempt.employee_code,
+        employeeName=attempt.employee_name,
         recipient=attempt.recipient,
         notificationType=attempt.notification_type,
         thresholdPercent=attempt.threshold_percent,

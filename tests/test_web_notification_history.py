@@ -117,7 +117,7 @@ def _seed_history(database: Database) -> None:
                 (
                     "weekly:2026-W30:U001",
                     "weekly-20260725",
-                    None,
+                    "00001",
                     "U001",
                     "weekly",
                     None,
@@ -193,6 +193,9 @@ def test_notification_run_detail_returns_attempts_without_secrets(tmp_path):
     assert body["attemptCount"] == 2
     assert [attempt["status"] for attempt in body["attempts"]] == ["sent", "failed"]
     assert body["attempts"][0]["recipient"] == "U001"
+    assert body["attempts"][0]["employeeCode"] == "00001"
+    assert body["attempts"][0]["employeeName"] == "田中 太郎"
+    assert body["attempts"][1]["employeeName"] is None
     assert body["attempts"][0]["duplicateOfRunId"] is None
     assert body["attempts"][1]["errorMessage"] == "Slack API error"
     assert "token" not in response.text.lower()

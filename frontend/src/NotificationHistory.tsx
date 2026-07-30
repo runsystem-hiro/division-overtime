@@ -26,7 +26,8 @@ type NotificationRun = {
 type NotificationAttempt = {
   id: number;
   dedupeKey: string;
-  employeeCode: string;
+  employeeCode: string | null;
+  employeeName: string | null;
   recipient: string;
   notificationType: string;
   thresholdPercent: number | null;
@@ -281,26 +282,37 @@ export function NotificationHistory() {
                   ) : (
                     <div className="table-wrap">
                       <table className="notification-attempt-table">
-                        <thead><tr><th>社員番号</th><th>送信先</th><th>種別</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
+                        <thead><tr><th>社員</th><th>送信先</th><th>種別</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
                         <tbody>
                           {detail.attempts.map((attempt) => {
                             const attemptOutcome = attemptStatus(attempt.status);
                             return (
                               <tr key={attempt.id}>
-                                <td data-label="社員番号" className="mono">{attempt.employeeCode || "—"}</td>
-                                <td data-label="送信先">{attempt.recipient}</td>
-                                <td data-label="種別">{modeLabel(attempt.notificationType)}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
-                                <td data-label="状態"><span className={`badge ${attemptOutcome.className}`}>{attemptOutcome.label}</span></td>
-                                <td data-label="試行">{attempt.attemptCount}</td>
-                                <td data-label="重複元">
+                                <td data-label="社員" className="notification-attempt-employee">
+                                  <div className="notification-employee-identity">
+                                    <span className="notification-employee-code">
+                                      <small>社員番号</small>
+                                      <span className="mono">{attempt.employeeCode || "—"}</span>
+                                    </span>
+                                    <span className="notification-employee-name">
+                                      <small>氏名</small>
+                                      <strong>{attempt.employeeName || "氏名不明"}</strong>
+                                    </span>
+                                  </div>
+                                </td>
+                                <td data-label="送信先" className="notification-attempt-recipient">{attempt.recipient}</td>
+                                <td data-label="種別" className="notification-attempt-type">{modeLabel(attempt.notificationType)}{attempt.thresholdPercent === null ? "" : ` ${attempt.thresholdPercent}%`}</td>
+                                <td data-label="状態" className="notification-attempt-status"><span className={`badge ${attemptOutcome.className}`}>{attemptOutcome.label}</span></td>
+                                <td data-label="試行" className="notification-attempt-count">{attempt.attemptCount}</td>
+                                <td data-label="重複元" className="notification-attempt-duplicate">
                                   {attempt.duplicateOfRunId ? (
                                     <button className="table-action" type="button" onClick={() => void openDetail(attempt.duplicateOfRunId!)}>
                                       {formatDateTime(attempt.duplicateOfStartedAt)} / {sourceLabel(attempt.duplicateOfSource)}
                                     </button>
                                   ) : "—"}
                                 </td>
-                                <td data-label="Slack timestamp" className="mono">{attempt.slackTimestamp || "—"}</td>
-                                <td data-label="エラー" className="notification-error-cell">{attempt.errorMessage || "—"}</td>
+                                <td data-label="Slack timestamp" className="mono notification-attempt-timestamp">{attempt.slackTimestamp || "—"}</td>
+                                <td data-label="エラー" className="notification-error-cell notification-attempt-error">{attempt.errorMessage || "—"}</td>
                               </tr>
                             );
                           })}
