@@ -45,6 +45,11 @@ class WebConfig:
     kot_mock_enabled: bool = False
     viewer_username: str | None = None
     viewer_password_hash: str | None = None
+    cloudflare_access_enabled: bool = False
+    cloudflare_access_team_domain: str | None = None
+    cloudflare_access_audience: str | None = None
+    cloudflare_access_logout_url: str = "/cdn-cgi/access/logout"
+    admin_elevation_minutes: int = 30
 
 
 def _required_env(name: str) -> str:
@@ -137,6 +142,17 @@ def load_web_config(root: Path | None = None) -> WebConfig:
             "WEB_VIEWER_USERNAME and WEB_VIEWER_PASSWORD_HASH must be set together"
         )
 
+    cloudflare_access_enabled = _bool_env("CLOUDFLARE_ACCESS_ENABLED", False)
+    cloudflare_access_team_domain = os.getenv("CLOUDFLARE_ACCESS_TEAM_DOMAIN", "").strip() or None
+    cloudflare_access_audience = os.getenv("CLOUDFLARE_ACCESS_AUD", "").strip() or None
+    if cloudflare_access_enabled and (
+        cloudflare_access_team_domain is None or cloudflare_access_audience is None
+    ):
+        raise WebConfigError(
+            "CLOUDFLARE_ACCESS_TEAM_DOMAIN and CLOUDFLARE_ACCESS_AUD "
+            "are required when Access is enabled"
+        )
+
     return WebConfig(
         root=root,
         timezone=timezone,
@@ -169,4 +185,12 @@ def load_web_config(root: Path | None = None) -> WebConfig:
         kot_mock_enabled=bool(raw.get("king_of_time", {}).get("mock_enabled", False)),
         viewer_username=viewer_username,
         viewer_password_hash=viewer_password_hash,
+        cloudflare_access_enabled=cloudflare_access_enabled,
+        cloudflare_access_team_domain=cloudflare_access_team_domain,
+        cloudflare_access_audience=cloudflare_access_audience,
+        cloudflare_access_logout_url=os.getenv(
+            "CLOUDFLARE_ACCESS_LOGOUT_URL", "/cdn-cgi/access/logout"
+        ).strip()
+        or "/cdn-cgi/access/logout",
+        admin_elevation_minutes=_positive_int_env("ADMIN_ELEVATION_MINUTES", "30"),
     )

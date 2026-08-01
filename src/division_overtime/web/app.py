@@ -11,6 +11,7 @@ from division_overtime.employee_management import EmployeeManagementService
 from division_overtime.kot_employee_sync import KotEmployeeClient, KotEmployeeSyncService
 from division_overtime.notification_history import NotificationHistoryRepository
 from division_overtime.web.auth import AuthService
+from division_overtime.web.cloudflare_access import CloudflareAccessVerifier
 from division_overtime.web.config import WebConfig, load_web_config
 from division_overtime.web.development_kot import DevelopmentKotEmployeeSource
 from division_overtime.web.routes.auth import router as auth_router
@@ -59,6 +60,14 @@ def create_app(config: WebConfig | None = None) -> FastAPI:
             ),
             web_config.kot_sync_division_codes,
         )
+    app.state.cloudflare_access_verifier = (
+        CloudflareAccessVerifier(
+            team_domain=web_config.cloudflare_access_team_domain or "",
+            audience=web_config.cloudflare_access_audience or "",
+        )
+        if web_config.cloudflare_access_enabled
+        else None
+    )
     app.state.auth_service = AuthService(
         admin_username=web_config.admin_username,
         admin_password_hash=web_config.admin_password_hash,

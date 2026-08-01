@@ -50,6 +50,9 @@ type CurrentUser = {
   username: string;
   role: "admin" | "viewer";
   expiresAt: string;
+  identitySource?: "local" | "cloudflare_access";
+  elevatedUntil?: string | null;
+  logoutUrl?: string | null;
 };
 
 type AuthStatus = {
@@ -252,14 +255,12 @@ function NavIcon({ name }: { name: "employees" | "sync" | "history" }) {
   );
 }
 
-function UtilityIcon({ name }: { name: "power" | "logout" | "activity" }) {
+function UtilityIcon({
+  name,
+}: {
+  name: "logout" | "activity" | "shield" | "user";
+}) {
   const paths = {
-    power: (
-      <>
-        <path d="M12 2v10" />
-        <path d="M18.4 6.6a9 9 0 1 1-12.8 0" />
-      </>
-    ),
     logout: (
       <>
         <path d="M10 17l5-5-5-5" />
@@ -270,6 +271,18 @@ function UtilityIcon({ name }: { name: "power" | "logout" | "activity" }) {
     activity: (
       <>
         <path d="M3 12h4l2-7 4 14 2-7h6" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+        <path d="M9 12l2 2 4-4" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 22c0-4 3.6-7 8-7s8 3 8 7" />
       </>
     ),
   };
@@ -330,6 +343,9 @@ export function App() {
   const [path, setPath] = useState(() => window.location.pathname);
   const [healthOpen, setHealthOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [elevationOpen, setElevationOpen] = useState(false);
+  const [elevationSubmitting, setElevationSubmitting] = useState(false);
+  const [elevationError, setElevationError] = useState<string | null>(null);
   const [healthPopoverStyle, setHealthPopoverStyle] = useState<CSSProperties>();
   const [accountPopoverStyle, setAccountPopoverStyle] = useState<CSSProperties>();
   const healthTriggerRef = useRef<HTMLButtonElement>(null);
@@ -524,6 +540,14 @@ export function App() {
   }, [loadCurrentUser]);
 
   useEffect(() => {
+    if (user?.identitySource !== "cloudflare_access") return;
+    const timer = window.setInterval(() => {
+      loadCurrentUser().catch(() => setUser(null));
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadCurrentUser, user?.identitySource]);
+
+  useEffect(() => {
     if (!user) return;
     Promise.all([
       fetch("/api/system/health", { credentials: "same-origin" }).then(
@@ -665,16 +689,61 @@ export function App() {
   }
 
   async function handleLogout() {
+    const logoutUrl = user?.logoutUrl;
     await fetch("/api/auth/logout", {
       method: "POST",
       credentials: "same-origin",
     });
+    if (logoutUrl) {
+      window.location.assign(logoutUrl);
+      return;
+    }
     setUser(null);
     setHealth(null);
     setEmployees([]);
     setError(null);
     setNotice(null);
     setConfirmAction(null);
+  }
+
+  async function handleElevation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setElevationSubmitting(true);
+    setElevationError(null);
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/auth/elevate", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: form.get("password") }),
+    });
+    setElevationSubmitting(false);
+    if (!response.ok) {
+      setElevationError(
+        response.status === 429
+          ? "認証試行回数が上限に達しました。しばらく待ってから再試行してください。"
+          : "管理者パスワードが正しくありません。閲覧者モードを継続します。",
+      );
+      return;
+    }
+    setUser((await response.json()) as CurrentUser);
+    setElevationOpen(false);
+    setAccountOpen(false);
+    setNotice("管理者モードへ切り替えました。");
+  }
+
+  async function handleDowngrade() {
+    const response = await fetch("/api/auth/downgrade", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    setUser((await response.json()) as CurrentUser);
+    setAccountOpen(false);
+    setNotice("閲覧者モードへ切り替えました。");
   }
 
   function openCreate() {
@@ -1031,7 +1100,7 @@ export function App() {
                 setHealthOpen(false);
               }}
             >
-              <UtilityIcon name="power" />
+              <UtilityIcon name="user" />
             </button>
             {accountOpen &&
               accountPopoverStyle &&
@@ -1042,6 +1111,34 @@ export function App() {
                   style={accountPopoverStyle}
                   role="menu"
                 >
+                  <div className="account-menu-identity">
+                    <strong>{user.role}</strong>
+                    <span>{user.username}</span>
+                  </div>
+                  <div className="account-menu-divider" />
+                  {user.identitySource === "cloudflare_access" &&
+                    (user.role === "viewer" ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setElevationError(null);
+                          setElevationOpen(true);
+                        }}
+                      >
+                        <UtilityIcon name="shield" />
+                        <span>管理者モード</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleDowngrade}
+                      >
+                        <UtilityIcon name="user" />
+                        <span>閲覧者モード</span>
+                      </button>
+                    ))}
                   <button
                     ref={logoutButtonRef}
                     type="button"
@@ -1817,6 +1914,74 @@ export function App() {
             </section>
           )}
           </div>
+          {elevationOpen && (
+            <ModalLayer
+              className="elevation-modal-layer"
+              onRequestClose={() =>
+                !elevationSubmitting && setElevationOpen(false)
+              }
+            >
+              <section
+                className="modal elevation-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="elevation-title"
+              >
+                <div className="modal-heading">
+                  <div>
+                    <p className="eyebrow">PRIVILEGE ELEVATION</p>
+                    <h2 id="elevation-title">管理者モード</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className="modal-close"
+                    onClick={() => setElevationOpen(false)}
+                    disabled={elevationSubmitting}
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <form className="login-form" onSubmit={handleElevation}>
+                  <p className="muted">
+                    管理操作を有効にするため、管理者パスワードを入力してください。
+                  </p>
+                  <label>
+                    管理者パスワード
+                    <input
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  {elevationError && (
+                    <p className="error-message" role="alert">
+                      {elevationError}
+                    </p>
+                  )}
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => setElevationOpen(false)}
+                      disabled={elevationSubmitting}
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="submit"
+                      className="button-primary"
+                      disabled={elevationSubmitting}
+                      aria-busy={elevationSubmitting}
+                    >
+                      {elevationSubmitting ? "認証中…" : "切り替える"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            </ModalLayer>
+          )}
           {confirmAction && (
             <ConfirmDialog
               title={confirmAction.title}

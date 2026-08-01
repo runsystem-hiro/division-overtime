@@ -96,3 +96,7 @@ Web管理UIは左サイドバーを使用せず、共通ヘッダーに環境表
 ### Notification history pagination
 
 通知実行履歴一覧は、全履歴をブラウザへ返さず、APIの`limit` / `offset`とSQLiteの`LIMIT` / `OFFSET`で必要なページだけを取得する。Web UIは20件固定で、全件数と全履歴集計は別クエリで返す。詳細APIは実行IDで取得するため、ページ移動や一覧ソート後も行indexへ依存しない。
+
+## Cloudflare Access認証境界
+
+公開経路では `Cf-Access-Jwt-Assertion` の署名、issuer、audience、有効期限をアプリ側で検証し、成功したidentityだけをviewerとして扱います。Cloudflare由来のadminセッションは同じAccess identityが提示された場合だけ有効です。ローカル直接アクセスは従来のアプリ認証を使用します。

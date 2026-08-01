@@ -98,3 +98,7 @@ Base path: `/api/notification-runs`
 ```
 
 `summary` は現在ページではなく全履歴を対象に集計します。同一実行日時の履歴は実行IDを第二キーとして安定した順序で返します。Web UIは常に20件固定ですが、APIは過大取得を防ぐため`limit`を最大100に制限します。
+
+## Cloudflare Access viewerと権限昇格
+
+`GET /api/auth/status` と `GET /api/auth/me` は `identitySource`、`elevatedUntil`、`logoutUrl` を返します。Access viewerは `POST /api/auth/elevate` に管理者パスワードを送って一時的にadminへ昇格し、`POST /api/auth/downgrade` でviewerへ戻ります。未認証時のstatusはHTTP 200、meはHTTP 401を維持します。

@@ -20,6 +20,8 @@ class AuthenticatedUser:
     username: str
     role: UserRole
     expires_at: datetime
+    identity_source: str = "local"
+    elevated_until: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -27,6 +29,8 @@ class _Session:
     username: str
     role: UserRole
     expires_at: datetime
+    identity_source: str = "local"
+    elevated_until: datetime | None = None
 
 
 class LoginRateLimiter:
@@ -113,21 +117,36 @@ class AuthService:
                 authenticated_role = role
         return authenticated_role
 
+    def authenticate_admin_password(self, password: str) -> bool:
+        try:
+            return self._password_hasher.verify(self._admin_password_hash, password)
+        except (InvalidHashError, VerificationError, VerifyMismatchError):
+            return False
+
     def create_session(
         self,
         username: str,
         now: datetime | None = None,
         *,
         role: UserRole = "admin",
+        identity_source: str = "local",
+        expires_at_limit: datetime | None = None,
+        elevated_until: datetime | None = None,
     ) -> tuple[str, datetime]:
         now = now or datetime.now(UTC)
         raw_token = secrets.token_urlsafe(48)
         token_digest = self._digest(raw_token)
         expires_at = now + self._session_max_age
+        if expires_at_limit is not None:
+            expires_at = min(expires_at, expires_at_limit)
         with self._lock:
             self._purge_expired(now)
             self._sessions[token_digest] = _Session(
-                username=username, role=role, expires_at=expires_at
+                username=username,
+                role=role,
+                expires_at=expires_at,
+                identity_source=identity_source,
+                elevated_until=elevated_until,
             )
         return raw_token, expires_at
 
@@ -143,8 +162,17 @@ class AuthService:
             session = self._sessions.get(token_digest)
             if session is None or session.expires_at <= now:
                 return None
+            role = session.role
+            elevated_until = session.elevated_until
+            if role == "admin" and elevated_until is not None and elevated_until <= now:
+                role = "viewer"
+                elevated_until = None
             return AuthenticatedUser(
-                username=session.username, role=session.role, expires_at=session.expires_at
+                username=session.username,
+                role=role,
+                expires_at=session.expires_at,
+                identity_source=session.identity_source,
+                elevated_until=elevated_until,
             )
 
     def delete_session(self, raw_token: str | None) -> None:

@@ -137,3 +137,7 @@ ALL = ["admin@example.com"]
 - `viewer`: 社員一覧・検索・再読み込み、KOT同期画面の表示、通知履歴一覧・詳細の閲覧のみ
 
 閲覧専用アカウントを使用する場合は、`WEB_VIEWER_USERNAME`と`WEB_VIEWER_PASSWORD_HASH`を両方設定します。片方だけ設定した場合、Webアプリは設定エラーとして起動しません。画面上のボタン無効化に加え、更新系APIはサーバー側でもHTTP 403で拒否します。
+
+## Cloudflare Access
+
+公開URLでviewer自動認証を使う場合は `CLOUDFLARE_ACCESS_ENABLED=true` とし、team domainとApplication Audienceを環境変数へ設定します。実値、メールアドレス、JWT、パスワードはリポジトリへ保存しません。`ADMIN_ELEVATION_MINUTES` の既定値は30です。
