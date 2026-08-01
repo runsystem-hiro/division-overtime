@@ -160,7 +160,17 @@ def test_notification_run_list_returns_existing_database_values(tmp_path):
     response = client.get("/api/notification-runs?limit=10&offset=0")
 
     assert response.status_code == 200
-    assert response.json() == [
+    body = response.json()
+    assert body["total"] == 1
+    assert body["limit"] == 10
+    assert body["offset"] == 0
+    assert body["summary"] == {
+        "total": 1,
+        "succeeded": 0,
+        "attention": 1,
+        "sent": 1,
+    }
+    assert body["items"] == [
         {
             "runId": "weekly-20260725",
             "mode": "weekly",
@@ -178,6 +188,53 @@ def test_notification_run_list_returns_existing_database_values(tmp_path):
             "pendingCount": 0,
         }
     ]
+
+
+def test_notification_run_list_paginates_twenty_items_with_stable_order(tmp_path):
+    client, database = _client(tmp_path)
+    with database.transaction() as conn:
+        for index in range(21):
+            conn.execute(
+                """
+                INSERT INTO execution_runs(
+                    run_id, mode, started_at, finished_at, status, dry_run, source
+                ) VALUES(?, 'weekly', ?, ?, 'succeeded', 0, 'timer')
+                """,
+                (
+                    f"run-{index:02d}",
+                    "2026-07-31T09:00:00+09:00",
+                    "2026-07-31T09:00:01+09:00",
+                ),
+            )
+
+    first = client.get("/api/notification-runs")
+    second = client.get("/api/notification-runs?limit=20&offset=20")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_body = first.json()
+    second_body = second.json()
+    assert first_body["total"] == 21
+    assert first_body["limit"] == 20
+    assert first_body["offset"] == 0
+    assert len(first_body["items"]) == 20
+    assert first_body["items"][0]["runId"] == "run-20"
+    assert first_body["items"][-1]["runId"] == "run-01"
+    assert [item["runId"] for item in second_body["items"]] == ["run-00"]
+    assert second_body["summary"] == {
+        "total": 21,
+        "succeeded": 21,
+        "attention": 0,
+        "sent": 0,
+    }
+
+
+def test_notification_run_list_rejects_invalid_pagination(tmp_path):
+    client, _ = _client(tmp_path)
+
+    assert client.get("/api/notification-runs?limit=0").status_code == 422
+    assert client.get("/api/notification-runs?limit=101").status_code == 422
+    assert client.get("/api/notification-runs?offset=-1").status_code == 422
 
 
 def test_notification_run_detail_returns_attempts_without_secrets(tmp_path):

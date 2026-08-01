@@ -50,6 +50,23 @@ type NotificationRunDetail = NotificationRun & {
   attempts: NotificationAttempt[];
 };
 
+type NotificationHistorySummary = {
+  total: number;
+  succeeded: number;
+  attention: number;
+  sent: number;
+};
+
+type NotificationRunPage = {
+  items: NotificationRun[];
+  total: number;
+  limit: number;
+  offset: number;
+  summary: NotificationHistorySummary;
+};
+
+const HISTORY_PAGE_SIZE = 20;
+
 async function responseError(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { detail?: string };
@@ -102,6 +119,8 @@ function attemptStatus(status: string): { label: string; className: string } {
 
 export function NotificationHistory() {
   const [runs, setRuns] = useState<NotificationRun[]>([]);
+  const [historySummary, setHistorySummary] = useState<NotificationHistorySummary>({ total: 0, succeeded: 0, attention: 0, sent: 0 });
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<NotificationRunDetail | null>(null);
@@ -114,31 +133,45 @@ export function NotificationHistory() {
   const errorDialogTriggerRef = useRef<HTMLButtonElement | null>(null);
   const developmentMockEnabled = isDevelopmentNotificationMockEnabled();
 
-  const summary = useMemo(
-    () => ({
-      total: runs.length,
-      succeeded: runs.filter((run) => run.status === "succeeded" && run.failedCount === 0).length,
-      attention: runs.filter((run) => run.status === "failed" || run.failedCount > 0).length,
-      sent: runs.reduce((total, run) => total + run.sentCount, 0),
-    }),
-    [runs],
-  );
+  const totalPages = Math.max(1, Math.ceil(historySummary.total / HISTORY_PAGE_SIZE));
+  const currentPage = Math.floor(offset / HISTORY_PAGE_SIZE) + 1;
+  const rangeStart = historySummary.total === 0 ? 0 : offset + 1;
+  const rangeEnd = historySummary.total === 0 ? 0 : Math.min(offset + runs.length, historySummary.total);
 
-  const loadRuns = useCallback(async () => {
+  const loadRuns = useCallback(async (requestedOffset: number) => {
     setLoading(true);
     setError(null);
     try {
       if (developmentMockEnabled) {
-        setRuns(developmentNotificationRuns as NotificationRun[]);
+        const allRuns = developmentNotificationRuns as NotificationRun[];
+        const items = allRuns.slice(requestedOffset, requestedOffset + HISTORY_PAGE_SIZE);
+        setRuns(items);
+        setHistorySummary({
+          total: allRuns.length,
+          succeeded: allRuns.filter((run) => run.status === "succeeded" && run.failedCount === 0).length,
+          attention: allRuns.filter((run) => run.status === "failed" || run.failedCount > 0).length,
+          sent: allRuns.reduce((total, run) => total + run.sentCount, 0),
+        });
+        setOffset(requestedOffset);
         return;
       }
-      const response = await fetch("/api/notification-runs?limit=50", {
+      let response = await fetch(`/api/notification-runs?limit=${HISTORY_PAGE_SIZE}&offset=${requestedOffset}`, {
         credentials: "same-origin",
       });
       if (!response.ok) throw new Error(await responseError(response));
-      setRuns((await response.json()) as NotificationRun[]);
+      let page = (await response.json()) as NotificationRunPage;
+      if (page.total > 0 && requestedOffset >= page.total) {
+        const lastOffset = Math.floor((page.total - 1) / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE;
+        response = await fetch(`/api/notification-runs?limit=${HISTORY_PAGE_SIZE}&offset=${lastOffset}`, {
+          credentials: "same-origin",
+        });
+        if (!response.ok) throw new Error(await responseError(response));
+        page = (await response.json()) as NotificationRunPage;
+      }
+      setRuns(page.items);
+      setHistorySummary(page.summary);
+      setOffset(page.offset);
     } catch (reason: unknown) {
-      setRuns([]);
       setError(reason instanceof Error ? reason.message : "通知履歴を取得できませんでした");
     } finally {
       setLoading(false);
@@ -146,7 +179,7 @@ export function NotificationHistory() {
   }, [developmentMockEnabled]);
 
   useEffect(() => {
-    void loadRuns();
+    void loadRuns(0);
   }, [loadRuns]);
 
   async function openDetail(runId: string) {
@@ -238,7 +271,7 @@ export function NotificationHistory() {
           <p className="muted">週次通知・閾値通知・ヘルスチェックの実行結果を読み取り専用で確認できます。</p>
           {developmentMockEnabled && <span className="badge badge-warning notification-mock-badge">開発用サンプル表示中</span>}
         </div>
-        <button className="button-secondary" type="button" onClick={loadRuns} disabled={loading} aria-busy={loading}>
+        <button className="button-secondary" type="button" onClick={() => void loadRuns(offset)} disabled={loading} aria-busy={loading}>
           {loading ? "更新中…" : "再読込"}
         </button>
       </div>
@@ -257,13 +290,13 @@ export function NotificationHistory() {
 
       {loading && runs.length > 0 && <div className="updating-indicator" role="status">通知履歴を更新中…</div>}
 
-      {(!loading || runs.length > 0) && !error && (
+      {(!loading || runs.length > 0) && (!error || runs.length > 0) && (
         <>
           <section className="notification-summary" aria-label="通知履歴集計">
-            <article><span>表示中</span><strong>{summary.total}</strong></article>
-            <article><span>成功</span><strong>{summary.succeeded}</strong></article>
-            <article><span>要確認</span><strong className={summary.attention > 0 ? "status-danger" : ""}>{summary.attention}</strong></article>
-            <article><span>送信済み</span><strong>{summary.sent}</strong></article>
+            <article><span>履歴件数</span><strong>{historySummary.total}</strong></article>
+            <article><span>成功</span><strong>{historySummary.succeeded}</strong></article>
+            <article><span>要確認</span><strong className={historySummary.attention > 0 ? "status-danger" : ""}>{historySummary.attention}</strong></article>
+            <article><span>送信済み</span><strong>{historySummary.sent}</strong></article>
           </section>
 
           {runs.length === 0 ? (
@@ -272,6 +305,7 @@ export function NotificationHistory() {
               <span>threshold、weekly、healthを実行すると、ここに結果が表示されます。</span>
             </div>
           ) : (
+            <>
             <div className="table-wrap">
               <table className="notification-history-table">
                 <thead>
@@ -299,6 +333,15 @@ export function NotificationHistory() {
                 </tbody>
               </table>
             </div>
+            <nav className="notification-pagination" aria-label="通知履歴ページ">
+              <span>表示中 {rangeStart}–{rangeEnd} / 全{historySummary.total}件</span>
+              <div>
+                <button className="button-secondary" type="button" disabled={loading || offset === 0} onClick={() => void loadRuns(Math.max(0, offset - HISTORY_PAGE_SIZE))}>前へ</button>
+                <span aria-current="page">{currentPage} / {totalPages}</span>
+                <button className="button-secondary" type="button" disabled={loading || offset + HISTORY_PAGE_SIZE >= historySummary.total} onClick={() => void loadRuns(offset + HISTORY_PAGE_SIZE)}>次へ</button>
+              </div>
+            </nav>
+            </>
           )}
         </>
       )}

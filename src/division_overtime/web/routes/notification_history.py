@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from division_overtime.notification_history import (
     NotificationAttempt,
     NotificationHistoryRepository,
+    NotificationHistorySummary,
     NotificationRunDetail,
     NotificationRunNotFoundError,
     NotificationRunSummary,
@@ -53,6 +54,21 @@ class NotificationRunResponse(BaseModel):
     failedCount: int
     skippedCount: int
     pendingCount: int
+
+
+class NotificationHistorySummaryResponse(BaseModel):
+    total: int
+    succeeded: int
+    attention: int
+    sent: int
+
+
+class NotificationRunPageResponse(BaseModel):
+    items: list[NotificationRunResponse]
+    total: int
+    limit: int
+    offset: int
+    summary: NotificationHistorySummaryResponse
 
 
 class NotificationRunDetailResponse(NotificationRunResponse):
@@ -104,16 +120,28 @@ def _attempt_response(attempt: NotificationAttempt) -> NotificationAttemptRespon
     )
 
 
-@router.get("", response_model=list[NotificationRunResponse])
+@router.get("", response_model=NotificationRunPageResponse)
 def list_notification_runs(
     _: Annotated[AuthenticatedUser, Depends(get_current_user)],
     repository: Annotated[
         NotificationHistoryRepository, Depends(get_notification_history_repository)
     ],
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-) -> list[NotificationRunResponse]:
-    return [_run_response(run) for run in repository.list_runs(limit=limit, offset=offset)]
+) -> NotificationRunPageResponse:
+    summary: NotificationHistorySummary = repository.summarize_runs()
+    return NotificationRunPageResponse(
+        items=[_run_response(run) for run in repository.list_runs(limit=limit, offset=offset)],
+        total=summary.total_count,
+        limit=limit,
+        offset=offset,
+        summary=NotificationHistorySummaryResponse(
+            total=summary.total_count,
+            succeeded=summary.succeeded_count,
+            attention=summary.attention_count,
+            sent=summary.sent_count,
+        ),
+    )
 
 
 @router.get("/{run_id}", response_model=NotificationRunDetailResponse)

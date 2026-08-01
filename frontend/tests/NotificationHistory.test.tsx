@@ -27,6 +27,21 @@ const run = {
   pendingCount: 0,
 };
 
+function pageResponse(items: typeof run[], total = items.length, offset = 0) {
+  return {
+    items,
+    total,
+    limit: 20,
+    offset,
+    summary: {
+      total,
+      succeeded: items.filter((item) => item.status === "succeeded" && item.failedCount === 0).length,
+      attention: items.filter((item) => item.status === "failed" || item.failedCount > 0).length,
+      sent: items.reduce((sum, item) => sum + item.sentCount, 0),
+    },
+  };
+}
+
 beforeEach(() => {
   vi.stubEnv("VITE_NOTIFICATION_HISTORY_MOCK", "false");
 });
@@ -55,7 +70,7 @@ describe("NotificationHistory", () => {
     expect(screen.getByRole("heading", { name: "通知実行履歴" })).toBeInTheDocument();
 
     resolveResponse?.(
-      new Response(JSON.stringify([]), {
+      new Response(JSON.stringify(pageResponse([])), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -85,8 +100,8 @@ describe("NotificationHistory", () => {
   it("通知履歴一覧から詳細を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url === "/api/notification-runs?limit=50") {
-        return new Response(JSON.stringify([run]), {
+      if (url === "/api/notification-runs?limit=20&offset=0") {
+        return new Response(JSON.stringify(pageResponse([run])), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -131,7 +146,7 @@ describe("NotificationHistory", () => {
     expect(await screen.findByText("週次通知")).toBeInTheDocument();
     expect(screen.getByText("weekly")).toBeInTheDocument();
     expect(screen.getByText("定期実行")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "通知履歴集計" })).toHaveTextContent("表示中1");
+    expect(screen.getByRole("region", { name: "通知履歴集計" })).toHaveTextContent("履歴件数1");
     expect(screen.getByText("本番")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "詳細" }));
 
@@ -150,8 +165,8 @@ describe("NotificationHistory", () => {
   it("重複スキップから重複元の詳細を開く", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url === "/api/notification-runs?limit=50") {
-        return new Response(JSON.stringify([{ ...run, runId: "run-2", skippedCount: 1 }]), {
+      if (url === "/api/notification-runs?limit=20&offset=0") {
+        return new Response(JSON.stringify(pageResponse([{ ...run, runId: "run-2", skippedCount: 1 }])), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -207,8 +222,8 @@ describe("NotificationHistory", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url === "/api/notification-runs?limit=50") {
-        return new Response(JSON.stringify([{ ...run, failedCount: 1, sentCount: 0 }]), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (url === "/api/notification-runs?limit=20&offset=0") {
+        return new Response(JSON.stringify(pageResponse([{ ...run, failedCount: 1, sentCount: 0 }])), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (url === "/api/notification-runs/run-1") {
         return new Response(JSON.stringify({
@@ -262,7 +277,7 @@ describe("NotificationHistory", () => {
     ];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url === "/api/notification-runs?limit=50") return new Response(JSON.stringify([run]), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (url === "/api/notification-runs?limit=20&offset=0") return new Response(JSON.stringify(pageResponse([run])), { status: 200, headers: { "Content-Type": "application/json" } });
       if (url === "/api/notification-runs/run-1") return new Response(JSON.stringify({ ...run, attempts }), { status: 200, headers: { "Content-Type": "application/json" } });
       throw new Error(`unexpected fetch: ${url}`);
     });
@@ -285,9 +300,43 @@ describe("NotificationHistory", () => {
     expect(rows[1]).toHaveTextContent("送信済み");
   });
 
+  it("20件固定で次ページへ移動し再読込でも現在ページを維持する", async () => {
+    const pageOne = Array.from({ length: 20 }, (_, index) => ({
+      ...run,
+      runId: `run-${index + 1}`,
+      startedAt: `2026-07-${String(31 - index).padStart(2, "0")}T09:00:00+09:00`,
+    }));
+    const pageTwo = [{ ...run, runId: "run-21", startedAt: "2026-07-01T09:00:00+09:00" }];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/notification-runs?limit=20&offset=0") {
+        return new Response(JSON.stringify({ ...pageResponse(pageOne, 21, 0), summary: { total: 21, succeeded: 21, attention: 0, sent: 21 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/notification-runs?limit=20&offset=20") {
+        return new Response(JSON.stringify({ ...pageResponse(pageTwo, 21, 20), summary: { total: 21, succeeded: 21, attention: 0, sent: 21 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(<NotificationHistory />);
+
+    expect(await screen.findByText("表示中 1–20 / 全21件")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "前へ" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "次へ" }));
+
+    expect(await screen.findByText("表示中 21–21 / 全21件")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "次へ" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "再読込" }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenLastCalledWith(
+      "/api/notification-runs?limit=20&offset=20",
+      { credentials: "same-origin" },
+    ));
+  });
+
   it("一覧が空の場合に空状態を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify([]), {
+      new Response(JSON.stringify(pageResponse([])), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -318,8 +367,8 @@ describe("NotificationHistory", () => {
   it("詳細が見つからない場合に404状態を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
-      if (url.includes("?limit=50")) {
-        return new Response(JSON.stringify([run]), {
+      if (url.includes("?limit=20&offset=0")) {
+        return new Response(JSON.stringify(pageResponse([run])), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });

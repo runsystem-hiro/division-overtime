@@ -70,3 +70,31 @@ Base path: `/api/notification-runs`
 ## API仕様の確認
 
 開発環境ではFastAPIのOpenAPI UIを利用できます。公開範囲はネットワーク構成と認証方針に従って制限してください。
+
+## 通知実行履歴ページネーション
+
+`GET /api/notification-runs` は実行日時の降順で通知履歴を返します。Web UIは20件固定で取得します。
+
+クエリパラメータ：
+
+- `limit`: 1〜100。既定値は20
+- `offset`: 0以上。既定値は0
+
+レスポンス例：
+
+```json
+{
+  "items": [],
+  "total": 23,
+  "limit": 20,
+  "offset": 0,
+  "summary": {
+    "total": 23,
+    "succeeded": 20,
+    "attention": 3,
+    "sent": 179
+  }
+}
+```
+
+`summary` は現在ページではなく全履歴を対象に集計します。
