@@ -255,6 +255,36 @@ describe("NotificationHistory", () => {
     await waitFor(() => expect(errorDetailTrigger).toHaveFocus());
   });
 
+  it("通知実行詳細を社員・種別・送信先・状態で並べ替える", async () => {
+    const attempts = [
+      { id: 1, dedupeKey: "a", employeeCode: "00010", employeeName: "山田 太郎", recipient: "z@example.com", notificationType: "weekly", thresholdPercent: null, status: "sent", attemptCount: 1, slackTimestamp: "111.111", errorMessage: null, createdAt: run.startedAt, updatedAt: run.finishedAt, duplicateOfAttemptId: null, duplicateOfRunId: null, duplicateOfStartedAt: null, duplicateOfSource: null },
+      { id: 2, dedupeKey: "b", employeeCode: "00002", employeeName: "佐藤 花子", recipient: "a@example.com", notificationType: "threshold", thresholdPercent: 80, status: "failed", attemptCount: 2, slackTimestamp: null, errorMessage: "error", createdAt: run.startedAt, updatedAt: run.finishedAt, duplicateOfAttemptId: null, duplicateOfRunId: null, duplicateOfStartedAt: null, duplicateOfSource: null },
+    ];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/notification-runs?limit=50") return new Response(JSON.stringify([run]), { status: 200, headers: { "Content-Type": "application/json" } });
+      if (url === "/api/notification-runs/run-1") return new Response(JSON.stringify({ ...run, attempts }), { status: 200, headers: { "Content-Type": "application/json" } });
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    render(<NotificationHistory />);
+    fireEvent.click(await screen.findByRole("button", { name: "詳細" }));
+    const dialog = await screen.findByRole("dialog", { name: "通知実行詳細" });
+    const table = within(dialog).getByRole("table");
+    let rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("00002");
+    expect(rows[1]).toHaveTextContent("00010");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "社員で降順に並べ替え" }));
+    rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("00010");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "状態で昇順に並べ替え" }));
+    rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("失敗");
+    expect(rows[1]).toHaveTextContent("送信済み");
+  });
+
   it("一覧が空の場合に空状態を表示する", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify([]), {

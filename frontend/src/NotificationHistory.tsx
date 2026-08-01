@@ -6,6 +6,9 @@ import {
   isDevelopmentNotificationMockEnabled,
 } from "./notificationHistoryMock";
 
+type SortDirection = "asc" | "desc";
+type AttemptSortKey = "employee" | "type" | "recipient" | "status";
+
 type NotificationRun = {
   runId: string;
   mode: string;
@@ -85,6 +88,10 @@ function runStatus(run: NotificationRun): { label: string; className: string } {
   return { label: run.status, className: "badge-off" };
 }
 
+const attemptSortLabels: Record<AttemptSortKey, string> = { employee: "社員", type: "種別", recipient: "送信先", status: "状態" };
+const attemptCollator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
+const attemptStatusOrder: Record<string, number> = { failed: 0, sent: 1, skipped: 2, pending: 3 };
+
 function attemptStatus(status: string): { label: string; className: string } {
   if (status === "sent") return { label: "送信済み", className: "badge-ok" };
   if (status === "failed") return { label: "失敗", className: "badge-danger" };
@@ -102,6 +109,7 @@ export function NotificationHistory() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedError, setSelectedError] = useState<NotificationAttempt | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [attemptSort, setAttemptSort] = useState<{ key: AttemptSortKey; direction: SortDirection }>({ key: "employee", direction: "asc" });
   const errorDialogCloseRef = useRef<HTMLButtonElement | null>(null);
   const errorDialogTriggerRef = useRef<HTMLButtonElement | null>(null);
   const developmentMockEnabled = isDevelopmentNotificationMockEnabled();
@@ -142,6 +150,7 @@ export function NotificationHistory() {
   }, [loadRuns]);
 
   async function openDetail(runId: string) {
+    setAttemptSort({ key: "employee", direction: "asc" });
     setDetailLoading(true);
     setDetailError(null);
     setDetail(null);
@@ -197,6 +206,28 @@ export function NotificationHistory() {
   useEffect(() => {
     if (selectedError) errorDialogCloseRef.current?.focus();
   }, [selectedError]);
+
+  const sortedAttempts = useMemo(() => {
+    if (!detail) return [];
+    const direction = attemptSort.direction === "asc" ? 1 : -1;
+    return [...detail.attempts].sort((left, right) => {
+      let comparison = 0;
+      if (attemptSort.key === "employee") {
+        comparison = attemptCollator.compare(left.employeeCode || "", right.employeeCode || "") || attemptCollator.compare(left.employeeName || "", right.employeeName || "");
+      }
+      if (attemptSort.key === "type") {
+        comparison = attemptCollator.compare(left.notificationType, right.notificationType) || (left.thresholdPercent ?? Number.POSITIVE_INFINITY) - (right.thresholdPercent ?? Number.POSITIVE_INFINITY);
+      }
+      if (attemptSort.key === "recipient") comparison = attemptCollator.compare(left.recipient, right.recipient);
+      if (attemptSort.key === "status") comparison = (attemptStatusOrder[left.status] ?? 99) - (attemptStatusOrder[right.status] ?? 99);
+      if (comparison === 0) comparison = attemptCollator.compare(left.employeeCode || "", right.employeeCode || "");
+      return comparison * direction;
+    });
+  }, [attemptSort, detail]);
+
+  function toggleAttemptSort(key: AttemptSortKey) {
+    setAttemptSort((current) => ({ key, direction: current.key === key && current.direction === "asc" ? "desc" : "asc" }));
+  }
 
   return (
     <section className="employee-card notification-history-card" id="notification-history">
@@ -311,11 +342,31 @@ export function NotificationHistory() {
                   {detail.attempts.length === 0 ? (
                     <div className="notification-empty-state compact"><strong>送信試行はありません</strong></div>
                   ) : (
+                    <>
+                    <div className="mobile-sort-controls notification-attempt-sort-controls">
+                      <label>
+                        並び順
+                        <select value={attemptSort.key} onChange={(event) => setAttemptSort((current) => ({ ...current, key: event.target.value as AttemptSortKey }))}>
+                          {Object.entries(attemptSortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                        </select>
+                      </label>
+                      <button className="button-secondary sort-direction-button" type="button" onClick={() => setAttemptSort((current) => ({ ...current, direction: current.direction === "asc" ? "desc" : "asc" }))}>
+                        {attemptSort.direction === "asc" ? "昇順" : "降順"}
+                      </button>
+                    </div>
                     <div className="table-wrap">
                       <table className="notification-attempt-table">
-                        <thead><tr><th>社員</th><th>種別</th><th>送信先</th><th>状態</th><th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
+                        <thead><tr>
+                          {(["employee", "type", "recipient", "status"] as AttemptSortKey[]).map((key) => (
+                            <th key={key} aria-sort={attemptSort.key === key ? (attemptSort.direction === "asc" ? "ascending" : "descending") : "none"}>
+                              <button className="table-sort-button" type="button" onClick={() => toggleAttemptSort(key)} aria-label={`${attemptSortLabels[key]}で${attemptSort.key === key && attemptSort.direction === "asc" ? "降順" : "昇順"}に並べ替え`}>
+                                <span>{attemptSortLabels[key]}</span><span className="sort-indicator" aria-hidden="true">{attemptSort.key === key ? (attemptSort.direction === "asc" ? "▲" : "▼") : "↕"}</span>
+                              </button>
+                            </th>
+                          ))}
+                          <th>試行</th><th>重複元</th><th>Slack timestamp</th><th>エラー</th></tr></thead>
                         <tbody>
-                          {detail.attempts.map((attempt) => {
+                          {sortedAttempts.map((attempt) => {
                             const attemptOutcome = attemptStatus(attempt.status);
                             return (
                               <tr key={attempt.id}>
@@ -371,6 +422,7 @@ export function NotificationHistory() {
                         </tbody>
                       </table>
                     </div>
+                    </>
                   )}
                 </>
               );

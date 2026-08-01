@@ -3707,3 +3707,54 @@ body:has(.modal-backdrop) {
     text-align: left;
   }
 }
+
+/* issue #178 employee and notification detail sorting */
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+.table-sort-button:hover { color: var(--text-primary); }
+.table-sort-button:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--border-accent);
+  outline-offset: 3px;
+}
+.sort-indicator {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+.mobile-sort-controls {
+  display: none;
+  align-items: end;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+}
+.mobile-sort-controls label {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.mobile-sort-controls select { width: 100%; }
+.sort-direction-button { flex: 0 0 auto; min-width: 5rem; }
+
+@media (max-width: 720px) {
+  .employee-sort-controls { display: flex; }
+}
+@media (max-width: 1040px) {
+  .notification-attempt-sort-controls { display: flex; }
+}

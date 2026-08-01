@@ -57,6 +57,9 @@ type AuthStatus = {
   user: CurrentUser | null;
 };
 
+type SortDirection = "asc" | "desc";
+type EmployeeSortKey = "code" | "name" | "division" | "target" | "status";
+
 type Employee = {
   code: string;
   lastName: string;
@@ -73,6 +76,16 @@ type Employee = {
   createdAt: string;
   updatedAt: string;
 };
+
+const employeeSortLabels: Record<EmployeeSortKey, string> = {
+  code: "社員番号",
+  name: "社員情報",
+  division: "所属",
+  target: "上限分",
+  status: "状態",
+};
+
+const employeeCollator = new Intl.Collator("ja", { numeric: true, sensitivity: "base" });
 
 const syncActionLabels = {
   create: "新規",
@@ -285,6 +298,7 @@ export function App() {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [enabledFilter, setEnabledFilter] = useState("all");
+  const [employeeSort, setEmployeeSort] = useState<{ key: EmployeeSortKey; direction: SortDirection }>({ key: "code", direction: "asc" });
   const [consistency, setConsistency] = useState<EmployeeConsistency | null>(
     null,
   );
@@ -541,7 +555,28 @@ export function App() {
     [employees],
   );
 
+  const sortedEmployees = useMemo(() => {
+    const direction = employeeSort.direction === "asc" ? 1 : -1;
+    return [...employees].sort((left, right) => {
+      let comparison = 0;
+      if (employeeSort.key === "code") comparison = employeeCollator.compare(left.code, right.code);
+      if (employeeSort.key === "name") comparison = employeeCollator.compare(left.fullName, right.fullName);
+      if (employeeSort.key === "division") comparison = employeeCollator.compare(left.divisionName || left.divisionCode, right.divisionName || right.divisionCode);
+      if (employeeSort.key === "target") comparison = (left.personalTargetMinutes ?? Number.POSITIVE_INFINITY) - (right.personalTargetMinutes ?? Number.POSITIVE_INFINITY);
+      if (employeeSort.key === "status") comparison = Number(right.isEnabled) - Number(left.isEnabled);
+      if (comparison === 0) comparison = employeeCollator.compare(left.code, right.code);
+      return comparison * direction;
+    });
+  }, [employeeSort, employees]);
+
   const hasEmployeeFilters = query !== "" || enabledFilter !== "all";
+
+  function toggleEmployeeSort(key: EmployeeSortKey) {
+    setEmployeeSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  }
 
   function clearEmployeeFilters() {
     setQueryInput("");
@@ -1157,9 +1192,10 @@ export function App() {
                     <button
                       className="button-secondary"
                       type="button"
-                      onClick={() =>
-                        Promise.all([loadEmployees(), loadConsistency()])
-                      }
+                      onClick={() => {
+                        setEmployeeSort({ key: "code", direction: "asc" });
+                        void Promise.all([loadEmployees(), loadConsistency()]);
+                      }}
                       disabled={loadingEmployees || loadingConsistency}
                       aria-busy={loadingEmployees || loadingConsistency}
                     >
@@ -1238,15 +1274,29 @@ export function App() {
                     </details>
                   )}
                 </div>
+                <div className="mobile-sort-controls employee-sort-controls">
+                  <label>
+                    並び順
+                    <select value={employeeSort.key} onChange={(event) => setEmployeeSort((current) => ({ ...current, key: event.target.value as EmployeeSortKey }))}>
+                      {Object.entries(employeeSortLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                    </select>
+                  </label>
+                  <button className="button-secondary sort-direction-button" type="button" onClick={() => setEmployeeSort((current) => ({ ...current, direction: current.direction === "asc" ? "desc" : "asc" }))}>
+                    {employeeSort.direction === "asc" ? "昇順" : "降順"}
+                  </button>
+                </div>
                 <div className="table-wrap">
                   <table className="employee-table">
                     <thead>
                       <tr>
-                        <th>社員番号</th>
-                        <th>社員情報</th>
-                        <th>所属</th>
-                        <th>上限分</th>
-                        <th>状態・操作</th>
+                        {(["code", "name", "division", "target", "status"] as EmployeeSortKey[]).map((key) => (
+                          <th key={key} aria-sort={employeeSort.key === key ? (employeeSort.direction === "asc" ? "ascending" : "descending") : "none"}>
+                            <button className="table-sort-button" type="button" onClick={() => toggleEmployeeSort(key)} aria-label={`${employeeSortLabels[key]}で${employeeSort.key === key && employeeSort.direction === "asc" ? "降順" : "昇順"}に並べ替え`}>
+                              <span>{key === "status" ? "状態・操作" : employeeSortLabels[key]}</span>
+                              <span className="sort-indicator" aria-hidden="true">{employeeSort.key === key ? (employeeSort.direction === "asc" ? "▲" : "▼") : "↕"}</span>
+                            </button>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -1260,7 +1310,7 @@ export function App() {
                             <td><span className="skeleton-block skeleton-action" /></td>
                           </tr>
                         ))}
-                      {employees.map((employee) => (
+                      {sortedEmployees.map((employee) => (
                         <tr key={employee.code}>
                           <td
                             className="mono employee-code"

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../package.json";
 import { App } from "../src/App";
@@ -428,6 +428,40 @@ describe("App", () => {
     expect(
       screen.getByRole("checkbox", { name: "90003 変更なしを反映" }),
     ).toBeDisabled();
+  });
+
+  it("社員一覧を列見出しから昇順・降順に並べ替える", async () => {
+    const employees = [
+      { code: "00010", lastName: "山田", firstName: "太郎", fullName: "山田 太郎", email: "yamada@example.com", divisionCode: "200", divisionName: "営業部", personalTargetMinutes: 600, isEnabled: true, disabledReason: "", note: "", kotExists: true, createdAt: "2026-07-29T10:00:00+09:00", updatedAt: "2026-07-29T10:00:00+09:00" },
+      { code: "00002", lastName: "佐藤", firstName: "花子", fullName: "佐藤 花子", email: "sato@example.com", divisionCode: "100", divisionName: "開発部", personalTargetMinutes: 300, isEnabled: false, disabledReason: "休職", note: "", kotExists: true, createdAt: "2026-07-29T10:00:00+09:00", updatedAt: "2026-07-29T10:00:00+09:00" },
+    ];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": { authenticated: true, user: { username: "admin", role: "admin", expiresAt: null } },
+        "/api/system/health": { status: "ok", environment: "development" },
+        "/api/employees?enabled=all": employees,
+        "/api/employees/consistency": { status: "ok", databaseEmployees: 2, csvEmployees: 2, databaseOnlyCodes: [], csvOnlyCodes: [], fieldDifferences: [] },
+        "/api/kot-sync/status": { running: false, blocked: false, lastRun: null },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+
+    render(<App />);
+    const table = (await screen.findByText("00002")).closest("table")!;
+    let rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("00002");
+    expect(rows[1]).toHaveTextContent("00010");
+
+    fireEvent.click(screen.getByRole("button", { name: "社員番号で降順に並べ替え" }));
+    rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("00010");
+    expect(rows[1]).toHaveTextContent("00002");
+
+    fireEvent.click(screen.getByRole("button", { name: "状態で昇順に並べ替え" }));
+    rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]).toHaveTextContent("有効");
+    expect(rows[1]).toHaveTextContent("無効");
   });
 
   it("閲覧専用ユーザーでは更新操作を無効にする", async () => {
