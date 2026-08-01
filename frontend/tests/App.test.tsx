@@ -182,6 +182,76 @@ describe("App", () => {
     });
   });
 
+  it("管理者モードモーダルを閉じると操作元へフォーカスを戻す", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+            ? input.url
+            : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": {
+          authenticated: true,
+          user: {
+            username: "viewer@example.com",
+            role: "viewer",
+            identitySource: "cloudflare_access",
+            expiresAt: null,
+          },
+        },
+        "/api/system/health": {
+          status: "ok",
+          environment: "development",
+          version: packageJson.version,
+        },
+        "/api/employees?enabled=all": [],
+        "/api/employees/consistency": {
+          status: "ok",
+          databaseEmployees: 0,
+          csvEmployees: 0,
+          databaseOnlyCodes: [],
+          csvOnlyCodes: [],
+          fieldDifferences: [],
+        },
+        "/api/kot-sync/status": {
+          running: false,
+          blocked: false,
+          lastRun: null,
+        },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "アカウントメニュー" }),
+    );
+    const trigger = screen.getByRole("menuitem", { name: "管理者モード" });
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "管理者モード" });
+    const closeButton = within(dialog).getByRole("button", { name: "閉じる" });
+    expect(closeButton).toHaveClass("elevation-modal-close");
+    expect(within(dialog).getByRole("button", { name: "キャンセル" })).toHaveClass(
+      "button-secondary",
+    );
+    expect(within(dialog).getByRole("button", { name: "切り替える" })).toHaveClass(
+      "button-primary",
+    );
+
+    fireEvent.click(closeButton);
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    fireEvent.click(trigger);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it.each([
     ["production", "PRODUCTION", "environment-production"],
     ["development", "DEVELOPMENT", "environment-development"],
