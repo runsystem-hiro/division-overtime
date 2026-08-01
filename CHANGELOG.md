@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-01
+
 ### Added
 
 - Cloudflare Access JWTを検証し、公開経路ではviewerとして自動ログインできるようにした
