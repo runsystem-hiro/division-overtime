@@ -45,6 +45,14 @@ class NotificationAttempt:
 
 
 @dataclass(frozen=True)
+class NotificationHistorySummary:
+    total_count: int
+    succeeded_count: int
+    attention_count: int
+    sent_count: int
+
+
+@dataclass(frozen=True)
 class NotificationRunDetail:
     run: NotificationRunSummary
     attempts: tuple[NotificationAttempt, ...]
@@ -91,6 +99,40 @@ class NotificationHistoryRepository:
         with self.database.connect_readonly() as conn:
             rows = conn.execute(query, (limit, offset)).fetchall()
         return [self._run_summary(row) for row in rows]
+
+    def summarize_runs(self) -> NotificationHistorySummary:
+        with self.database.connect_readonly() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_count,
+                    SUM(CASE
+                        WHEN r.status = 'succeeded'
+                         AND NOT EXISTS (
+                            SELECT 1 FROM notification_attempts AS failed
+                            WHERE failed.run_id = r.run_id AND failed.status = 'failed'
+                         )
+                        THEN 1 ELSE 0 END
+                    ) AS succeeded_count,
+                    SUM(CASE
+                        WHEN r.status = 'failed'
+                          OR EXISTS (
+                            SELECT 1 FROM notification_attempts AS failed
+                            WHERE failed.run_id = r.run_id AND failed.status = 'failed'
+                          )
+                        THEN 1 ELSE 0 END
+                    ) AS attention_count,
+                    (SELECT COUNT(*) FROM notification_attempts AS sent
+                     WHERE sent.status = 'sent') AS sent_count
+                FROM execution_runs AS r
+                """
+            ).fetchone()
+        return NotificationHistorySummary(
+            total_count=int(row["total_count"] or 0),
+            succeeded_count=int(row["succeeded_count"] or 0),
+            attention_count=int(row["attention_count"] or 0),
+            sent_count=int(row["sent_count"] or 0),
+        )
 
     def get_run(self, run_id: str) -> NotificationRunDetail:
         query = f"""

@@ -15,6 +15,7 @@ KING OF TIMEの月次勤怠データを取得し、部署ごとの残業状況�
 - SQLiteから`employeeKey.csv`を生成する既存通知互換構成
 - KING OF TIME社員同期のプレビュー、選択適用、履歴、反映前バックアップ
 - 通知実行履歴の一覧・詳細・重複元追跡と送信先別結果の列ソート
+- 通知実行履歴は最新順で20件ずつ表示し、前へ・次へでページ移動できます。
 - 稼働中SQLiteの安全な手動バックアップとDB観測
 - systemd service / timer、ローカルhealth check、デプロイ後health check
 

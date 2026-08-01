@@ -3758,3 +3758,41 @@ body:has(.modal-backdrop) {
 @media (max-width: 1040px) {
   .notification-attempt-sort-controls { display: flex; }
 }
+
+/* issue #180 notification history pagination */
+.notification-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.notification-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.notification-pagination .button-secondary {
+  min-width: 5.5rem;
+}
+
+@media (max-width: 720px) {
+  .notification-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notification-pagination > div {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .notification-pagination .button-secondary {
+    min-width: 0;
+    width: 100%;
+  }
+}
