@@ -6,7 +6,8 @@
 - 無関係な変更がない
 - README、docs、CHANGELOG、テストが必要に応じて更新されている
 - 本番影響がPRへ明記されている
-- 秘密情報や実データが含まれていない
+- 秘密情報、実社員情報、実通知先、token、password、バックアップ、実KOT responseが含まれていない
+- README、docs、sample、画面画像に本番固有のホスト名、IP、ユーザー名、部署コード、社員番号が含まれていない
 
 ## Windows側検証
 
