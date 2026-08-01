@@ -17,13 +17,13 @@ TOMLは非秘密設定、`.env`は環境選択、外部サービスの認証情�
 ```dotenv
 DIVISION_OVERTIME_ENV=production
 KINGOFTIME_TOKEN=replace_me
-KOT_SYNC_DIVISION_CODES=156,158,300
+KOT_SYNC_DIVISION_CODES=100,200,300
 SLACK_BOT_TOKEN=xoxb-replace_me
 
 WEB_HOST=0.0.0.0
 WEB_PORT=8000
 WEB_LOG_LEVEL=INFO
-WEB_ADMIN_USERNAME=hiro
+WEB_ADMIN_USERNAME=admin
 WEB_ADMIN_PASSWORD_HASH=replace_with_argon2_hash
 WEB_VIEWER_USERNAME=viewer
 WEB_VIEWER_PASSWORD_HASH=replace_with_argon2_hash
@@ -108,11 +108,11 @@ chmod 600 config/production.toml
 ```toml
 [notifications]
 enable_self_notify = true
-self_notify_employee_codes = ["00711"]
+self_notify_employee_codes = ["00001"]
 
 [notifications.department_recipients]
 ALL = ["admin@example.com"]
-"156" = ["manager@example.com"]
+"100" = ["manager@example.com"]
 ```
 
 - `ALL`: 全社員を対象とする受信者
@@ -130,7 +130,6 @@ ALL = ["admin@example.com"]
 - `var/backups/`
 
 これらはGitへ追加しません。
-
 
 ## Web管理UIのロール
 

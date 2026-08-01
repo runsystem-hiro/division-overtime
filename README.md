@@ -4,8 +4,8 @@ KING OF TIMEの月次勤怠データを取得し、部署ごとの残業状況�
 
 ## 主な機能
 
-- 平日10:30の残業閾値通知
-- 金曜21:30の週次残業レポート
+- systemd timerによる残業閾値通知
+- systemd timerによる週次残業レポート
 - 部署・個人・既定値の優先順位による残業目安時間の判定
 - Slack DMによる部署向け・本人向け通知
 - ISO週単位の重複送信防止と失敗通知の再試行
@@ -15,7 +15,7 @@ KING OF TIMEの月次勤怠データを取得し、部署ごとの残業状況�
 - SQLiteから`employeeKey.csv`を生成する既存通知互換構成
 - KING OF TIME社員同期のプレビュー、選択適用、履歴、反映前バックアップ
 - 通知実行履歴の一覧・詳細・重複元追跡と送信先別結果の列ソート
-- 通知実行履歴は最新順で20件ずつ表示し、前へ・次へでページ移動できます。
+- 通知実行履歴はAPIページネーションで最新順に20件ずつ表示し、前へ・次へでページ移動
 - 稼働中SQLiteの安全な手動バックアップとDB観測
 - systemd service / timer、ローカルhealth check、デプロイ後health check
 
@@ -200,10 +200,9 @@ KING OF TIMEとの差分をcreate / update / reactivate / disable / unchangedで
 
 ![通知履歴](docs/images/notification-history.png)
 
-threshold / weekly / healthの実行結果、実行元、dry-run、本番実行、成功、一部失敗、失敗、送信先別結果、重複元を読み取り専用で確認できます。
+threshold / weekly / healthの実行結果、実行元、dry-run、本番実行、成功、一部失敗、失敗、送信先別結果、重複元を読み取り専用で確認できます。履歴一覧は最新順の20件固定でAPIから取得し、ページ移動後も詳細表示と再読込の現在ページを維持します。
 
 共通デザイントークンにより、配色、サーフェス、境界線、余白、フォーカス、軽量モーションを一元管理しています。PCとタブレットではテーブル表示を維持し、モバイル幅でカード表示へ切り替えます。
-
 
 ## 通知とスケジュール
 
@@ -267,7 +266,6 @@ VITE_NOTIFICATION_HISTORY_MOCK=true
 ```
 
 `npm --prefix frontend run dev` で起動すると、成功・一部失敗・失敗・dry-run・実行中・重複スキップ・保留を含む読み取り専用サンプルが表示されます。`import.meta.env.DEV` のときだけ有効なため、production buildと本番SQLiteには影響しません。
-
 
 ### Web管理UIナビゲーション
 

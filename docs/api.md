@@ -6,7 +6,7 @@ Web APIはFastAPIで提供します。healthとversion、ログイン、認証�
 
 ### `GET /api/system/health`
 
-Web serviceの稼働状態、version、時刻、timezone、frontend build、KOT同期設定を返します。外部サービスへ接続しません。v2.2.0本番では`status=ok`、`version=2.2.0`、`frontendBuilt=true`を確認します。
+Web serviceの稼働状態、version、時刻、timezone、frontend build、KOT同期設定を返します。外部サービスへ接続しません。リリース後は`status=ok`、`version=<VERSION>`、`frontendBuilt=true`を確認します。
 
 ### `GET /api/version`
 
@@ -65,7 +65,7 @@ Base path: `/api/notification-runs`
 - `GET /api/notification-runs`
 - `GET /api/notification-runs/{run_id}`
 
-一覧はmode、source、dry-run、status、対象数、attempt結果を返します。詳細は受信者別attempt、dedupe key、重複元run情報を含みます。
+一覧はmode、source、dry-run、status、対象数、attempt結果に加え、ページ情報と全履歴集計を返します。詳細は受信者別attempt、dedupe key、重複元run情報を含みます。
 
 ## API仕様の確認
 
@@ -97,4 +97,4 @@ Base path: `/api/notification-runs`
 }
 ```
 
-`summary` は現在ページではなく全履歴を対象に集計します。
+`summary` は現在ページではなく全履歴を対象に集計します。同一実行日時の履歴は実行IDを第二キーとして安定した順序で返します。Web UIは常に20件固定ですが、APIは過大取得を防ぐため`limit`を最大100に制限します。

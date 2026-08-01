@@ -70,7 +70,6 @@ Therefore, the same recipient and condition are deduplicated within an ISO week.
 - Login attempt rate limiting
 - KOT Key existing values are not returned to the browser
 
-
 ## Web frontend navigation
 
 認証後の管理画面は共通ヘッダーを持ち、次のURLへ分離しています。
@@ -81,7 +80,6 @@ Therefore, the same recipient and condition are deduplicated within an ISO week.
 
 画面遷移はブラウザのHistory APIを利用し、FastAPIのSPAフォールバックが各URLへの直接アクセスを`index.html`へ解決します。業務API、通知service、SQLiteスキーマには影響しません。
 
-
 ### Web UI design tokens
 
 Web管理UIは `frontend/src/styles.css` のCSSカスタムプロパティをデザイントークンとして利用する。色、サーフェス、境界線、角丸、影、フォーカスリング、モーション時間を共通化し、社員管理・KOT同期・通知履歴で同じ視覚ルールを適用する。`prefers-reduced-motion` を尊重し、業務操作を妨げるアニメーションは行わない。
@@ -91,7 +89,10 @@ KOT同期プレビューは取得件数・表示件数・選択件数を分離�
 
 通知履歴画面はexecution_runsとnotification_attemptsを読み取り専用で表示する。実行種別、実行元、dry-run、本番実行、成功、一部失敗、失敗を日本語ラベルで判別し、一覧集計と送信先別結果をPCではテーブル、狭い画面ではカードとして表示する。通知条件、重複防止、timer、送信処理は変更しない。
 
-
 ## Web管理UIヘッダー
 
 Web管理UIは左サイドバーを使用せず、共通ヘッダーに環境表示、社員・同期・履歴ナビゲーション、healthポップオーバー、アカウントメニューを集約します。PCとタブレットでは一覧性を優先してテーブル表示を維持し、モバイル幅でカード表示へ切り替えます。URLとAPI構成は変更しません。
+
+### Notification history pagination
+
+通知実行履歴一覧は、全履歴をブラウザへ返さず、APIの`limit` / `offset`とSQLiteの`LIMIT` / `OFFSET`で必要なページだけを取得する。Web UIは20件固定で、全件数と全履歴集計は別クエリで返す。詳細APIは実行IDで取得するため、ページ移動や一覧ソート後も行indexへ依存しない。
