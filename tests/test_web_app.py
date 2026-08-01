@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -142,3 +143,97 @@ def test_viewer_login_returns_viewer_role(tmp_path):
     assert login.status_code == 200
     assert login.json()["role"] == "viewer"
     assert client.get("/api/auth/me").json()["role"] == "viewer"
+
+
+def test_cloudflare_viewer_can_elevate_and_downgrade(tmp_path):
+    from datetime import timedelta
+
+    from division_overtime.web.cloudflare_access import CloudflareIdentity
+    from fastapi.testclient import TestClient
+
+    from division_overtime.web.app import create_app
+
+    class FakeVerifier:
+        def verify(self, token: str):
+            assert token == "valid-access-token"
+            return CloudflareIdentity(
+                email="allowed@example.com",
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+
+    config = _config(tmp_path)
+    app = create_app(config)
+    app.state.cloudflare_access_verifier = FakeVerifier()
+    client = TestClient(app)
+    headers = {"Cf-Access-Jwt-Assertion": "valid-access-token"}
+
+    viewer = client.get("/api/auth/status", headers=headers)
+    assert viewer.json()["user"]["role"] == "viewer"
+    assert viewer.json()["user"]["identitySource"] == "cloudflare_access"
+    assert viewer.json()["user"]["username"] == "allowed@example.com"
+
+    failed = client.post("/api/auth/elevate", headers=headers, json={"password": "wrong"})
+    assert failed.status_code == 401
+    assert client.get("/api/auth/status", headers=headers).json()["user"]["role"] == "viewer"
+
+    elevated = client.post(
+        "/api/auth/elevate", headers=headers, json={"password": "correct-password"}
+    )
+    assert elevated.status_code == 200
+    assert elevated.json()["role"] == "admin"
+    assert elevated.json()["elevatedUntil"] is not None
+
+    downgraded = client.post("/api/auth/downgrade", headers=headers)
+    assert downgraded.status_code == 200
+    assert downgraded.json()["role"] == "viewer"
+
+
+def test_cloudflare_session_is_not_accepted_without_access_identity(tmp_path):
+    from datetime import timedelta
+
+    from division_overtime.web.cloudflare_access import CloudflareIdentity
+    from fastapi.testclient import TestClient
+
+    from division_overtime.web.app import create_app
+
+    class FakeVerifier:
+        def verify(self, token: str):
+            return CloudflareIdentity(
+                email="allowed@example.com",
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+
+    app = create_app(_config(tmp_path))
+    app.state.cloudflare_access_verifier = FakeVerifier()
+    client = TestClient(app)
+    headers = {"Cf-Access-Jwt-Assertion": "valid-access-token"}
+    assert (
+        client.post(
+            "/api/auth/elevate", headers=headers, json={"password": "correct-password"}
+        ).status_code
+        == 200
+    )
+
+    assert client.get("/api/auth/me").status_code == 401
+
+
+def test_invalid_cloudflare_assertion_is_not_treated_as_viewer(tmp_path):
+    from division_overtime.web.cloudflare_access import CloudflareAccessError
+    from fastapi.testclient import TestClient
+
+    from division_overtime.web.app import create_app
+
+    class RejectingVerifier:
+        def verify(self, token: str):
+            raise CloudflareAccessError("invalid")
+
+    app = create_app(_config(tmp_path))
+    app.state.cloudflare_access_verifier = RejectingVerifier()
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/auth/status",
+        headers={"Cf-Access-Jwt-Assertion": "invalid-access-token"},
+    )
+
+    assert response.status_code == 401

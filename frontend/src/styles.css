@@ -3796,3 +3796,30 @@ body:has(.modal-backdrop) {
     width: 100%;
   }
 }
+
+/* issue #184: Cloudflare Access identity and privilege elevation */
+.account-menu-identity {
+  display: grid;
+  gap: 2px;
+  min-width: 190px;
+  padding: 8px 12px 10px;
+}
+.account-menu-identity strong {
+  text-transform: lowercase;
+}
+.account-menu-identity span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.account-menu-divider {
+  height: 1px;
+  margin: 2px 8px 6px;
+  background: rgb(148 163 184 / 18%);
+}
+.elevation-modal {
+  width: min(460px, 100%);
+}
+.elevation-modal .login-form {
+  padding-top: 4px;
+}
