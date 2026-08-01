@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -8,6 +8,10 @@ from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
 from division_overtime.web.app import create_app
+from division_overtime.web.cloudflare_access import (
+    CloudflareAccessError,
+    CloudflareIdentity,
+)
 from division_overtime.web.config import WebConfig
 
 
@@ -146,13 +150,6 @@ def test_viewer_login_returns_viewer_role(tmp_path):
 
 
 def test_cloudflare_viewer_can_elevate_and_downgrade(tmp_path):
-    from datetime import timedelta
-
-    from division_overtime.web.cloudflare_access import CloudflareIdentity
-    from fastapi.testclient import TestClient
-
-    from division_overtime.web.app import create_app
-
     class FakeVerifier:
         def verify(self, token: str):
             assert token == "valid-access-token"
@@ -189,13 +186,6 @@ def test_cloudflare_viewer_can_elevate_and_downgrade(tmp_path):
 
 
 def test_cloudflare_session_is_not_accepted_without_access_identity(tmp_path):
-    from datetime import timedelta
-
-    from division_overtime.web.cloudflare_access import CloudflareIdentity
-    from fastapi.testclient import TestClient
-
-    from division_overtime.web.app import create_app
-
     class FakeVerifier:
         def verify(self, token: str):
             return CloudflareIdentity(
@@ -218,11 +208,6 @@ def test_cloudflare_session_is_not_accepted_without_access_identity(tmp_path):
 
 
 def test_invalid_cloudflare_assertion_is_not_treated_as_viewer(tmp_path):
-    from division_overtime.web.cloudflare_access import CloudflareAccessError
-    from fastapi.testclient import TestClient
-
-    from division_overtime.web.app import create_app
-
     class RejectingVerifier:
         def verify(self, token: str):
             raise CloudflareAccessError("invalid")
