@@ -258,7 +258,7 @@ function NavIcon({ name }: { name: "employees" | "sync" | "history" }) {
 function UtilityIcon({
   name,
 }: {
-  name: "logout" | "activity" | "shield" | "user";
+  name: "logout" | "activity" | "shield" | "user" | "close";
 }) {
   const paths = {
     logout: (
@@ -283,6 +283,12 @@ function UtilityIcon({
       <>
         <circle cx="12" cy="8" r="4" />
         <path d="M4 22c0-4 3.6-7 8-7s8 3 8 7" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="M6 6l12 12" />
+        <path d="M18 6L6 18" />
       </>
     ),
   };
@@ -353,12 +359,29 @@ export function App() {
   const healthPopoverRef = useRef<HTMLElement>(null);
   const accountPopoverRef = useRef<HTMLDivElement>(null);
   const logoutButtonRef = useRef<HTMLButtonElement>(null);
+  const elevationTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handlePopState = () => setPath(window.location.pathname);
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+
+  useEffect(() => {
+    if (!elevationOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !elevationSubmitting) {
+        setElevationOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [elevationOpen, elevationSubmitting]);
+
+  useEffect(() => {
+    if (!elevationOpen) elevationTriggerRef.current?.focus();
+  }, [elevationOpen]);
 
   useLayoutEffect(() => {
     if (!healthOpen && !accountOpen) return;
@@ -426,9 +449,10 @@ export function App() {
       if (restoreFocus) window.requestAnimationFrame(() => trigger?.focus());
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closePopovers(true);
+      if (event.key === "Escape" && !elevationOpen) closePopovers(true);
     };
     const handlePointerDown = (event: PointerEvent) => {
+      if (elevationOpen) return;
       const target = event.target as Node;
       const insideHealth =
         healthTriggerRef.current?.contains(target) ||
@@ -445,7 +469,7 @@ export function App() {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [healthOpen, accountOpen]);
+  }, [healthOpen, accountOpen, elevationOpen]);
 
   useEffect(() => {
     if (accountOpen) logoutButtonRef.current?.focus();
@@ -1119,6 +1143,7 @@ export function App() {
                   {user.identitySource === "cloudflare_access" &&
                     (user.role === "viewer" ? (
                       <button
+                        ref={elevationTriggerRef}
                         type="button"
                         role="menuitem"
                         onClick={() => {
@@ -1934,11 +1959,12 @@ export function App() {
                   </div>
                   <button
                     type="button"
-                    className="modal-close"
+                    className="modal-close elevation-modal-close"
+                    aria-label="閉じる"
                     onClick={() => setElevationOpen(false)}
                     disabled={elevationSubmitting}
                   >
-                    閉じる
+                    <UtilityIcon name="close" />
                   </button>
                 </div>
                 <form className="login-form" onSubmit={handleElevation}>
