@@ -346,7 +346,8 @@ export function App() {
   const [syncStatus, setSyncStatus] = useState<KotSyncStatus | null>(null);
   const [syncDivisions, setSyncDivisions] = useState<KotSyncDivision[]>([]);
   const [newDivisionCode, setNewDivisionCode] = useState("");
-  const [divisionSubmitting, setDivisionSubmitting] = useState(false);
+  const [divisionAdding, setDivisionAdding] = useState(false);
+  const [divisionPendingCode, setDivisionPendingCode] = useState<string | null>(null);
   const [syncActions, setSyncActions] = useState({
     create: true,
     update: true,
@@ -825,7 +826,7 @@ export function App() {
 
   async function addSyncDivision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDivisionSubmitting(true);
+    setDivisionAdding(true);
     setError(null);
     const response = await fetch("/api/settings/kot-sync-divisions", {
       method: "POST",
@@ -833,7 +834,7 @@ export function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ divisionCode: newDivisionCode }),
     });
-    setDivisionSubmitting(false);
+    setDivisionAdding(false);
     if (!response.ok) {
       setError(await responseError(response));
       return;
@@ -846,7 +847,7 @@ export function App() {
   }
 
   async function setSyncDivisionEnabled(item: KotSyncDivision, isEnabled: boolean) {
-    setDivisionSubmitting(true);
+    setDivisionPendingCode(item.divisionCode);
     setError(null);
     const response = await fetch(
       `/api/settings/kot-sync-divisions/${encodeURIComponent(item.divisionCode)}`,
@@ -857,7 +858,7 @@ export function App() {
         body: JSON.stringify({ isEnabled }),
       },
     );
-    setDivisionSubmitting(false);
+    setDivisionPendingCode(null);
     if (!response.ok) {
       setError(await responseError(response));
       return;
@@ -886,13 +887,13 @@ export function App() {
     if (!confirmAction || confirmAction.kind !== "division-delete") return;
     const divisionCode = confirmAction.divisionCode;
     setConfirmAction(null);
-    setDivisionSubmitting(true);
+    setDivisionPendingCode(divisionCode);
     setError(null);
     const response = await fetch(
       `/api/settings/kot-sync-divisions/${encodeURIComponent(divisionCode)}`,
       { method: "DELETE", credentials: "same-origin" },
     );
-    setDivisionSubmitting(false);
+    setDivisionPendingCode(null);
     if (!response.ok) {
       setError(await responseError(response));
       return;
@@ -1654,46 +1655,57 @@ export function App() {
                         placeholder="部門コード"
                         value={newDivisionCode}
                         onChange={(event) => setNewDivisionCode(event.target.value)}
-                        disabled={divisionSubmitting}
+                        disabled={divisionAdding}
                       />
                       <button
                         className="button-secondary"
                         type="submit"
-                        disabled={divisionSubmitting || newDivisionCode.trim() === ""}
+                        disabled={divisionAdding || newDivisionCode.trim() === ""}
                       >
-                        追加
+                        {divisionAdding ? "追加中…" : "追加"}
                       </button>
                     </form>
                   </div>
                   <div className="sync-division-list">
-                    {syncDivisions.map((item) => (
-                      <article key={item.divisionCode} className="sync-division-item">
-                        <div>
-                          <strong>{item.divisionCode}</strong>
-                          <span className={item.isEnabled ? "status-enabled" : "status-disabled"}>
-                            {item.isEnabled ? "有効" : "無効"}
-                          </span>
-                        </div>
-                        <div className="sync-division-actions">
-                          <button
-                            className="button-secondary"
-                            type="button"
-                            disabled={divisionSubmitting}
-                            onClick={() => setSyncDivisionEnabled(item, !item.isEnabled)}
-                          >
-                            {item.isEnabled ? "無効化" : "有効化"}
-                          </button>
-                          <button
-                            className="button-danger"
-                            type="button"
-                            disabled={divisionSubmitting}
-                            onClick={() => confirmDeleteSyncDivision(item)}
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </article>
-                    ))}
+                    {syncDivisions.map((item) => {
+                      const isPending = divisionPendingCode === item.divisionCode;
+                      return (
+                        <article
+                          key={item.divisionCode}
+                          className={`sync-division-item ${item.isEnabled ? "is-enabled" : "is-disabled"}`}
+                        >
+                          <div className="sync-division-item-heading">
+                            <div>
+                              <span className="sync-division-label">部門コード</span>
+                              <strong>{item.divisionCode}</strong>
+                            </div>
+                            <button
+                              className="sync-division-delete"
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => confirmDeleteSyncDivision(item)}
+                            >
+                              削除
+                            </button>
+                          </div>
+                          <div className="sync-division-state-row">
+                            <span className="sync-division-state-copy">
+                              {item.isEnabled ? "同期対象" : "同期対象外"}
+                            </span>
+                            <button
+                              className={`sync-division-toggle ${item.isEnabled ? "is-enabled" : "is-disabled"}`}
+                              type="button"
+                              aria-pressed={item.isEnabled}
+                              aria-label={`部門コード ${item.divisionCode} を${item.isEnabled ? "無効" : "有効"}にする`}
+                              disabled={isPending}
+                              onClick={() => setSyncDivisionEnabled(item, !item.isEnabled)}
+                            >
+                              {isPending ? "更新中…" : item.isEnabled ? "有効" : "無効"}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </section>
               )}
@@ -2182,7 +2194,7 @@ export function App() {
                 confirmAction.kind === "sync" ? "反映する" : "削除する"
               }
               tone={confirmAction.kind === "sync" ? "primary" : "danger"}
-              busy={submitting || syncing || divisionSubmitting}
+              busy={submitting || syncing || divisionAdding || divisionPendingCode !== null}
               onCancel={() => setConfirmAction(null)}
               onConfirm={
                 confirmAction.kind === "delete"
