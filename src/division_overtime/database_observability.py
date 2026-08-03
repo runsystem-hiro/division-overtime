@@ -22,6 +22,9 @@ class DatabaseObservation:
     total_bytes: int
     table_counts: dict[str, int]
     notification_attempt_counts: dict[str, int]
+    employee_total_count: int
+    employee_enabled_count: int
+    employee_disabled_count: int
     integrity_check: str
 
 
@@ -45,6 +48,12 @@ def observe_database(database: Database) -> DatabaseObservation:
                 "FROM notification_attempts GROUP BY status ORDER BY status"
             )
         }
+        employee_counts = conn.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN is_enabled=1 THEN 1 ELSE 0 END) AS enabled, "
+            "SUM(CASE WHEN is_enabled=0 THEN 1 ELSE 0 END) AS disabled "
+            "FROM employees"
+        ).fetchone()
         integrity_check = str(conn.execute("PRAGMA integrity_check").fetchone()[0])
 
     database_bytes = _file_size(database_path)
@@ -58,6 +67,9 @@ def observe_database(database: Database) -> DatabaseObservation:
         total_bytes=database_bytes + wal_bytes + shm_bytes,
         table_counts=table_counts,
         notification_attempt_counts=attempt_counts,
+        employee_total_count=int(employee_counts["total"] or 0),
+        employee_enabled_count=int(employee_counts["enabled"] or 0),
+        employee_disabled_count=int(employee_counts["disabled"] or 0),
         integrity_check=integrity_check,
     )
 

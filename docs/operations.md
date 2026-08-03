@@ -118,3 +118,18 @@ Web管理UIで次を確認できます。
 ## Cloudflare Access認証の確認
 
 公開URLではGoogle認証後にviewerで表示されること、管理者モードの成功・失敗、閲覧者モードへの降格、Accessログアウトを確認します。ローカルURLでは従来のログイン画面が表示されることを確認します。JWTやパスワードをログへ出力しないでください。
+
+
+## 社員件数の見方
+
+検証ログでは、SQLiteに保持する社員総数と、既存通知処理が読む`employeeKey.csv`の件数を分けて表示します。
+
+```text
+employee_count.database_total=19
+employee_count.database_enabled=18
+employee_count.database_disabled=1
+employee_count.csv_records=18
+employee_consistency=ok mismatches=0
+```
+
+SQLiteには無効社員も保持するため、`database_total`と`csv_records`が異なるだけでは不整合ではありません。整合性比較はDBの有効社員とCSV実レコードを対象とし、`employee_consistency=ok mismatches=0`であれば正常です。CSVヘッダーは`csv_records`へ含めません。

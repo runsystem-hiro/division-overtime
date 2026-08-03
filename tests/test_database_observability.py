@@ -32,4 +32,30 @@ def test_observe_database_reports_sizes_counts_and_integrity(tmp_path: Path) -> 
     assert observation.table_counts["employees"] == 0
     assert observation.table_counts["kot_sync_runs"] == 0
     assert observation.notification_attempt_counts == {"sent": 1}
+    assert observation.employee_total_count == 0
+    assert observation.employee_enabled_count == 0
+    assert observation.employee_disabled_count == 0
     assert observation.integrity_check == "ok"
+
+
+def test_observe_database_reports_enabled_and_disabled_employee_counts(tmp_path: Path) -> None:
+    db = Database(tmp_path / "division_overtime.sqlite3")
+    db.initialize()
+    with db.transaction() as conn:
+        conn.executemany(
+            "INSERT INTO employees("
+            "code,kot_key,last_name,first_name,division_code,division_name,"
+            "is_enabled,created_at,updated_at"
+            ") VALUES(?, ?, 'Test', 'User', '100', 'Division', ?, 'now', 'now')",
+            [("00001", "key-1", 1), ("00002", "key-2", 0)],
+        )
+
+    observation = observe_database(db)
+
+    assert observation.employee_total_count == 2
+    assert observation.employee_enabled_count == 1
+    assert observation.employee_disabled_count == 1
+    assert (
+        observation.employee_total_count
+        == observation.employee_enabled_count + observation.employee_disabled_count
+    )

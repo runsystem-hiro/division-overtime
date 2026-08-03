@@ -148,6 +148,9 @@ def test_employee_data_consistency_returns_zero_when_data_matches(
     assert result == 0
     assert capsys.readouterr().out == (
         "employee_data_consistency=ok database_employees=1 csv_employees=1\n"
+        "employee_count.database_enabled=1\n"
+        "employee_count.csv_records=1\n"
+        "employee_consistency=ok mismatches=0\n"
     )
 
 
@@ -183,6 +186,9 @@ def test_employee_data_consistency_reports_missing_and_changed_records(tmp_path:
     output = capsys.readouterr().out
     assert output == (
         "employee_data_consistency=mismatch database_employees=2 csv_employees=2\n"
+        "employee_count.database_enabled=2\n"
+        "employee_count.csv_records=2\n"
+        "employee_consistency=mismatch mismatches=3\n"
         "database_only employee_code=00002\n"
         "csv_only employee_code=00003\n"
         "field_mismatch employee_code=00001 fields=kot_key,email\n"
