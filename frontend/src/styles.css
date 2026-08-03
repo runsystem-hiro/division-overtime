@@ -3848,3 +3848,64 @@ body:has(.modal-backdrop) {
   background: transparent;
   box-shadow: none;
 }
+
+/* issue #192: KOT sync division settings */
+.sync-division-card {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.sync-division-form {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.sync-division-form input {
+  width: 10rem;
+}
+.sync-division-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.sync-division-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: rgb(15 22 40 / 42%);
+}
+.sync-division-item > div,
+.sync-division-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.sync-division-item .status-enabled,
+.sync-division-item .status-disabled {
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.sync-division-item .status-enabled {
+  color: var(--success);
+  background: var(--success-soft);
+}
+.sync-division-item .status-disabled {
+  color: var(--text-muted);
+  background: rgb(148 163 184 / 12%);
+}
+@media (max-width: 720px) {
+  .sync-division-form,
+  .sync-division-item,
+  .sync-division-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .sync-division-form input {
+    width: 100%;
+  }
+}

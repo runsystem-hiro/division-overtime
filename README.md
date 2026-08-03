@@ -285,3 +285,5 @@ VITE_NOTIFICATION_HISTORY_MOCK=true
 公開URLをCloudflare TunnelとCloudflare Accessで保護する場合、アプリは検証済みのAccess JWTを受け取ったユーザーをviewerとして自動認証できます。管理操作はアカウントメニューの「管理者モード」から管理者パスワードを追加認証し、既定30分だけ有効にします。
 
 ローカルの `http://<host>:8000/` にはAccess JWTがないため、従来のアプリ内ログイン画面を維持します。JWTがないリクエストを自動viewerとして扱うことはありません。
+
+- KOT同期対象部門を管理画面から追加・無効化・再有効化・削除

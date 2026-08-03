@@ -133,6 +133,13 @@ type KotSyncStatus = {
   } | null;
 };
 
+type KotSyncDivision = {
+  divisionCode: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type KotSyncApplyResult = {
   status: "ok";
   counts: {
@@ -174,6 +181,7 @@ type EmployeeConsistency = {
 type ConfirmAction =
   | { kind: "sync"; title: string; description: string }
   | { kind: "delete"; title: string; description: string }
+  | { kind: "division-delete"; title: string; description: string; divisionCode: string }
   | null;
 
 type EmployeeForm = {
@@ -336,6 +344,9 @@ export function App() {
   const [selectedSyncCodes, setSelectedSyncCodes] = useState<string[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<KotSyncStatus | null>(null);
+  const [syncDivisions, setSyncDivisions] = useState<KotSyncDivision[]>([]);
+  const [newDivisionCode, setNewDivisionCode] = useState("");
+  const [divisionSubmitting, setDivisionSubmitting] = useState(false);
   const [syncActions, setSyncActions] = useState({
     create: true,
     update: true,
@@ -541,6 +552,22 @@ export function App() {
     setSyncStatus((await response.json()) as KotSyncStatus);
   }, []);
 
+  const loadSyncDivisions = useCallback(async () => {
+    if (!isAdmin) {
+      setSyncDivisions([]);
+      return;
+    }
+    const response = await fetch("/api/settings/kot-sync-divisions", {
+      credentials: "same-origin",
+    });
+    if (response.status === 403) {
+      setSyncDivisions([]);
+      return;
+    }
+    if (!response.ok) throw new Error(await responseError(response));
+    setSyncDivisions((await response.json()) as KotSyncDivision[]);
+  }, [isAdmin]);
+
   const loadEmployees = useCallback(async () => {
     setLoadingEmployees(true);
     const params = new URLSearchParams({ enabled: enabledFilter });
@@ -581,7 +608,7 @@ export function App() {
         },
       ),
       loadEmployees(),
-      ...(isAdmin ? [loadConsistency()] : []),
+      ...(isAdmin ? [loadConsistency(), loadSyncDivisions()] : []),
       loadKotSyncStatus(),
     ])
       .then(([healthResponse]) => setHealth(healthResponse))
@@ -592,7 +619,7 @@ export function App() {
             : "情報を取得できませんでした",
         );
       });
-  }, [isAdmin, loadConsistency, loadEmployees, loadKotSyncStatus, user]);
+  }, [isAdmin, loadConsistency, loadEmployees, loadKotSyncStatus, loadSyncDivisions, user]);
 
   const counts = useMemo(
     () => ({
@@ -796,6 +823,85 @@ export function App() {
     setNotice(null);
   }
 
+  async function addSyncDivision(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDivisionSubmitting(true);
+    setError(null);
+    const response = await fetch("/api/settings/kot-sync-divisions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisionCode: newDivisionCode }),
+    });
+    setDivisionSubmitting(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    const created = (await response.json()) as KotSyncDivision;
+    setNewDivisionCode("");
+    setSyncPreview(null);
+    setNotice(`部門コード ${created.divisionCode} を同期対象として追加しました。`);
+    await loadSyncDivisions();
+  }
+
+  async function setSyncDivisionEnabled(item: KotSyncDivision, isEnabled: boolean) {
+    setDivisionSubmitting(true);
+    setError(null);
+    const response = await fetch(
+      `/api/settings/kot-sync-divisions/${encodeURIComponent(item.divisionCode)}`,
+      {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isEnabled }),
+      },
+    );
+    setDivisionSubmitting(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    setSyncPreview(null);
+    setNotice(
+      `部門コード ${item.divisionCode} を${isEnabled ? "有効化" : "無効化"}しました。`,
+    );
+    await loadSyncDivisions();
+  }
+
+  function confirmDeleteSyncDivision(item: KotSyncDivision) {
+    setConfirmAction({
+      kind: "division-delete",
+      divisionCode: item.divisionCode,
+      title: "同期対象部門を削除しますか",
+      description: [
+        `部門コード「${item.divisionCode}」を同期対象設定から削除します。`,
+        "次回以降のKOT同期では対象外になります。",
+        "既存の社員データ、同期履歴、バックアップ、通知履歴は削除されません。",
+      ].join("\n"),
+    });
+  }
+
+  async function executeDeleteSyncDivision() {
+    if (!confirmAction || confirmAction.kind !== "division-delete") return;
+    const divisionCode = confirmAction.divisionCode;
+    setConfirmAction(null);
+    setDivisionSubmitting(true);
+    setError(null);
+    const response = await fetch(
+      `/api/settings/kot-sync-divisions/${encodeURIComponent(divisionCode)}`,
+      { method: "DELETE", credentials: "same-origin" },
+    );
+    setDivisionSubmitting(false);
+    if (!response.ok) {
+      setError(await responseError(response));
+      return;
+    }
+    setSyncPreview(null);
+    setNotice(`部門コード ${divisionCode} を同期対象設定から削除しました。`);
+    await loadSyncDivisions();
+  }
+
   async function loadKotPreview() {
     setSyncing(true);
     setError(null);
@@ -868,7 +974,7 @@ export function App() {
     setSelectedSyncCodes([]);
     await Promise.all([
       loadEmployees(),
-      ...(isAdmin ? [loadConsistency()] : []),
+      ...(isAdmin ? [loadConsistency(), loadSyncDivisions()] : []),
       loadKotSyncStatus(),
     ]);
   }
@@ -913,7 +1019,7 @@ export function App() {
     );
     await Promise.all([
       loadEmployees(),
-      ...(isAdmin ? [loadConsistency()] : []),
+      ...(isAdmin ? [loadConsistency(), loadSyncDivisions()] : []),
       loadKotSyncStatus(),
     ]);
   }
@@ -1531,6 +1637,66 @@ export function App() {
                   差分を確認し、選択した変更だけを社員管理へ安全に反映します。
                 </p>
               </section>
+              {isAdmin && (
+                <section className="employee-card sync-division-card">
+                  <div className="sync-heading">
+                    <div>
+                      <p className="eyebrow">SYNC SETTINGS</p>
+                      <h2>同期対象部門</h2>
+                      <p className="muted">
+                        有効な部門だけを次回のKOT取得・プレビュー対象にします。
+                      </p>
+                    </div>
+                    <form className="sync-division-form" onSubmit={addSyncDivision}>
+                      <input
+                        aria-label="追加する部門コード"
+                        inputMode="numeric"
+                        placeholder="部門コード"
+                        value={newDivisionCode}
+                        onChange={(event) => setNewDivisionCode(event.target.value)}
+                        disabled={divisionSubmitting}
+                      />
+                      <button
+                        className="button-secondary"
+                        type="submit"
+                        disabled={divisionSubmitting || newDivisionCode.trim() === ""}
+                      >
+                        追加
+                      </button>
+                    </form>
+                  </div>
+                  <div className="sync-division-list">
+                    {syncDivisions.map((item) => (
+                      <article key={item.divisionCode} className="sync-division-item">
+                        <div>
+                          <strong>{item.divisionCode}</strong>
+                          <span className={item.isEnabled ? "status-enabled" : "status-disabled"}>
+                            {item.isEnabled ? "有効" : "無効"}
+                          </span>
+                        </div>
+                        <div className="sync-division-actions">
+                          <button
+                            className="button-secondary"
+                            type="button"
+                            disabled={divisionSubmitting}
+                            onClick={() => setSyncDivisionEnabled(item, !item.isEnabled)}
+                          >
+                            {item.isEnabled ? "無効化" : "有効化"}
+                          </button>
+                          <button
+                            className="button-danger"
+                            type="button"
+                            disabled={divisionSubmitting}
+                            onClick={() => confirmDeleteSyncDivision(item)}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
               <section className="employee-card sync-card">
                 <div className="sync-heading">
                   <div>
@@ -2013,15 +2179,17 @@ export function App() {
               title={confirmAction.title}
               description={confirmAction.description}
               confirmLabel={
-                confirmAction.kind === "delete" ? "削除する" : "反映する"
+                confirmAction.kind === "sync" ? "反映する" : "削除する"
               }
-              tone={confirmAction.kind === "delete" ? "danger" : "primary"}
-              busy={submitting || syncing}
+              tone={confirmAction.kind === "sync" ? "primary" : "danger"}
+              busy={submitting || syncing || divisionSubmitting}
               onCancel={() => setConfirmAction(null)}
               onConfirm={
                 confirmAction.kind === "delete"
                   ? executeDeleteEmployee
-                  : executeKotPreview
+                  : confirmAction.kind === "division-delete"
+                    ? executeDeleteSyncDivision
+                    : executeKotPreview
               }
             />
           )}

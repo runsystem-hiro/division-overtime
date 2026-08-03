@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -57,6 +58,7 @@ class _Preview:
     differences: list[SyncDifference]
     fetched_count: int
     target_count: int
+    target_division_codes: tuple[str, ...]
 
 
 class KotEmployeeClient:
@@ -171,6 +173,7 @@ class KotEmployeeSyncService:
         client: KotEmployeeSource,
         target_division_codes: tuple[str, ...],
         backup_root: Path | None = None,
+        target_division_codes_provider: Callable[[], tuple[str, ...]] | None = None,
     ) -> None:
         normalized_codes = tuple(
             dict.fromkeys(code.strip() for code in target_division_codes if code.strip())
@@ -181,6 +184,7 @@ class KotEmployeeSyncService:
         self.employee_csv = employee_csv
         self.client = client
         self.target_division_codes = normalized_codes
+        self.target_division_codes_provider = target_division_codes_provider
         self.backup_root = backup_root or database.path.parent / "backups" / "kot-sync"
         self.repository = EmployeeRepository(database)
         self._previews: dict[str, _Preview] = {}
@@ -188,7 +192,14 @@ class KotEmployeeSyncService:
 
     def preview(self) -> tuple[str, list[SyncDifference]]:
         fetched_employees = self.client.fetch()
-        target_codes = set(self.target_division_codes)
+        target_division_codes = (
+            self.target_division_codes_provider()
+            if self.target_division_codes_provider is not None
+            else self.target_division_codes
+        )
+        if not target_division_codes:
+            raise KotEmployeeSyncError("At least one KOT sync division code is required")
+        target_codes = set(target_division_codes)
         kot_employees = [
             employee for employee in fetched_employees if employee.division_code in target_codes
         ]
@@ -267,6 +278,7 @@ class KotEmployeeSyncService:
                 differences,
                 fetched_count=len(fetched_employees),
                 target_count=len(kot_employees),
+                target_division_codes=tuple(target_division_codes),
             )
         return preview_id, differences
 
@@ -279,7 +291,7 @@ class KotEmployeeSyncService:
         return {
             "fetchedCount": preview.fetched_count,
             "targetCount": preview.target_count,
-            "targetDivisionCodes": list(self.target_division_codes),
+            "targetDivisionCodes": list(preview.target_division_codes),
         }
 
     def _create_apply_backup(self, now: datetime) -> Path:
