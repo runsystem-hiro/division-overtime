@@ -83,6 +83,13 @@ def load_database_path(root: Path | None = None) -> Path:
     return root / raw["app"]["database_path"]
 
 
+def load_employee_csv_path(root: Path | None = None) -> Path:
+    """Resolve the configured employee CSV path without requiring service secrets."""
+    root = (root or Path.cwd()).resolve()
+    raw = _load_toml_config(root)
+    return root / raw["app"]["employee_csv"]
+
+
 def load_config(root: Path | None = None) -> AppConfig:
     root = (root or Path.cwd()).resolve()
     load_dotenv(root / ".env")
