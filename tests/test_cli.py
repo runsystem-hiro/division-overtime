@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -427,3 +428,139 @@ def test_database_backup_uses_explicit_output(tmp_path: Path, capsys):
     if os.name != "nt":
         assert destination.stat().st_mode & 0o777 == 0o600
     assert "database_backup=ok" in capsys.readouterr().out
+
+
+def test_database_migrate_backs_up_old_schema_and_preserves_data(tmp_path: Path, capsys):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    database = Database(db_path)
+    database.initialize()
+    with database.transaction() as conn:
+        conn.execute("UPDATE schema_meta SET value='7' WHERE key='schema_version'")
+        conn.execute("DROP TABLE kot_sync_divisions")
+        conn.execute(
+            "INSERT INTO employees("
+            "code, kot_key, last_name, first_name, division_code, division_name, "
+            "is_enabled, kot_exists, created_at, updated_at"
+            ") VALUES(?, ?, ?, ?, ?, ?, 1, 1, ?, ?)",
+            ("00001", "key-1", "Test", "User", "100", "Division", "now", "now"),
+        )
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("custom.sqlite3"),
+        output=Path("backups/before.sqlite3"),
+    )
+
+    result = _run_database_command(args)
+
+    backup = tmp_path / "backups" / "before.sqlite3"
+    assert result == 0
+    assert backup.exists()
+    with sqlite3.connect(backup) as conn:
+        assert (
+            conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0]
+            == "7"
+        )
+        assert conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0] == 1
+    with database.connect_readonly() as conn:
+        assert (
+            conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0]
+            == "8"
+        )
+        assert conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0] == 1
+        assert (
+            conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='kot_sync_divisions'"
+            ).fetchone()[0]
+            == "kot_sync_divisions"
+        )
+    output = capsys.readouterr().out
+    assert "database_migration_backup=ok" in output
+    assert "schema_version_before=7" in output
+    assert "schema_version_after=8" in output
+    assert "database_migration=ok" in output
+    assert "integrity_check=ok" in output
+
+
+def test_database_migrate_is_idempotent(tmp_path: Path):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    Database(db_path).initialize()
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("custom.sqlite3"),
+        output=Path("backups/before.sqlite3"),
+    )
+
+    assert _run_database_command(args) == 0
+    args.output = Path("backups/before-second.sqlite3")
+    assert _run_database_command(args) == 0
+    assert Database(db_path).is_initialized_readonly() is True
+
+
+def test_database_migrate_refuses_missing_database_without_creating_file(tmp_path: Path):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "missing.sqlite3"
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("missing.sqlite3"),
+        output=None,
+    )
+
+    with pytest.raises(RuntimeError, match="Database file does not exist"):
+        _run_database_command(args)
+
+    assert db_path.exists() is False
+    assert list((tmp_path / "var" / "backups").glob("**/*")) == []
+
+
+def test_database_migrate_stops_before_schema_change_when_backup_fails(tmp_path: Path, monkeypatch):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    database = Database(db_path)
+    database.initialize()
+    with database.transaction() as conn:
+        conn.execute("UPDATE schema_meta SET value='7' WHERE key='schema_version'")
+        conn.execute("DROP TABLE kot_sync_divisions")
+
+    def fail_backup(_destination: Path) -> None:
+        raise RuntimeError("forced backup failure")
+
+    monkeypatch.setattr(database, "backup_to", fail_backup)
+    monkeypatch.setattr("division_overtime.cli._database_for_args", lambda _root, _path: database)
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("custom.sqlite3"),
+        output=Path("backups/before.sqlite3"),
+    )
+
+    with pytest.raises(RuntimeError, match="forced backup failure"):
+        _run_database_command(args)
+
+    with database.connect_readonly() as conn:
+        assert (
+            conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0]
+            == "7"
+        )
+        assert (
+            conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='kot_sync_divisions'"
+            ).fetchone()
+            is None
+        )

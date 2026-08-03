@@ -3,11 +3,18 @@
 ## バックアップの種類
 
 - 手動SQLiteバックアップ: `var/backups/manual-database/`
+- deploy前DBバックアップ: `var/backups/deploy-database/`
 - KOT同期前バックアップ: `var/backups/kot-sync/`
 - employee CSV置換前バックアップ: `data/backups/employee-csv/`
 - 社員削除前バックアップ: `var/backups/employee-delete/`
 
 バックアップファイルはGitへ追加しません。
+
+## deploy前バックアップ
+
+正式deployでは`database migrate`が既存DBの存在とschema versionを確認し、SQLite Backup APIで`var/backups/deploy-database/<timestamp>/division_overtime.sqlite3`へバックアップしてからスキーマ更新を実行します。DB不在、バックアップ失敗、マイグレーション失敗、更新後integrityエラーのいずれかではWeb再起動へ進みません。
+
+`database migrate`は新規環境の初期化には使用しません。新規環境では明示的に`database init`を実行し、本番deployでは既存DBを暗黙作成しない運用を維持します。
 
 > 本番固有のインストールパス、service / timer名、実行ユーザー、バックアップ保存先、世代数はリポジトリ外の運用手順で管理してください。
 

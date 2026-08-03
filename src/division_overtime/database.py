@@ -263,6 +263,25 @@ class Database:
                 (str(SCHEMA_VERSION),),
             )
 
+    def schema_version_readonly(self) -> int:
+        if not self.path.is_file():
+            raise RuntimeError(f"Database file does not exist: {self.path}")
+        with self.connect_readonly() as conn:
+            table = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_meta'"
+            ).fetchone()
+            employees = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
+            ).fetchone()
+            if table is None or employees is None:
+                raise RuntimeError(f"Existing database is not migratable: {self.path}")
+            version = conn.execute(
+                "SELECT value FROM schema_meta WHERE key='schema_version'"
+            ).fetchone()
+        if version is None:
+            raise RuntimeError(f"Database schema version is missing: {self.path}")
+        return int(version["value"])
+
     def is_initialized(self) -> bool:
         if not self.path.exists():
             return False

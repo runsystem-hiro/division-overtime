@@ -64,3 +64,14 @@ def test_systemd_deployment_is_documented() -> None:
     assert "正式デプロイ時に`/etc/systemd/system/`へ反映" in operations
     assert "systemctl cat division-overtime-threshold.service" in operations
     assert "systemctl cat division-overtime-weekly.service" in operations
+
+
+def test_deploy_migrates_database_before_application_verification() -> None:
+    deploy = (PROJECT_ROOT / "scripts/deploy.sh").read_text(encoding="utf-8")
+
+    migration = '"$VENV_PYTHON" -m division_overtime.cli --root . database migrate'
+    assert migration in deploy
+    assert deploy.index(migration) < deploy.index("./scripts/verify.sh")
+    assert deploy.index("./scripts/verify.sh") < deploy.index(
+        'sudo systemctl restart "$WEB_SERVICE"'
+    )
