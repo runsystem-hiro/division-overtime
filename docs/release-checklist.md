@@ -71,6 +71,7 @@ git status --short
 curl -fsS <health-url>/api/system/health
 .venv/bin/division-overtime --root . database status
 .venv/bin/division-overtime --root . employees check-consistency
+.venv/bin/division-overtime --root . backups status
 systemctl list-timers --all | grep <timer-name-pattern>
 ```
 
@@ -81,6 +82,8 @@ systemctl list-timers --all | grep <timer-name-pattern>
 - `frontendBuilt=true`
 - SQLite integrity checkが`ok`
 - SQLite/CSV整合性が一致
+- 自動生成バックアップ4種が`retention=30`、`ignored=0`、`status=ok`
+- 手動バックアップが自動生成バックアップ件数に含まれていない
 - timerが`active (waiting)`
 - Web、通知、KOT同期に変更範囲外の異常がない
 
