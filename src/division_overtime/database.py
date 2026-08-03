@@ -8,7 +8,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 class Database:
@@ -158,6 +158,14 @@ class Database:
                 );
                 CREATE INDEX IF NOT EXISTS idx_employees_division
                     ON employees(division_code, is_enabled);
+                CREATE TABLE IF NOT EXISTS kot_sync_divisions (
+                    division_code TEXT PRIMARY KEY,
+                    is_enabled INTEGER NOT NULL DEFAULT 1 CHECK(is_enabled IN (0, 1)),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_kot_sync_divisions_enabled
+                    ON kot_sync_divisions(is_enabled, division_code);
                 CREATE TABLE IF NOT EXISTS kot_sync_runs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     executed_at TEXT NOT NULL,

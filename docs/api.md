@@ -102,3 +102,14 @@ Base path: `/api/notification-runs`
 ## Cloudflare Access viewerと権限昇格
 
 `GET /api/auth/status` と `GET /api/auth/me` は `identitySource`、`elevatedUntil`、`logoutUrl` を返します。Access viewerは `POST /api/auth/elevate` に管理者パスワードを送って一時的にadminへ昇格し、`POST /api/auth/downgrade` でviewerへ戻ります。未認証時のstatusはHTTP 200、meはHTTP 401を維持します。
+
+## KOT同期対象部門設定
+
+Base path: `/api/settings/kot-sync-divisions`
+
+- `GET /api/settings/kot-sync-divisions`
+- `POST /api/settings/kot-sync-divisions`
+- `PUT /api/settings/kot-sync-divisions/{division_code}`
+- `DELETE /api/settings/kot-sync-divisions/{division_code}`
+
+すべてadmin権限が必要です。追加・無効化・再有効化・削除はSQLiteの設定だけを変更し、KOT API、既存社員、`employeeKey.csv`、同期履歴、通知履歴を変更しません。KOT同期プレビュー開始時点の有効部門一覧を、そのプレビュー全体で使用します。

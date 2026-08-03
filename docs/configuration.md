@@ -17,6 +17,7 @@ TOMLは非秘密設定、`.env`は環境選択、外部サービスの認証情�
 ```dotenv
 DIVISION_OVERTIME_ENV=production
 KINGOFTIME_TOKEN=replace_me
+# SQLiteに同期対象部門が未登録の場合だけ使用する初期値
 KOT_SYNC_DIVISION_CODES=100,200,300
 SLACK_BOT_TOKEN=xoxb-replace_me
 
@@ -50,6 +51,8 @@ WEB_LOGIN_LOCKOUT_SECONDS=900
 - `WEB_SESSION_SECRET`（32文字以上）
 
 Web単体起動ではSlack tokenを必須としません。KOT同期は`KINGOFTIME_TOKEN`が未設定の場合、またはTOMLでKOTが無効の場合に利用できません。
+
+`KOT_SYNC_DIVISION_CODES`は、SQLiteにKOT同期対象部門が1件も登録されていない環境で初期データを作成するために使用します。初期化後はSQLiteを正本とし、adminモードの管理画面から部門コードの追加・無効化・再有効化・削除を行います。`.env`の値を変更しても、初期化済みの部門設定には反映されません。設定変更後のWebサービス再起動は不要です。
 
 パスワードハッシュ生成:
 

@@ -7,7 +7,7 @@ import pytest
 from division_overtime.database import Database
 
 
-def test_database_initialization_creates_employee_schema_version_7(tmp_path):
+def test_database_initialization_creates_employee_schema_version_8(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
     assert db.integrity_check() == "ok"
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "7"
+    assert version == "8"
     assert table["name"] == "employees"
 
 
@@ -118,10 +118,10 @@ def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tm
         ).fetchone()[0]
 
     assert "backup_path" in columns
-    assert version == "7"
+    assert version == "8"
 
 
-def test_database_initialization_adds_reactivated_count_and_schema_version_7(tmp_path):
+def test_database_initialization_adds_reactivated_count_and_schema_version_8(tmp_path):
     path = tmp_path / "test.sqlite3"
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -159,7 +159,7 @@ def test_database_initialization_adds_reactivated_count_and_schema_version_7(tmp
         ).fetchone()[0]
     assert "reactivated_count" in columns
     assert row["reactivated_count"] == 0
-    assert version == "7"
+    assert version == "8"
 
 
 def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
@@ -193,7 +193,7 @@ def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
             "SELECT value FROM schema_meta WHERE key='schema_version'"
         ).fetchone()
     assert row["source"] == "unknown"
-    assert version["value"] == "7"
+    assert version["value"] == "8"
 
 
 def test_start_run_records_execution_source(tmp_path):
@@ -267,6 +267,6 @@ def test_database_migrates_notification_attempts_for_duplicate_trace(tmp_path):
             "SELECT status, duplicate_of_attempt_id FROM notification_attempts"
         ).fetchone()
     assert "duplicate_of_attempt_id" in columns
-    assert version == "7"
+    assert version == "8"
     assert row["status"] == "sent"
     assert row["duplicate_of_attempt_id"] is None
