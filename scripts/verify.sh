@@ -12,4 +12,5 @@ cd "$PROJECT_ROOT"
 "$VENV_BIN/pytest" -q
 "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" validate-config
 "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" database status
+"$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" employees check-consistency
 "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" health

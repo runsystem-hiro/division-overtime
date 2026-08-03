@@ -337,3 +337,12 @@ def test_frontend_uses_typescript_6() -> None:
             json.loads((PROJECT_ROOT / "frontend/tsconfig.node.json").read_text(encoding="utf-8")),
         ]
     )
+
+
+def test_verify_reports_employee_count_breakdown_and_consistency() -> None:
+    verify = (PROJECT_ROOT / "scripts/verify.sh").read_text(encoding="utf-8")
+
+    assert "database status" in verify
+    assert "employees check-consistency" in verify
+    assert verify.index("database status") < verify.index("employees check-consistency")
+    assert verify.index("employees check-consistency") < verify.index(" health")

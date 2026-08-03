@@ -87,6 +87,9 @@ def _print_database_observation(observation: DatabaseObservation) -> None:
         print(f"table_count.{table}={count}")
     for status, count in observation.notification_attempt_counts.items():
         print(f"notification_attempt_count.{status}={count}")
+    print(f"employee_count.database_total={observation.employee_total_count}")
+    print(f"employee_count.database_enabled={observation.employee_enabled_count}")
+    print(f"employee_count.database_disabled={observation.employee_disabled_count}")
     print(f"integrity_check={observation.integrity_check}")
 
 
@@ -259,10 +262,19 @@ def _check_employee_consistency(
         print(json.dumps(_employee_consistency_payload(result), ensure_ascii=False))
         return 0 if result.is_consistent else 1
 
+    mismatch_count = (
+        len(result.database_only_codes) + len(result.csv_only_codes) + len(result.field_differences)
+    )
     print(
         "employee_data_consistency="
         f"{'ok' if result.is_consistent else 'mismatch'} "
         f"database_employees={result.database_count} csv_employees={result.csv_count}"
+    )
+    print(f"employee_count.database_enabled={result.database_count}")
+    print(f"employee_count.csv_records={result.csv_count}")
+    print(
+        "employee_consistency="
+        f"{'ok' if result.is_consistent else 'mismatch'} mismatches={mismatch_count}"
     )
     for code in result.database_only_codes:
         print(f"database_only employee_code={code}")
@@ -331,6 +343,7 @@ def main() -> int:
         if args.command == "validate-config":
             employees = load_employees(config.employee_csv)
             print(f"configuration=ok employees={len(employees)}")
+            print(f"employee_count.csv_records={len(employees)}")
             return 0
         if args.command == "health":
             db.initialize()
