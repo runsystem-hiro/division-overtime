@@ -500,6 +500,40 @@ describe("App", () => {
     ).toBeDisabled();
   });
 
+  it("同期対象部門を確認ダイアログなしで無効化する", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();
+      if (url === "/api/auth/status") {
+        return new Response(JSON.stringify({ authenticated: true, user: { username: "admin", role: "admin", expiresAt: null } }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/system/health") {
+        return new Response(JSON.stringify({ status: "ok", environment: "development" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/settings/kot-sync-divisions" && init?.method !== "POST") {
+        return new Response(JSON.stringify([{ divisionCode: "153", isEnabled: true, createdAt: "", updatedAt: "" }]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (url === "/api/settings/kot-sync-divisions/153" && init?.method === "PUT") {
+        return new Response(JSON.stringify({ divisionCode: "153", isEnabled: false, createdAt: "", updatedAt: "" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+
+    window.history.replaceState({}, "", "/kot-sync");
+    render(<App />);
+
+    const toggle = await screen.findByRole("button", { name: "部門コード 153 を無効にする" });
+    expect(toggle).toHaveTextContent("有効");
+    fireEvent.click(toggle);
+
+    expect(screen.queryByRole("dialog", { name: "同期対象部門を削除しますか" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings/kot-sync-divisions/153",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ isEnabled: false }) }),
+      );
+    });
+  });
+
   it("社員一覧を列見出しから昇順・降順に並べ替える", async () => {
     const employees = [
       { code: "00010", lastName: "山田", firstName: "太郎", fullName: "山田 太郎", email: "yamada@example.com", divisionCode: "200", divisionName: "営業部", personalTargetMinutes: 600, isEnabled: true, disabledReason: "", note: "", kotExists: true, createdAt: "2026-07-29T10:00:00+09:00", updatedAt: "2026-07-29T10:00:00+09:00" },

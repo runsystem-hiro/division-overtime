@@ -3849,7 +3849,7 @@ body:has(.modal-backdrop) {
   box-shadow: none;
 }
 
-/* issue #192: KOT sync division settings */
+/* issue #206: compact KOT sync division card grid */
 .sync-division-card {
   display: grid;
   gap: 1rem;
@@ -3861,51 +3861,103 @@ body:has(.modal-backdrop) {
   gap: 0.65rem;
 }
 .sync-division-form input {
-  width: 10rem;
+  width: min(13rem, 42vw);
 }
 .sync-division-list {
   display: grid;
-  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
 }
 .sync-division-item {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: rgb(15 22 40 / 42%);
+}
+.sync-division-item.is-disabled {
+  border-color: rgb(148 163 184 / 22%);
+  background: rgb(15 22 40 / 28%);
+}
+.sync-division-item-heading,
+.sync-division-state-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  background: rgb(15 22 40 / 42%);
+  gap: 0.75rem;
 }
-.sync-division-item > div,
-.sync-division-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
+.sync-division-item-heading > div {
+  display: grid;
+  gap: 0.18rem;
 }
-.sync-division-item .status-enabled,
-.sync-division-item .status-disabled {
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
+.sync-division-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sync-division-item strong {
+  font-size: 1.2rem;
+  letter-spacing: 0.02em;
+}
+.sync-division-state-copy {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
   font-weight: 700;
 }
-.sync-division-item .status-enabled {
+.sync-division-toggle,
+.sync-division-delete {
+  min-height: 34px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.sync-division-toggle {
+  min-width: 5.5rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid transparent;
+}
+.sync-division-toggle.is-enabled {
   color: var(--success);
+  border-color: rgb(52 211 153 / 26%);
   background: var(--success-soft);
 }
-.sync-division-item .status-disabled {
-  color: var(--text-muted);
-  background: rgb(148 163 184 / 12%);
+.sync-division-toggle.is-disabled {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: rgb(148 163 184 / 10%);
+}
+.sync-division-delete {
+  padding: 0.3rem 0.65rem;
+  color: var(--danger);
+  border: 1px solid transparent;
+  background: transparent;
+}
+.sync-division-delete:hover:not(:disabled) {
+  border-color: rgb(248 113 113 / 28%);
+  background: var(--danger-soft);
 }
 @media (max-width: 720px) {
-  .sync-division-form,
-  .sync-division-item,
-  .sync-division-actions {
+  .sync-division-form {
     align-items: stretch;
-    flex-direction: column;
+    flex-wrap: wrap;
   }
   .sync-division-form input {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    flex: 1 1 12rem;
+  }
+  .sync-division-form button {
+    flex: 0 0 auto;
+  }
+  .sync-division-list {
+    grid-template-columns: 1fr;
+  }
+  .sync-division-item {
+    gap: 0.7rem;
+    padding: 0.8rem 0.85rem;
   }
 }
