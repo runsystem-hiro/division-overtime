@@ -16,11 +16,19 @@ Web serviceの稼働状態、version、時刻、timezone、frontend build、KOT�
 
 ### `POST /api/auth/login`
 
-管理者ログイン。成功時にHTTP only / SameSite strictのセッションcookieを設定します。失敗回数によるrate limitがあります。
+ローカルユーザー認証です。設定された資格情報に応じてadminまたはviewerのセッションを作成し、HTTP only / SameSite strictのcookieを設定します。失敗回数によるrate limitがあります。Cloudflare Access経由のviewer自動認証には使用しません。
+
+### `POST /api/auth/elevate`
+
+Cloudflare Accessでviewerとして認証済みの利用者が、管理者パスワードを使って一時的にadminへ昇格します。Cloudflare Access identityがない場合はHTTP 403、パスワード不一致はHTTP 401です。
+
+### `POST /api/auth/downgrade`
+
+Cloudflare Accessでadminへ昇格した利用者をviewerへ戻します。Cloudflare Access identityがない場合はHTTP 403です。Cloudflare Access自体のログアウトは行いません。
 
 ### `POST /api/auth/logout`
 
-セッションを削除します。
+アプリのセッションcookieを削除します。Cloudflare Access利用時のAccessログアウト先は認証状態レスポンスの`logoutUrl`で返します。
 
 ### `GET /api/auth/status`
 

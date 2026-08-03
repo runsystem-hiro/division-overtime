@@ -143,4 +143,6 @@ ALL = ["admin@example.com"]
 
 ## Cloudflare Access
 
-公開URLでviewer自動認証を使う場合は `CLOUDFLARE_ACCESS_ENABLED=true` とし、team domainとApplication Audienceを環境変数へ設定します。実値、メールアドレス、JWT、パスワードはリポジトリへ保存しません。`ADMIN_ELEVATION_MINUTES` の既定値は30です。
+本番の標準運用では、公開URLでCloudflare Accessを通過した利用者をviewerとして自動認証し、管理操作時だけ管理者パスワードで一時的にadminへ昇格します。ローカルURLでは、設定したadmin / viewerのユーザー名・パスワード認証を使用します。
+
+公開URLでviewer自動認証を使う場合は`CLOUDFLARE_ACCESS_ENABLED=true`とし、team domainとApplication Audienceを環境変数へ設定します。実値、メールアドレス、JWT、パスワードはリポジトリへ保存しません。`ADMIN_ELEVATION_MINUTES`の既定値は30です。

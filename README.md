@@ -152,6 +152,9 @@ systemd unitは`systemd/`配下に同梱しています。実際のunit名、配
 .venv/bin/division-overtime --root . database status
 .venv/bin/division-overtime --root . database backup
 
+# 自動生成バックアップの保持状態確認
+.venv/bin/division-overtime --root . backups status
+
 # SQLiteとCSVの整合性確認
 .venv/bin/division-overtime --root . employees check-consistency
 ```
@@ -178,7 +181,9 @@ http://<host>:<port>/
 - KOT同期プレビューで判定別フィルター、表示中の一括選択、選択内訳、反映件数を確認
 - 通知実行履歴の集計、成功・一部失敗・dry-runの判別、送信先別結果、重複元の確認
 
-Web管理UIの起動には`.env`の管理者認証・セッション設定が必要です。モバイルでは長いモーダルをビューポート上端へ固定し、本文を内部スクロールさせて主要操作を常に画面内へ保ちます。任意で閲覧専用ユーザーを設定でき、社員・同期・履歴を閲覧できますが、社員変更、整合性の再確認、KOT取得・同期反映はUIとAPIの両方で禁止されます。画面URLは`/`（社員管理）、`/kot-sync`（KOT同期）、`/notifications`（通知履歴）です。FastAPIのSPAフォールバックにより各URLを直接開けます。共通ヘッダーには環境表示、主要画面ナビゲーション、health表示、アカウント操作を集約しています。
+Web管理UIの起動には`.env`の管理者認証・セッション設定が必要です。本番公開URLではCloudflare Access認証を通過した利用者をviewerとして自動認証し、社員・同期・履歴を閲覧できます。管理操作が必要な場合だけ管理者パスワードを入力して一時的にadminへ昇格し、操作後はviewerへ明示的に降格できます。AccessログアウトはCloudflare Access側の認証セッションを終了します。ローカル環境では、設定したadmin / viewerのユーザー名・パスワード認証も利用できます。viewerは社員変更、整合性の再確認、KOT取得・同期反映をUIとAPIの両方で禁止されます。
+
+モバイルでは長いモーダルをビューポート上端へ固定し、本文を内部スクロールさせて主要操作を常に画面内へ保ちます。画面URLは`/`（社員管理）、`/kot-sync`（KOT同期）、`/notifications`（通知履歴）です。FastAPIのSPAフォールバックにより各URLを直接開けます。共通ヘッダーには環境表示、主要画面ナビゲーション、health表示、アカウント操作を集約しています。
 
 操作結果は右上の共通トーストで表示します。成功通知は一定時間後に自動で閉じ、エラーは利用者が確認して閉じるまで維持します。社員削除やKOT同期反映などの重要操作は、影響を確認できる共通ダイアログを経由します。アニメーションは短く控えめにし、`prefers-reduced-motion`にも対応しています。
 
