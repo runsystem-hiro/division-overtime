@@ -6,8 +6,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from .backup_observability import BackupObservation, observe_automatic_backups
 from .backup_retention import AUTOMATIC_BACKUP_RETENTION, prune_backup_directories
-from .config import ConfigError, load_config, load_database_path
+from .config import ConfigError, load_config, load_database_path, load_employee_csv_path
 from .database import SCHEMA_VERSION, Database
 from .database_observability import DatabaseObservation, observe_database
 from .employee_consistency import (
@@ -35,6 +36,8 @@ def _parser() -> argparse.ArgumentParser:
         help="execution source recorded in notification history",
     )
     sub.add_parser("health")
+    backups_parser = sub.add_parser("backups")
+    backups_parser.add_argument("action", choices=["status"])
     db_parser = sub.add_parser("database")
     db_parser.add_argument("action", choices=["init", "migrate", "status", "backup"])
     db_parser.add_argument(
@@ -91,6 +94,26 @@ def _print_database_observation(observation: DatabaseObservation) -> None:
     print(f"employee_count.database_enabled={observation.employee_enabled_count}")
     print(f"employee_count.database_disabled={observation.employee_disabled_count}")
     print(f"integrity_check={observation.integrity_check}")
+
+
+def _print_backup_observation(observation: BackupObservation) -> None:
+    prefix = f"backup.{observation.name}"
+    print(f"{prefix}.count={observation.count}")
+    print(f"{prefix}.retention={observation.retention}")
+    print(f"{prefix}.latest={observation.latest or 'none'}")
+    print(f"{prefix}.ignored={observation.ignored_count}")
+    print(f"{prefix}.status={observation.status}")
+
+
+def _run_backups_command(args: argparse.Namespace) -> int:
+    root = args.root.resolve()
+    observations = observe_automatic_backups(
+        database_path=load_database_path(root),
+        employee_csv=load_employee_csv_path(root),
+    )
+    for observation in observations:
+        _print_backup_observation(observation)
+    return 0
 
 
 def _run_database_command(args: argparse.Namespace) -> int:
@@ -311,6 +334,9 @@ def _record_employee_consistency(db: Database, employee_csv: Path, history_path:
 def main() -> int:
     args = _parser().parse_args()
     try:
+        if args.command == "backups":
+            return _run_backups_command(args)
+
         if args.command == "database":
             logging.basicConfig(
                 level=logging.INFO,

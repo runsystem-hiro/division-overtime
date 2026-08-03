@@ -133,3 +133,16 @@ employee_consistency=ok mismatches=0
 ```
 
 SQLiteには無効社員も保持するため、`database_total`と`csv_records`が異なるだけでは不整合ではありません。整合性比較はDBの有効社員とCSV実レコードを対象とし、`employee_consistency=ok mismatches=0`であれば正常です。CSVヘッダーは`csv_records`へ含めません。
+
+## 自動生成バックアップの状態確認
+
+バックアップを生成・削除せず、現在の世代数と保持状態だけを確認する。
+
+```bash
+.venv/bin/division-overtime --root . backups status
+```
+
+各種別について `count`、`retention`、`latest`、`ignored`、`status` を表示する。
+`status=ok` は認識された世代が保持上限以内で、不正・未管理項目がない状態を示す。
+`status=warning` は保持上限超過、symlink、不正な世代名、必要ファイル不足など、診断対象から除外した項目がある状態を示す。
+ディレクトリが未作成で0件の場合は正常である。手動バックアップは自動生成バックアップの件数に含めない。

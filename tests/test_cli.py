@@ -630,3 +630,36 @@ def test_database_migrate_prune_failure_does_not_fail_migration(
     assert _run_database_command(args) == 0
     assert Database(db_path).is_initialized_readonly() is True
     assert "database_migration_backup_prune=failed" in caplog.text
+
+
+def test_backups_status_prints_read_only_summary(tmp_path: Path, capsys) -> None:
+    from argparse import Namespace
+    from datetime import datetime
+
+    from division_overtime.cli import _run_backups_command
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "default.toml").write_text(
+        '[app]\ndatabase_path = "var/division_overtime.sqlite3"\n'
+        'employee_csv = "data/employeeKey.csv"\n',
+        encoding="utf-8",
+    )
+    backup_root = tmp_path / "var" / "backups" / "deploy-database"
+    generation = backup_root / datetime(2026, 8, 3, 17, 15, 55, 367173).strftime("%Y%m%d_%H%M%S_%f")
+    generation.mkdir(parents=True)
+    (generation / "division_overtime.sqlite3").write_text("backup", encoding="utf-8")
+    before = (generation / "division_overtime.sqlite3").read_bytes()
+
+    assert _run_backups_command(Namespace(root=tmp_path, action="status")) == 0
+
+    output = capsys.readouterr().out
+    assert "backup.deploy_database.count=1" in output
+    assert "backup.deploy_database.retention=30" in output
+    assert "backup.deploy_database.latest=20260803_171555_367173" in output
+    assert "backup.deploy_database.ignored=0" in output
+    assert "backup.deploy_database.status=ok" in output
+    assert "backup.employee_delete.count=0" in output
+    assert "backup.employee_csv.count=0" in output
+    assert "backup.kot_sync.count=0" in output
+    assert (generation / "division_overtime.sqlite3").read_bytes() == before
