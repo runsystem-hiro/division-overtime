@@ -16,6 +16,21 @@
 
 `database migrate`は新規環境の初期化には使用しません。新規環境では明示的に`database init`を実行し、本番deployでは既存DBを暗黙作成しない運用を維持します。
 
+deploy前DBバックアップは、バックアップ作成・マイグレーション・更新後integrity確認が成功した後に、認識可能な正常世代だけを対象として最新30世代を保持します。整理に失敗した場合は警告を記録し、次回deployで再試行します。
+
+## 自動生成バックアップの保持
+
+自動生成バックアップは次の保持方針です。保持数は共通定数で30に統一します。
+
+- `var/backups/deploy-database/`: 最新30世代
+- `var/backups/kot-sync/`: 最新30世代（現行動作を維持）
+- `var/backups/employee-delete/`: 最新30世代
+- `data/backups/employee-csv/`: 最新30ファイル
+
+社員削除前バックアップはDBとCSVが揃った正常世代だけを対象にし、社員削除が成功した後に整理します。employee CSV置換前バックアップはCSVの安全な置換が成功した後に整理します。想定外のファイル・不完全世代・symlinkは自動削除しません。
+
+`var/backups/manual-database/`、`var/backups/manual-restore/`、`var/backups/restore-test/`は自動削除の対象外です。
+
 > 本番固有のインストールパス、service / timer名、実行ユーザー、バックアップ保存先、世代数はリポジトリ外の運用手順で管理してください。
 
 ## 稼働中SQLiteの手動バックアップ

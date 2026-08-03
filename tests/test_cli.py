@@ -564,3 +564,63 @@ def test_database_migrate_stops_before_schema_change_when_backup_fails(tmp_path:
             ).fetchone()
             is None
         )
+
+
+def test_database_migrate_prunes_oldest_default_deploy_backup(tmp_path: Path, capsys):
+    from argparse import Namespace
+    from datetime import datetime, timedelta
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    Database(db_path).initialize()
+    backup_root = tmp_path / "var" / "backups" / "deploy-database"
+    start = datetime(2026, 7, 1, 0, 0)
+    oldest = None
+    for index in range(30):
+        generation = backup_root / (start + timedelta(hours=index)).strftime("%Y%m%d_%H%M%S_%f")
+        generation.mkdir(parents=True)
+        (generation / "division_overtime.sqlite3").write_text("backup", encoding="utf-8")
+        oldest = generation if oldest is None else oldest
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("custom.sqlite3"),
+        output=None,
+    )
+
+    assert _run_database_command(args) == 0
+
+    assert oldest is not None
+    assert oldest.exists() is False
+    assert len([path for path in backup_root.iterdir() if path.is_dir()]) == 30
+    output = capsys.readouterr().out
+    assert "database_migration_backup_prune=ok" in output
+    assert "removed=1" in output
+    assert "retained=30" in output
+
+
+def test_database_migrate_prune_failure_does_not_fail_migration(
+    tmp_path: Path, monkeypatch, caplog
+):
+    from argparse import Namespace
+
+    from division_overtime.cli import _run_database_command
+
+    db_path = tmp_path / "custom.sqlite3"
+    Database(db_path).initialize()
+
+    def fail_prune(*_args, **_kwargs):
+        raise OSError("simulated prune failure")
+
+    monkeypatch.setattr("division_overtime.cli.prune_backup_directories", fail_prune)
+    args = Namespace(
+        root=tmp_path,
+        action="migrate",
+        path=Path("custom.sqlite3"),
+        output=None,
+    )
+
+    assert _run_database_command(args) == 0
+    assert Database(db_path).is_initialized_readonly() is True
+    assert "database_migration_backup_prune=failed" in caplog.text

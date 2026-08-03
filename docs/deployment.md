@@ -73,6 +73,8 @@ var/backups/deploy-database/<timestamp>/division_overtime.sqlite3
 
 バックアップのintegrity確認に失敗した場合はマイグレーションを開始しません。成功時はdeployログにバックアップ先、`schema_version_before`、`schema_version_after`、`integrity_check=ok`を出力します。マイグレーションまたは検証に失敗した場合、systemd unit反映とWeb再起動へ進みません。最新schemaへの再実行も安全です。
 
+マイグレーションと更新後integrity確認の成功後、`deploy-database`の正常なバックアップ世代を最新30世代へ整理します。想定外ディレクトリ、symlink、不完全な世代は削除しません。古い世代の削除に失敗した場合は警告に留め、deploy本体は継続します。
+
 ## デプロイ後確認
 
 環境固有値はリポジトリ外の運用手順から設定します。

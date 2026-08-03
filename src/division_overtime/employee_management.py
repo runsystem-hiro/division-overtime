@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from .backup_retention import AUTOMATIC_BACKUP_RETENTION, prune_backup_directories
 from .database import Database
 from .employee_repository import EmployeeRepository, ManagedEmployee
 from .employees import EmployeeCsvGenerationResult, generate_employee_csv, load_employees
+
+logger = logging.getLogger(__name__)
 
 
 class EmployeeManagementError(RuntimeError):
@@ -115,6 +119,7 @@ class EmployeeManagementService:
                         self.employee_csv, enabled_employees, generated_at=deleted_at
                     )
                     csv_replaced = True
+                self._prune_delete_backups(backup_path.parent)
                 return EmployeeDeleteResult(
                     employee=employee, csv=csv_result, backup_path=backup_path
                 )
@@ -125,6 +130,28 @@ class EmployeeManagementService:
                     else:
                         self.employee_csv.write_bytes(original_csv)
                 raise
+
+    def _prune_delete_backups(self, backup_root: Path) -> None:
+        try:
+            result = prune_backup_directories(
+                backup_root,
+                required_filenames=frozenset({self.database.path.name, self.employee_csv.name}),
+            )
+            logger.info(
+                "employee_delete_backup_prune=ok backup_root=%s retention=%d "
+                "removed=%d retained=%d",
+                backup_root,
+                AUTOMATIC_BACKUP_RETENTION,
+                result.removed_count,
+                result.retained_count,
+            )
+        except Exception:
+            logger.warning(
+                "employee_delete_backup_prune=failed backup_root=%s retention=%d",
+                backup_root,
+                AUTOMATIC_BACKUP_RETENTION,
+                exc_info=True,
+            )
 
     def _create_delete_backup(self, deleted_at: datetime) -> Path:
         backup_root = self.database.path.parent / "backups" / "employee-delete"
