@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from .backup_retention import AUTOMATIC_BACKUP_RETENTION, prune_backup_directories
 from .config import ConfigError, load_config, load_database_path
 from .database import SCHEMA_VERSION, Database
 from .database_observability import DatabaseObservation, observe_database
@@ -16,6 +17,8 @@ from .employee_consistency import (
 from .employee_repository import EmployeeRepository
 from .employees import EmployeeDataError, generate_employee_csv, load_employees
 from .service import run
+
+logger = logging.getLogger(__name__)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -123,6 +126,26 @@ def _run_database_command(args: argparse.Namespace) -> int:
         print(f"schema_version_after={after_version}")
         print("database_migration=ok")
         print("integrity_check=ok")
+        if args.output is None:
+            backup_root = destination.parent.parent
+            try:
+                prune_result = prune_backup_directories(
+                    backup_root,
+                    required_filenames=frozenset({destination.name}),
+                )
+                print(
+                    "database_migration_backup_prune=ok "
+                    f"retention={AUTOMATIC_BACKUP_RETENTION} "
+                    f"removed={prune_result.removed_count} "
+                    f"retained={prune_result.retained_count}"
+                )
+            except Exception:
+                logger.warning(
+                    "database_migration_backup_prune=failed backup_root=%s retention=%d",
+                    backup_root,
+                    AUTOMATIC_BACKUP_RETENTION,
+                    exc_info=True,
+                )
         return 0
 
     if args.output is not None and args.action != "backup":

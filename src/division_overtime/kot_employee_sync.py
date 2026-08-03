@@ -14,6 +14,7 @@ from typing import Protocol
 
 import requests
 
+from .backup_retention import AUTOMATIC_BACKUP_RETENTION
 from .database import Database
 from .employee_repository import EmployeeRepository, ManagedEmployee
 from .employees import EmployeeDataError, load_employees, write_employees
@@ -164,7 +165,7 @@ def parse_kot_employees(payload: list[object]) -> list[KotEmployee]:
 
 class KotEmployeeSyncService:
     PREVIEW_TTL_SECONDS = 900
-    BACKUP_RETENTION = 30
+    BACKUP_RETENTION = AUTOMATIC_BACKUP_RETENTION
 
     def __init__(
         self,

@@ -10,11 +10,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+from .backup_retention import AUTOMATIC_BACKUP_RETENTION
 from .models import Employee
 
 logger = logging.getLogger(__name__)
 
-EMPLOYEE_CSV_BACKUP_RETENTION = 30
+EMPLOYEE_CSV_BACKUP_RETENTION = AUTOMATIC_BACKUP_RETENTION
 
 
 class EmployeeDataError(RuntimeError):
@@ -139,12 +140,24 @@ def _prune_employee_csv_backups(
     backups = sorted(
         candidate
         for candidate in backup_dir.iterdir()
-        if candidate.is_file() and pattern.fullmatch(candidate.name)
+        if not candidate.is_symlink()
+        and candidate.is_file()
+        and pattern.fullmatch(candidate.name)
+        and _is_employee_csv_backup_timestamp(candidate, source_path)
     )
     expired = backups[:-retention]
     for backup in expired:
         backup.unlink()
     return len(expired)
+
+
+def _is_employee_csv_backup_timestamp(candidate: Path, source_path: Path) -> bool:
+    timestamp = candidate.name[len(source_path.stem) + 1 : -len(source_path.suffix)]
+    try:
+        datetime.strptime(timestamp, "%Y%m%d_%H%M%S%f")
+    except ValueError:
+        return False
+    return True
 
 
 def generate_employee_csv(

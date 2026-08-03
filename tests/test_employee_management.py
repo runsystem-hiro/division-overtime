@@ -203,3 +203,73 @@ def test_delete_employee_csv_failure_rolls_back_database(tmp_path, monkeypatch):
 
     assert service.get_employee("00002").code == "00002"
     assert csv_path.read_bytes() == original_csv
+
+
+def test_delete_employee_prunes_oldest_backup_after_success(tmp_path):
+    from datetime import timedelta
+
+    db, service, _ = _service(tmp_path)
+    service.create_employee(
+        EmployeeChange(
+            code="00002",
+            employee_key="key-2",
+            last_name="佐藤",
+            first_name="花子",
+            email="b@example.com",
+            division_code="301",
+            division_name="開発部",
+            personal_target_minutes=None,
+            is_enabled=False,
+            disabled_reason="管理対象外",
+            note="",
+        ),
+        NOW,
+    )
+    backup_root = db.path.parent / "backups" / "employee-delete"
+    oldest = None
+    for index in range(30):
+        generation = backup_root / (NOW - timedelta(days=index + 1)).strftime("%Y%m%d_%H%M%S_%f")
+        generation.mkdir(parents=True)
+        (generation / db.path.name).write_text("db", encoding="utf-8")
+        (generation / service.employee_csv.name).write_text("csv", encoding="utf-8")
+        oldest = generation if oldest is None or generation.name < oldest.name else oldest
+
+    service.delete_employee_with_result("00002", NOW)
+
+    managed = [path for path in backup_root.iterdir() if path.is_dir()]
+    assert len(managed) == 30
+    assert oldest is not None
+    assert oldest.exists() is False
+
+
+def test_delete_employee_prune_failure_does_not_fail_delete(tmp_path, monkeypatch, caplog):
+    db, service, _ = _service(tmp_path)
+    service.create_employee(
+        EmployeeChange(
+            code="00002",
+            employee_key="key-2",
+            last_name="佐藤",
+            first_name="花子",
+            email="b@example.com",
+            division_code="301",
+            division_name="開発部",
+            personal_target_minutes=None,
+            is_enabled=False,
+            disabled_reason="管理対象外",
+            note="",
+        ),
+        NOW,
+    )
+
+    def fail_prune(*_args, **_kwargs):
+        raise OSError("simulated prune failure")
+
+    monkeypatch.setattr(
+        "division_overtime.employee_management.prune_backup_directories", fail_prune
+    )
+
+    result = service.delete_employee_with_result("00002", NOW)
+
+    assert result.employee.code == "00002"
+    assert service.repository.get_managed("00002") is None
+    assert "employee_delete_backup_prune=failed" in caplog.text
