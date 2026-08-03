@@ -75,3 +75,15 @@ def test_deploy_migrates_database_before_application_verification() -> None:
     assert deploy.index("./scripts/verify.sh") < deploy.index(
         'sudo systemctl restart "$WEB_SERVICE"'
     )
+
+
+def test_deploy_suppresses_only_transient_health_probe_errors() -> None:
+    deploy = (PROJECT_ROOT / "scripts/deploy.sh").read_text(encoding="utf-8")
+
+    probe = 'curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json 2>/dev/null'
+    diagnostic = 'curl -fsS "$HEALTH_URL" >/tmp/division-overtime-web-health.json || true'
+
+    assert probe in deploy
+    assert diagnostic in deploy
+    assert "2>/dev/null || true" not in deploy
+    assert deploy.index(probe) < deploy.index(diagnostic)

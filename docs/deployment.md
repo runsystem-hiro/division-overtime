@@ -53,7 +53,7 @@ cd <app-root>
 15. `/api/system/health`再試行
 16. 稼働versionと`VERSION`の一致確認
 
-health待機中の一時的な接続失敗は、最終的に成功すれば異常ではありません。
+health待機中の一時的な接続失敗は、最終的に成功すれば異常ではありません。待機ループ内の`curl` stderrだけを抑制し、全試行失敗時は最後のhealth確認、systemd status、journalを表示して原因調査に必要な情報を残します。再試行回数・間隔・成功条件は変更しません。
 
 ## DBマイグレーションの安全性
 
