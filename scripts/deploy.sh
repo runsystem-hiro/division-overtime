@@ -66,6 +66,9 @@ npm --prefix frontend ci
 echo "==> Build frontend"
 npm --prefix frontend run build
 
+echo "==> Back up and migrate database"
+"$VENV_PYTHON" -m division_overtime.cli --root . database migrate
+
 echo "==> Verify application"
 ./scripts/verify.sh
 

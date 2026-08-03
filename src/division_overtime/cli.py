@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import ConfigError, load_config, load_database_path
-from .database import Database
+from .database import SCHEMA_VERSION, Database
 from .database_observability import DatabaseObservation, observe_database
 from .employee_consistency import (
     EmployeeConsistencyResult,
@@ -33,7 +33,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     sub.add_parser("health")
     db_parser = sub.add_parser("database")
-    db_parser.add_argument("action", choices=["init", "status", "backup"])
+    db_parser.add_argument("action", choices=["init", "migrate", "status", "backup"])
     db_parser.add_argument(
         "--path",
         type=Path,
@@ -69,16 +69,9 @@ def _database_for_args(root: Path, path: Path | None) -> Database:
     return Database(database_path)
 
 
-def _default_backup_path(root: Path, now: datetime) -> Path:
+def _default_backup_path(root: Path, now: datetime, category: str = "manual-database") -> Path:
     timestamp = now.strftime("%Y%m%d_%H%M%S_%f")
-    return (
-        root.resolve()
-        / "var"
-        / "backups"
-        / "manual-database"
-        / timestamp
-        / "division_overtime.sqlite3"
-    )
+    return root.resolve() / "var" / "backups" / category / timestamp / "division_overtime.sqlite3"
 
 
 def _print_database_observation(observation: DatabaseObservation) -> None:
@@ -100,13 +93,40 @@ def _run_database_command(args: argparse.Namespace) -> int:
 
     if args.action == "init":
         if args.output is not None:
-            raise ValueError("--output is valid only for 'database backup'")
+            raise ValueError("--output is valid only for 'database backup' or 'database migrate'")
         database.initialize()
         print(f"database_initialized={database.path}")
         return 0
 
+    if args.action == "migrate":
+        before_version = database.schema_version_readonly()
+        if before_version > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"Database schema version {before_version} is newer than "
+                f"supported version {SCHEMA_VERSION}"
+            )
+        destination = (
+            _resolve_path(root, args.output)
+            if args.output is not None
+            else _default_backup_path(root, datetime.now().astimezone(), "deploy-database")
+        )
+        if destination.resolve() == database.path.resolve():
+            raise ValueError("Backup output must differ from the source database")
+        database.backup_to(destination)
+        print(f"database_migration_backup=ok source={database.path} output={destination}")
+        print(f"schema_version_before={before_version}")
+        database.initialize()
+        after_version = database.schema_version_readonly()
+        integrity = database.integrity_check()
+        if integrity != "ok":
+            raise RuntimeError(f"Database integrity check failed after migration: {integrity}")
+        print(f"schema_version_after={after_version}")
+        print("database_migration=ok")
+        print("integrity_check=ok")
+        return 0
+
     if args.output is not None and args.action != "backup":
-        raise ValueError("--output is valid only for 'database backup'")
+        raise ValueError("--output is valid only for 'database backup' or 'database migrate'")
     if not database.is_initialized_readonly():
         raise RuntimeError(f"Database is not initialized: {database.path}")
 

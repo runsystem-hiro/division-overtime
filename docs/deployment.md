@@ -41,15 +41,37 @@ cd <app-root>
 3. `VERSION`読込
 4. Python依存更新
 5. frontend依存インストールとbuild
-6. ローカル検証
-7. リポジトリ内の全systemd unitを反映
-8. 反映後のunitがリポジトリ内定義と一致することを検証
-9. 定期実行timerの有効化
-10. Web再起動
-11. `/api/system/health`再試行
-12. 稼働versionと`VERSION`の一致確認
+6. 本番DBの存在と既存スキーマを確認
+7. SQLite Backup APIでマイグレーション前バックアップを作成・検証
+8. 既存DBを最新スキーマへマイグレーション
+9. 更新後schema versionとintegrityを確認
+10. ローカル検証
+11. リポジトリ内の全systemd unitを反映
+12. 反映後のunitがリポジトリ内定義と一致することを検証
+13. 定期実行timerの有効化
+14. Web再起動
+15. `/api/system/health`再試行
+16. 稼働versionと`VERSION`の一致確認
 
 health待機中の一時的な接続失敗は、最終的に成功すれば異常ではありません。
+
+## DBマイグレーションの安全性
+
+`deploy.sh`は`verify.sh`より前に次を実行します。
+
+```bash
+.venv/bin/python -m division_overtime.cli --root . database migrate
+```
+
+`database migrate`は既存DB専用です。DBファイル、`schema_meta`、`employees`テーブル、schema versionを読み取り専用で確認し、DBが存在しない場合や既存DBとして認識できない場合は空DBを作らず停止します。
+
+マイグレーション前にはSQLite Backup APIで次へバックアップします。
+
+```text
+var/backups/deploy-database/<timestamp>/division_overtime.sqlite3
+```
+
+バックアップのintegrity確認に失敗した場合はマイグレーションを開始しません。成功時はdeployログにバックアップ先、`schema_version_before`、`schema_version_after`、`integrity_check=ok`を出力します。マイグレーションまたは検証に失敗した場合、systemd unit反映とWeb再起動へ進みません。最新schemaへの再実行も安全です。
 
 ## デプロイ後確認
 
