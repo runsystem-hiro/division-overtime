@@ -500,6 +500,113 @@ describe("App", () => {
     ).toBeDisabled();
   });
 
+  it("業務委託を初期非表示にし、表示フィルターで確認できる", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+            ? input.url
+            : input.toString();
+      const responses: Record<string, unknown> = {
+        "/api/auth/status": {
+          authenticated: true,
+          user: { username: "admin", role: "admin", expiresAt: null },
+        },
+        "/api/system/health": {
+          status: "ok",
+          environment: "development",
+          kotSyncEnabled: true,
+          kotSyncMock: true,
+        },
+        "/api/employees?enabled=all": [],
+        "/api/employees/consistency": {
+          status: "ok",
+          databaseEmployees: 0,
+          csvEmployees: 0,
+          databaseOnlyCodes: [],
+          csvOnlyCodes: [],
+          fieldDifferences: [],
+        },
+        "/api/kot-sync/status": {
+          running: false,
+          blocked: false,
+          lastRun: null,
+        },
+        "/api/kot-sync/preview": {
+          previewId: "preview-outsource",
+          counts: { create: 2, update: 0, reactivate: 0, disable: 0, unchanged: 0 },
+          fetchedCount: 2,
+          targetCount: 2,
+          targetDivisionCodes: ["900"],
+          differences: [
+            {
+              code: "9000001",
+              action: "create",
+              current: null,
+              proposed: {
+                lastName: "外部",
+                firstName: "委託",
+                divisionName: "テスト営業部",
+              },
+              warnings: ["業務委託（給与計算なし）"],
+              changedFields: [],
+            },
+            {
+              code: "9000002",
+              action: "create",
+              current: null,
+              proposed: {
+                lastName: "複合",
+                firstName: "対象",
+                divisionName: "テスト営業部",
+              },
+              warnings: ["勤怠管理なし", "業務委託（給与計算なし）"],
+              changedFields: [],
+            },
+          ],
+        },
+      };
+      return new Response(JSON.stringify(responses[url] ?? []), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    window.history.replaceState({}, "", "/kot-sync");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "KOT社員同期" });
+    fireEvent.click(
+      await screen.findByRole("button", { name: "ダミーKOTから取得" }),
+    );
+
+    expect(await screen.findByText("業務委託 2")).toBeInTheDocument();
+    expect(
+      screen.queryByText("外部委託 / テスト営業部"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("複合対象 / テスト営業部"),
+    ).not.toBeInTheDocument();
+
+    const outsourceFilter = screen.getByRole("checkbox", {
+      name: "業務委託を表示",
+    });
+    fireEvent.click(outsourceFilter);
+
+    expect(
+      screen.getByText("外部委託 / テスト営業部"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("複合対象 / テスト営業部"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(outsourceFilter);
+    expect(
+      screen.queryByText("外部委託 / テスト営業部"),
+    ).not.toBeInTheDocument();
+  });
+
   it("同期対象部門を確認ダイアログなしで無効化する", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = typeof input === "string" ? input : input instanceof Request ? input.url : input.toString();

@@ -357,6 +357,7 @@ export function App() {
   });
   const [showNoAttendance, setShowNoAttendance] = useState(false);
   const [showOnLeave, setShowOnLeave] = useState(false);
+  const [showOutsource, setShowOutsource] = useState(false);
 
   const [path, setPath] = useState(() => window.location.pathname);
   const [healthOpen, setHealthOpen] = useState(false);
@@ -664,12 +665,33 @@ export function App() {
     if (!syncPreview) return [];
     return syncPreview.differences.filter((item) => {
       if (!syncActions[item.action]) return false;
-      if (!showNoAttendance && item.warnings.includes("勤怠管理なし"))
+
+      const exclusionVisibility = [
+        { matches: item.warnings.includes("勤怠管理なし"), visible: showNoAttendance },
+        { matches: item.warnings.includes("休職中"), visible: showOnLeave },
+        {
+          matches: item.warnings.includes("業務委託（給与計算なし）"),
+          visible: showOutsource,
+        },
+      ];
+      const matchingExclusions = exclusionVisibility.filter(
+        (condition) => condition.matches,
+      );
+      if (
+        matchingExclusions.length > 0 &&
+        !matchingExclusions.some((condition) => condition.visible)
+      ) {
         return false;
-      if (!showOnLeave && item.warnings.includes("休職中")) return false;
+      }
       return true;
     });
-  }, [showNoAttendance, showOnLeave, syncActions, syncPreview]);
+  }, [
+    showNoAttendance,
+    showOnLeave,
+    showOutsource,
+    syncActions,
+    syncPreview,
+  ]);
 
   const selectableVisibleCodes = useMemo(
     () =>
@@ -709,6 +731,9 @@ export function App() {
       ).length,
       onLeave: differences.filter((item) => item.warnings.includes("休職中"))
         .length,
+      outsource: differences.filter((item) =>
+        item.warnings.includes("業務委託（給与計算なし）"),
+      ).length,
     };
   }, [syncPreview]);
 
@@ -1814,6 +1839,7 @@ export function App() {
                         </span>
                         <span>勤怠管理なし {warningCounts.noAttendance}</span>
                         <span>休職中 {warningCounts.onLeave}</span>
+                        <span>業務委託 {warningCounts.outsource}</span>
                       </div>
                     </div>
                     <div className="sync-filter-panel">
@@ -1869,6 +1895,16 @@ export function App() {
                             }
                           />
                           休職中を表示
+                        </label>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={showOutsource}
+                            onChange={(event) =>
+                              setShowOutsource(event.target.checked)
+                            }
+                          />
+                          業務委託を表示
                         </label>
                       </div>
                     </div>
