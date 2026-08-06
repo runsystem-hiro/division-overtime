@@ -1,5 +1,8 @@
+import os
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).parents[1]
 
@@ -20,6 +23,10 @@ def test_verify_sh_supports_development_without_leaking_environment_to_pytest():
     ) in script
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="verify.sh execution requires a POSIX environment",
+)
 def test_verify_sh_rejects_unsupported_environment_before_running_checks():
     result = subprocess.run(
         [str(ROOT / "scripts/verify.sh"), "--environment", "staging"],
