@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 
 class ConfigError(RuntimeError):
@@ -62,17 +62,24 @@ def _deep_merge(
     return result
 
 
-def _environment_name() -> str:
-    environment = os.getenv("DIVISION_OVERTIME_ENV", "production").strip().lower()
+def _environment_name(default: str = "production") -> str:
+    environment = os.getenv("DIVISION_OVERTIME_ENV", default).strip().lower()
     if environment not in _SUPPORTED_ENVIRONMENTS:
         raise ConfigError("DIVISION_OVERTIME_ENV must be development or production")
     return environment
 
 
-def _load_toml_config(root: Path) -> dict[str, Any]:
+def _load_environment(root: Path) -> str:
+    env_environment = dotenv_values(root / ".env").get("DIVISION_OVERTIME_ENV")
+    default_environment = str(env_environment or "production")
+    return _environment_name(default_environment)
+
+
+def _load_toml_config(root: Path, environment: str | None = None) -> dict[str, Any]:
+    environment = environment or _load_environment(root)
     with (root / "config/default.toml").open("rb") as handle:
         raw = tomllib.load(handle)
-    override_path = root / "config" / f"{_environment_name()}.toml"
+    override_path = root / "config" / f"{environment}.toml"
     if override_path.exists():
         with override_path.open("rb") as handle:
             raw = _deep_merge(raw, tomllib.load(handle))
@@ -95,10 +102,9 @@ def load_employee_csv_path(root: Path | None = None) -> Path:
 
 def load_config(root: Path | None = None) -> AppConfig:
     root = (root or Path.cwd()).resolve()
-    load_dotenv(root / ".env")
-    raw = _load_toml_config(root)
+    environment = _load_environment(root)
+    raw = _load_toml_config(root, environment)
 
-    environment = _environment_name()
     app = raw["app"]
     kot = raw["king_of_time"]
     kot_enabled = bool(kot.get("enabled", True))
