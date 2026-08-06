@@ -100,8 +100,9 @@ def run(
                 conn.execute(
                     "INSERT INTO overtime_snapshots("
                     "run_id,target_month,employee_code,employee_name,division_code,"
-                    "current_minutes,previous_minutes,target_minutes,target_percent,captured_at"
-                    ") VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    "current_minutes,current_night_minutes,previous_minutes,target_minutes,"
+                    "target_percent,captured_at"
+                    ") VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         run_id,
                         current_month,
@@ -109,6 +110,7 @@ def run(
                         employee.full_name,
                         employee.division_code,
                         snapshot.current_minutes,
+                        snapshot.current_night_minutes,
                         snapshot.previous_minutes,
                         snapshot.target_minutes,
                         snapshot.target_percent,

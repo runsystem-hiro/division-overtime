@@ -8,7 +8,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 class Database:
@@ -103,6 +103,7 @@ class Database:
                     employee_name TEXT NOT NULL,
                     division_code TEXT NOT NULL,
                     current_minutes INTEGER NOT NULL,
+                    current_night_minutes INTEGER NOT NULL DEFAULT 0,
                     previous_minutes INTEGER NOT NULL,
                     target_minutes INTEGER NOT NULL,
                     target_percent INTEGER NOT NULL,
@@ -235,6 +236,15 @@ class Database:
             if "source" not in execution_run_columns:
                 conn.execute(
                     "ALTER TABLE execution_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'unknown'"
+                )
+
+            overtime_snapshot_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(overtime_snapshots)")
+            }
+            if "current_night_minutes" not in overtime_snapshot_columns:
+                conn.execute(
+                    "ALTER TABLE overtime_snapshots "
+                    "ADD COLUMN current_night_minutes INTEGER NOT NULL DEFAULT 0"
                 )
 
             kot_sync_columns = {
