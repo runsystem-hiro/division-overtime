@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from division_overtime.config import ConfigError, _deep_merge, load_config
+from division_overtime.config import (
+    ConfigError,
+    _deep_merge,
+    load_config,
+    load_database_path,
+    load_employee_csv_path,
+)
 
 
 def test_department_recipients_are_replaced_not_merged() -> None:
@@ -31,6 +37,42 @@ def test_department_recipients_are_replaced_not_merged() -> None:
 
     assert merged["notifications"]["enable_self_notify"] is False
     assert merged["notifications"]["department_recipients"] == {"ALL": ["developer@example.com"]}
+
+
+def test_path_loaders_use_environment_from_dotenv(tmp_path: Path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "default.toml").write_text(
+        '[app]\ndatabase_path = "var/production.sqlite3"\nemployee_csv = "data/production.csv"\n',
+        encoding="utf-8",
+    )
+    (config_dir / "development.toml").write_text(
+        '[app]\ndatabase_path = "var/development.sqlite3"\nemployee_csv = "data/development.csv"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".env").write_text("DIVISION_OVERTIME_ENV=development\n", encoding="utf-8")
+    monkeypatch.delenv("DIVISION_OVERTIME_ENV", raising=False)
+
+    assert load_database_path(tmp_path) == tmp_path / "var/development.sqlite3"
+    assert load_employee_csv_path(tmp_path) == tmp_path / "data/development.csv"
+
+
+def test_shell_environment_overrides_dotenv_for_path_loaders(tmp_path: Path, monkeypatch) -> None:
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "default.toml").write_text(
+        '[app]\ndatabase_path = "var/production.sqlite3"\nemployee_csv = "data/production.csv"\n',
+        encoding="utf-8",
+    )
+    (config_dir / "development.toml").write_text(
+        '[app]\ndatabase_path = "var/development.sqlite3"\nemployee_csv = "data/development.csv"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / ".env").write_text("DIVISION_OVERTIME_ENV=development\n", encoding="utf-8")
+    monkeypatch.setenv("DIVISION_OVERTIME_ENV", "production")
+
+    assert load_database_path(tmp_path) == tmp_path / "var/production.sqlite3"
+    assert load_employee_csv_path(tmp_path) == tmp_path / "data/production.csv"
 
 
 def test_load_config_uses_only_production_recipients(tmp_path: Path, monkeypatch) -> None:

@@ -36,6 +36,8 @@ Set-Location ..
 DIVISION_OVERTIME_ENV=development
 ```
 
+CLIはDB・CSVパスだけを確認するコマンドを含め、プロジェクトルートの`.env`を読み込みます。ターミナルで`DIVISION_OVERTIME_ENV`を明示した場合は、その値が`.env`より優先されます。
+
 開発用ダミーデータ生成:
 
 ```powershell
