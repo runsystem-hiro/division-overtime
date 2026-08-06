@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 import requests
 
 
 class KingOfTimeError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class MonthlyOvertime:
+    total_minutes: int
+    night_overtime_minutes: int
 
 
 class KingOfTimeClient:
@@ -30,7 +37,9 @@ class KingOfTimeClient:
         self.session = session or requests.Session()
         self.session.headers.update({"Authorization": f"Bearer {token}"})
 
-    def fetch_division_month(self, year_month: str, division_code: str) -> dict[str, int]:
+    def fetch_division_month(
+        self, year_month: str, division_code: str
+    ) -> dict[str, MonthlyOvertime]:
         url = f"{self.base_url}{self.endpoint}/{year_month}"
         last_error: Exception | None = None
         for attempt in range(1, self.retry_count + 1):
@@ -54,8 +63,8 @@ class KingOfTimeClient:
         )
 
     @staticmethod
-    def _normalize(records: Iterable[object]) -> dict[str, int]:
-        result: dict[str, int] = {}
+    def _normalize(records: Iterable[object]) -> dict[str, MonthlyOvertime]:
+        result: dict[str, MonthlyOvertime] = {}
         for item in records:
             if not isinstance(item, dict):
                 continue
@@ -63,6 +72,9 @@ class KingOfTimeClient:
             if not key:
                 continue
             overtime = int(item.get("overtime", 0) or 0)
-            night = int(item.get("nightOvertime", 0) or 0)
-            result[key] = overtime + night
+            night_overtime = int(item.get("nightOvertime", 0) or 0)
+            result[key] = MonthlyOvertime(
+                total_minutes=overtime + night_overtime,
+                night_overtime_minutes=night_overtime,
+            )
         return result

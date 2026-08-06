@@ -73,17 +73,28 @@ def run(
         ] = defaultdict(list)
         with db.transaction() as conn:
             for employee in employees:
+                current_overtime = current_by_division[employee.division_code].get(
+                    employee.employee_key
+                )
+                previous_overtime = previous_by_division[employee.division_code].get(
+                    employee.employee_key
+                )
                 snapshot = OvertimeSnapshot(
                     employee=employee,
                     target_month=current_month,
-                    current_minutes=current_by_division[employee.division_code].get(
-                        employee.employee_key, 0
+                    current_minutes=(
+                        current_overtime.total_minutes if current_overtime is not None else 0
                     ),
-                    previous_minutes=previous_by_division[employee.division_code].get(
-                        employee.employee_key, 0
+                    previous_minutes=(
+                        previous_overtime.total_minutes if previous_overtime is not None else 0
                     ),
                     target_minutes=target_minutes(
                         employee, config.division_targets, config.default_target_minutes
+                    ),
+                    current_night_minutes=(
+                        current_overtime.night_overtime_minutes
+                        if current_overtime is not None
+                        else 0
                     ),
                 )
                 conn.execute(

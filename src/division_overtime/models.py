@@ -26,6 +26,7 @@ class OvertimeSnapshot:
     current_minutes: int
     previous_minutes: int
     target_minutes: int
+    current_night_minutes: int = 0
 
     @property
     def target_percent(self) -> int:
