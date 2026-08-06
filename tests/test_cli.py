@@ -475,7 +475,7 @@ def test_database_migrate_backs_up_old_schema_and_preserves_data(tmp_path: Path,
     with database.connect_readonly() as conn:
         assert (
             conn.execute("SELECT value FROM schema_meta WHERE key='schema_version'").fetchone()[0]
-            == "8"
+            == "9"
         )
         assert conn.execute("SELECT COUNT(*) FROM employees").fetchone()[0] == 1
         assert (
@@ -487,7 +487,7 @@ def test_database_migrate_backs_up_old_schema_and_preserves_data(tmp_path: Path,
     output = capsys.readouterr().out
     assert "database_migration_backup=ok" in output
     assert "schema_version_before=7" in output
-    assert "schema_version_after=8" in output
+    assert "schema_version_after=9" in output
     assert "database_migration=ok" in output
     assert "integrity_check=ok" in output
 

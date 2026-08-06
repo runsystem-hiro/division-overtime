@@ -7,7 +7,7 @@ import pytest
 from division_overtime.database import Database
 
 
-def test_database_initialization_creates_employee_schema_version_8(tmp_path):
+def test_database_initialization_creates_employee_schema_version_9(tmp_path):
     db = Database(tmp_path / "test.sqlite3")
     db.initialize()
     assert db.integrity_check() == "ok"
@@ -72,7 +72,7 @@ def test_database_initialization_creates_employee_schema_version_(tmp_path):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='employees'"
         ).fetchone()
 
-    assert version == "8"
+    assert version == "9"
     assert table["name"] == "employees"
 
 
@@ -84,6 +84,83 @@ def test_database_reports_initialization_state(tmp_path):
     db.initialize()
 
     assert db.is_initialized() is True
+
+
+def test_database_initialization_creates_night_overtime_column(tmp_path):
+    db = Database(tmp_path / "test.sqlite3")
+
+    db.initialize()
+
+    with db.connect_readonly() as conn:
+        columns = {
+            row["name"]: row for row in conn.execute("PRAGMA table_info(overtime_snapshots)")
+        }
+
+    assert columns["current_night_minutes"]["type"] == "INTEGER"
+    assert columns["current_night_minutes"]["notnull"] == 1
+    assert columns["current_night_minutes"]["dflt_value"] == "0"
+
+
+def test_database_migrates_night_overtime_column_with_zero_default(tmp_path):
+    path = tmp_path / "test.sqlite3"
+    with sqlite3.connect(path) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO schema_meta(key, value) VALUES('schema_version', '8');
+            CREATE TABLE execution_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL UNIQUE,
+                mode TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                status TEXT NOT NULL,
+                dry_run INTEGER NOT NULL DEFAULT 0,
+                source TEXT NOT NULL DEFAULT 'unknown',
+                error_message TEXT
+            );
+            INSERT INTO execution_runs(run_id, mode, started_at, status, dry_run, source)
+            VALUES('legacy-run', 'threshold', '2026-08-06T10:30:00+09:00', 'succeeded', 0, 'timer');
+            CREATE TABLE overtime_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                target_month TEXT NOT NULL,
+                employee_code TEXT NOT NULL,
+                employee_name TEXT NOT NULL,
+                division_code TEXT NOT NULL,
+                current_minutes INTEGER NOT NULL,
+                previous_minutes INTEGER NOT NULL,
+                target_minutes INTEGER NOT NULL,
+                target_percent INTEGER NOT NULL,
+                captured_at TEXT NOT NULL,
+                UNIQUE(run_id, employee_code)
+            );
+            INSERT INTO overtime_snapshots(
+                run_id, target_month, employee_code, employee_name, division_code,
+                current_minutes, previous_minutes, target_minutes, target_percent, captured_at
+            ) VALUES(
+                'legacy-run', '2026-08', '00524', '試験対象', '300',
+                555, 1260, 1410, 39, '2026-08-06T10:30:00+09:00'
+            );
+            """
+        )
+
+    db = Database(path)
+    db.initialize()
+    db.initialize()
+
+    with db.connect_readonly() as conn:
+        row = conn.execute(
+            "SELECT current_minutes, current_night_minutes "
+            "FROM overtime_snapshots WHERE employee_code='00524'"
+        ).fetchone()
+        version = conn.execute(
+            "SELECT value FROM schema_meta WHERE key='schema_version'"
+        ).fetchone()["value"]
+
+    assert row["current_minutes"] == 555
+    assert row["current_night_minutes"] == 0
+    assert version == "9"
 
 
 def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tmp_path):
@@ -118,10 +195,10 @@ def test_database_initialization_adds_kot_sync_backup_path_to_existing_schema(tm
         ).fetchone()[0]
 
     assert "backup_path" in columns
-    assert version == "8"
+    assert version == "9"
 
 
-def test_database_initialization_adds_reactivated_count_and_schema_version_8(tmp_path):
+def test_database_initialization_adds_reactivated_count_and_schema_version_9(tmp_path):
     path = tmp_path / "test.sqlite3"
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -159,7 +236,7 @@ def test_database_initialization_adds_reactivated_count_and_schema_version_8(tmp
         ).fetchone()[0]
     assert "reactivated_count" in columns
     assert row["reactivated_count"] == 0
-    assert version == "8"
+    assert version == "9"
 
 
 def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
@@ -193,7 +270,7 @@ def test_database_migrates_execution_run_source_with_unknown_default(tmp_path):
             "SELECT value FROM schema_meta WHERE key='schema_version'"
         ).fetchone()
     assert row["source"] == "unknown"
-    assert version["value"] == "8"
+    assert version["value"] == "9"
 
 
 def test_start_run_records_execution_source(tmp_path):
@@ -267,6 +344,6 @@ def test_database_migrates_notification_attempts_for_duplicate_trace(tmp_path):
             "SELECT status, duplicate_of_attempt_id FROM notification_attempts"
         ).fetchone()
     assert "duplicate_of_attempt_id" in columns
-    assert version == "8"
+    assert version == "9"
     assert row["status"] == "sent"
     assert row["duplicate_of_attempt_id"] is None

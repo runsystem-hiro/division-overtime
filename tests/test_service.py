@@ -130,6 +130,17 @@ def fetch_attempts(database_path: Path) -> list[sqlite3.Row]:
         )
 
 
+def fetch_snapshots(database_path: Path) -> list[sqlite3.Row]:
+    db = Database(database_path)
+    with db.connect_readonly() as conn:
+        return list(
+            conn.execute(
+                "SELECT current_minutes,current_night_minutes,previous_minutes "
+                "FROM overtime_snapshots ORDER BY id"
+            )
+        )
+
+
 def test_threshold_success_is_recorded_and_duplicate_is_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -227,6 +238,25 @@ def test_department_delivery_displays_current_night_overtime(
 
     _, message = SuccessfulMessenger.calls[0]
     assert "🗓️ 今月(2026-07) 残業 6:00｜🌙 3:15" in message
+
+    snapshots = fetch_snapshots(config.database_path)
+    assert len(snapshots) == 1
+    assert snapshots[0]["current_minutes"] == 360
+    assert snapshots[0]["current_night_minutes"] == 195
+    assert snapshots[0]["previous_minutes"] == 300
+
+
+def test_snapshot_stores_zero_when_current_night_overtime_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config = make_config(tmp_path)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "threshold") == 0
+
+    snapshots = fetch_snapshots(config.database_path)
+    assert len(snapshots) == 1
+    assert snapshots[0]["current_night_minutes"] == 0
 
 
 def test_self_delivery_uses_legacy_personal_header(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
