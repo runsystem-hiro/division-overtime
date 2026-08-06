@@ -116,3 +116,11 @@ CIはクリーン環境での補助確認です。ローカル`verify.ps1`を主
 ## Frontendだけの実機確認
 
 正式デプロイ前の開発確認に限り、Windowsでbuildした`frontend/dist`を`.\scripts\deploy-frontend.ps1`でPiへ反映できます。正式リリースは必ずPi上の`./scripts/deploy.sh`を使用します。
+
+## 検証コマンド
+
+Windowsでは `.\scripts\verify.ps1`、UbuntuなどのLinux開発環境では `./scripts/verify.sh --environment development` を使用します。Linux側の引数なし `verify.sh` は本番向けです。
+
+development環境では `config/development.toml` の開発用DB・CSVを使用し、`king_of_time.enabled=false` と `king_of_time.mock_enabled=true` を必須とします。実KING OF TIME APIクライアントとSlack Messengerは生成されず、通知実行は常にdry-runとして記録されます。
+
+`--source test` は実行履歴のsource値を指定するだけで、KOTモックを有効化しません。`--dry-run` は通知状態を消費せずSlack送信を行わないためのオプションです。

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Windows・Ubuntu開発環境の検証項目を揃え、`verify.sh --environment development` を追加
+- development環境の実KING OF TIME API接続とSlack実送信を禁止
+
 ### Added
 
 - 残業スナップショットへ当月の深夜残業時間を保存し、通知後もSQLiteから内訳を確認できるようにしました。

@@ -13,13 +13,29 @@ from .database import Database
 from .employee_repository import EmployeeRepository
 from .employee_shadow import log_employee_shadow_read
 from .employee_source import CsvEmployeeSource, SqliteEmployeeSource
-from .king_of_time import KingOfTimeClient
+from .king_of_time import KingOfTimeClient, MonthlyOvertime
 from .message_formatter import format_department_message, format_self_message
 from .models import OvertimeSnapshot
 from .policy import notification_dedupe_key, reached_threshold, target_minutes
 from .slack import SlackDeliveryError, SlackMessenger
 
 logger = logging.getLogger(__name__)
+
+
+class DevelopmentKingOfTimeClient:
+    """Deterministic offline overtime source for development runs."""
+
+    def __init__(self, employee_keys: tuple[str, ...]):
+        self.employee_keys = employee_keys
+
+    def fetch_division_month(
+        self, year_month: str, division_code: str
+    ) -> dict[str, MonthlyOvertime]:
+        del year_month, division_code
+        return {
+            employee_key: MonthlyOvertime(total_minutes=0, night_overtime_minutes=0)
+            for employee_key in self.employee_keys
+        }
 
 
 def run(
@@ -33,9 +49,12 @@ def run(
         raise ValueError(f"Unsupported mode: {mode}")
     now = datetime.now(config.timezone)
     run_id = str(uuid.uuid4())
+    effective_dry_run = dry_run or config.environment == "development"
+    if config.environment == "development" and not dry_run:
+        logger.info("Development environment: forcing dry-run notification behavior")
     db = Database(config.database_path)
     db.initialize()
-    db.start_run(run_id, mode, now, dry_run, source)
+    db.start_run(run_id, mode, now, effective_dry_run, source)
     try:
         if mode == "threshold" and jpholiday.is_holiday(now.date()):
             logger.info("Japanese public holiday: threshold notification skipped")
@@ -46,16 +65,22 @@ def run(
             employees,
             SqliteEmployeeSource(EmployeeRepository(db)),
         )
-        client = KingOfTimeClient(
-            config.kot_base_url,
-            config.kot_endpoint,
-            config.kot_token,
-            config.connect_timeout,
-            config.read_timeout,
-            config.retry_count,
-            config.retry_backoff,
-        )
-        messenger = SlackMessenger(config.slack_token)
+        if config.environment == "development":
+            client = DevelopmentKingOfTimeClient(
+                tuple(employee.employee_key for employee in employees)
+            )
+            messenger = None
+        else:
+            client = KingOfTimeClient(
+                config.kot_base_url,
+                config.kot_endpoint,
+                config.kot_token,
+                config.connect_timeout,
+                config.read_timeout,
+                config.retry_count,
+                config.retry_backoff,
+            )
+            messenger = SlackMessenger(config.slack_token)
         current_month = now.strftime("%Y-%m")
         previous_month = (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
         division_codes = sorted({employee.division_code for employee in employees})
@@ -146,7 +171,7 @@ def run(
         failed = 0
         for (recipient, delivery_type), items in reports_by_delivery.items():
             sendable: list[tuple[OvertimeSnapshot, int | None, str]] = []
-            if dry_run:
+            if effective_dry_run:
                 sendable = items
             else:
                 with db.transaction() as conn:
@@ -213,10 +238,11 @@ def run(
                 if delivery_type.startswith("self:")
                 else format_department_message(snapshots)
             )
-            if dry_run:
+            if effective_dry_run:
                 logger.info("DRY RUN recipient=%s\n%s", recipient, message)
                 continue
             try:
+                assert messenger is not None
                 slack_ts = messenger.send_dm(recipient, message)
                 status, error = "sent", None
             except SlackDeliveryError as exc:

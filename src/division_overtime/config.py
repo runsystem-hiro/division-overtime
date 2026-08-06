@@ -17,10 +17,13 @@ class ConfigError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     root: Path
+    environment: str
     timezone: ZoneInfo
     database_path: Path
     employee_csv: Path
     log_level: str
+    kot_enabled: bool
+    kot_mock_enabled: bool
     kot_base_url: str
     kot_endpoint: str
     kot_token: str
@@ -95,23 +98,38 @@ def load_config(root: Path | None = None) -> AppConfig:
     load_dotenv(root / ".env")
     raw = _load_toml_config(root)
 
-    kot_token = os.getenv("KINGOFTIME_TOKEN", "").strip()
-    slack_token = os.getenv("SLACK_BOT_TOKEN", "").strip()
-    if not kot_token:
-        raise ConfigError("KINGOFTIME_TOKEN is not set")
-    if not slack_token:
-        raise ConfigError("SLACK_BOT_TOKEN is not set")
-
+    environment = _environment_name()
     app = raw["app"]
     kot = raw["king_of_time"]
+    kot_enabled = bool(kot.get("enabled", True))
+    kot_mock_enabled = bool(kot.get("mock_enabled", False))
+
+    if environment == "development":
+        if kot_enabled or not kot_mock_enabled:
+            raise ConfigError(
+                "development requires king_of_time.enabled=false and mock_enabled=true"
+            )
+    elif kot_mock_enabled:
+        raise ConfigError("king_of_time.mock_enabled is allowed only in development")
+
+    kot_token = os.getenv("KINGOFTIME_TOKEN", "").strip()
+    slack_token = os.getenv("SLACK_BOT_TOKEN", "").strip()
+    if environment == "production" and not kot_token:
+        raise ConfigError("KINGOFTIME_TOKEN is not set")
+    if environment == "production" and not slack_token:
+        raise ConfigError("SLACK_BOT_TOKEN is not set")
+
     overtime = raw["overtime"]
     notifications = raw["notifications"]
     return AppConfig(
         root=root,
+        environment=environment,
         timezone=ZoneInfo(app["timezone"]),
         database_path=root / app["database_path"],
         employee_csv=root / app["employee_csv"],
         log_level=str(app.get("log_level", "INFO")),
+        kot_enabled=kot_enabled,
+        kot_mock_enabled=kot_mock_enabled,
         kot_base_url=kot["base_url"].rstrip("/"),
         kot_endpoint=kot["endpoint"],
         kot_token=kot_token,

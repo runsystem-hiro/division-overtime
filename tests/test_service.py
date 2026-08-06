@@ -79,10 +79,13 @@ def make_config(tmp_path: Path) -> AppConfig:
     )
     return AppConfig(
         root=tmp_path,
+        environment="production",
         timezone=ZoneInfo("Asia/Tokyo"),
         database_path=tmp_path / "var" / "division_overtime.sqlite3",
         employee_csv=employee_csv,
         log_level="INFO",
+        kot_enabled=True,
+        kot_mock_enabled=False,
         kot_base_url="https://example.invalid",
         kot_endpoint="/api/overtime",
         kot_token="kot-token",
@@ -261,27 +264,10 @@ def test_snapshot_stores_zero_when_current_night_overtime_is_absent(
 
 def test_self_delivery_uses_legacy_personal_header(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     base = make_config(tmp_path)
-    config = AppConfig(
-        root=base.root,
-        timezone=base.timezone,
-        database_path=base.database_path,
-        employee_csv=base.employee_csv,
-        log_level=base.log_level,
-        kot_base_url=base.kot_base_url,
-        kot_endpoint=base.kot_endpoint,
-        kot_token=base.kot_token,
-        connect_timeout=base.connect_timeout,
-        read_timeout=base.read_timeout,
-        retry_count=base.retry_count,
-        retry_backoff=base.retry_backoff,
-        default_target_minutes=base.default_target_minutes,
-        thresholds=base.thresholds,
-        division_targets=base.division_targets,
-        slack_token=base.slack_token,
-        department_recipients=base.department_recipients,
+    config = replace(
+        base,
         enable_self_notify=True,
         self_notify_employee_codes=frozenset({"00001"}),
-        force_self_threshold=95,
     )
     patch_external_services(monkeypatch, SuccessfulMessenger)
 
@@ -402,3 +388,48 @@ def test_run_records_explicit_execution_source(tmp_path: Path, monkeypatch: pyte
     assert run(config, "threshold", source="test") == 0
 
     assert fetch_run_sources(config.database_path) == ["test"]
+
+
+def test_development_run_uses_offline_kot_and_never_sends_slack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config = replace(
+        make_config(tmp_path),
+        environment="development",
+        kot_enabled=False,
+        kot_mock_enabled=True,
+        kot_token="",
+        slack_token="",
+    )
+    monkeypatch.setattr("division_overtime.service.datetime", FixedDateTime)
+    monkeypatch.setattr("division_overtime.service.jpholiday.is_holiday", lambda _date: False)
+
+    class UnexpectedRealClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("real KOT client must not be created in development")
+
+    class UnexpectedMessenger:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("Slack messenger must not be created in development")
+
+    monkeypatch.setattr("division_overtime.service.KingOfTimeClient", UnexpectedRealClient)
+    monkeypatch.setattr("division_overtime.service.SlackMessenger", UnexpectedMessenger)
+
+    assert run(config, "weekly", source="test") == 0
+
+    db = Database(config.database_path)
+    with db.connect_readonly() as conn:
+        execution = conn.execute(
+            "SELECT dry_run, source, status FROM execution_runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        snapshots = list(
+            conn.execute(
+                "SELECT current_minutes, current_night_minutes, previous_minutes "
+                "FROM overtime_snapshots"
+            )
+        )
+        attempts = list(conn.execute("SELECT * FROM notification_attempts"))
+
+    assert dict(execution) == {"dry_run": 1, "source": "test", "status": "succeeded"}
+    assert [tuple(row) for row in snapshots] == [(0, 0, 0)]
+    assert attempts == []
