@@ -2,6 +2,30 @@
 
 KING OF TIMEの月次勤怠データを取得し、部署ごとの残業状況をSlackへ通知する業務アプリです。Raspberry Pi上でsystemd timerにより定期実行し、Web管理UIから社員情報、KOT同期、通知履歴を管理できます。
 
+## 開発・本番の検証コマンド
+
+環境ごとに次のコマンドを使用します。
+
+Windows開発環境:
+
+```powershell
+.\scripts\verify.ps1
+```
+
+Ubuntu開発環境:
+
+```bash
+./scripts/verify.sh --environment development
+```
+
+本番Raspberry Piおよび将来の本番Linux環境:
+
+```bash
+./scripts/verify.sh
+```
+
+`development` では開発用DBと設定を使用し、KING OF TIMEはオフラインモック固定、Slack通知は強制dry-runになります。`--source test` は実行元の記録、`--dry-run` は通知反映の抑制であり、モック切り替えには使用しません。
+
 ## 主な機能
 
 - systemd timerによる残業閾値通知

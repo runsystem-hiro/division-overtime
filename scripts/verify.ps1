@@ -64,10 +64,39 @@ try {
         -Command "uv" `
         -Arguments @("run", "ruff", "format", "--check", ".")
 
-    Invoke-ExternalCommand `
-        -Label "Run pytest" `
-        -Command "uv" `
-        -Arguments @("run", "pytest", "-q")
+    $PreviousEnvironment = $env:DIVISION_OVERTIME_ENV
+    try {
+        Remove-Item Env:DIVISION_OVERTIME_ENV -ErrorAction SilentlyContinue
+        Invoke-ExternalCommand `
+            -Label "Run pytest" `
+            -Command "uv" `
+            -Arguments @("run", "pytest", "-q")
+
+        $env:DIVISION_OVERTIME_ENV = "development"
+
+        Invoke-ExternalCommand `
+            -Label "Validate development configuration" `
+            -Command "uv" `
+            -Arguments @("run", "division-overtime", "--root", ".", "validate-config")
+
+        Invoke-ExternalCommand `
+            -Label "Check development database" `
+            -Command "uv" `
+            -Arguments @("run", "division-overtime", "--root", ".", "database", "status")
+
+        Invoke-ExternalCommand `
+            -Label "Check development employee consistency" `
+            -Command "uv" `
+            -Arguments @("run", "division-overtime", "--root", ".", "employees", "check-consistency")
+
+        Invoke-ExternalCommand `
+            -Label "Check development health" `
+            -Command "uv" `
+            -Arguments @("run", "division-overtime", "--root", ".", "health")
+    }
+    finally {
+        $env:DIVISION_OVERTIME_ENV = $PreviousEnvironment
+    }
 
     Set-Location (Join-Path $ProjectRoot "frontend")
     Invoke-ExternalCommand `
