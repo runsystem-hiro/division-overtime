@@ -17,6 +17,7 @@ def make_snapshot(
     previous: int = 300,
     target: int = 600,
     name: tuple[str, str] = ("田中", "太郎"),
+    current_night: int = 0,
 ) -> OvertimeSnapshot:
     return OvertimeSnapshot(
         employee=Employee(
@@ -32,6 +33,7 @@ def make_snapshot(
         current_minutes=current,
         previous_minutes=previous,
         target_minutes=target,
+        current_night_minutes=current_night,
     )
 
 
@@ -108,6 +110,38 @@ def test_format_employee_report_zero_target_without_overtime_matches_legacy_styl
             "🔙 前月残業 0:00 前月比 0%",
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("minutes", "expected"),
+    [
+        (1, "0:01"),
+        (59, "0:59"),
+        (60, "1:00"),
+        (195, "3:15"),
+    ],
+)
+def test_format_employee_report_displays_night_overtime(minutes: int, expected: str):
+    snapshot = make_snapshot(
+        current=540,
+        current_night=minutes,
+        name=("試験", "対象"),
+    )
+
+    assert f"🗓️ 今月(2026-07) 残業 9:00｜🌙 {expected}" in format_employee_report(snapshot)
+
+
+def test_format_employee_report_hides_zero_night_overtime():
+    snapshot = make_snapshot(
+        current=540,
+        current_night=0,
+        name=("試験", "対象"),
+    )
+
+    report = format_employee_report(snapshot)
+
+    assert "🗓️ 今月(2026-07) 残業 9:00" in report
+    assert "🌙" not in report
 
 
 def test_department_message_uses_legacy_header_and_blank_lines():

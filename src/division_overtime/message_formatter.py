@@ -34,6 +34,8 @@ def format_employee_report(snapshot: OvertimeSnapshot) -> str:
 
     line1 = f"👤 {snapshot.employee.full_name} {status_message(snapshot.target_percent)}"
     line2 = f"🗓️ 今月({snapshot.target_month}) 残業 {format_minutes(snapshot.current_minutes)}"
+    if snapshot.current_night_minutes > 0:
+        line2 += f"｜🌙 {format_minutes(snapshot.current_night_minutes)}"
 
     if snapshot.target_minutes == 0:
         if snapshot.current_minutes > 0:

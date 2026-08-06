@@ -11,6 +11,7 @@ import pytest
 
 from division_overtime.config import AppConfig
 from division_overtime.database import Database
+from division_overtime.king_of_time import MonthlyOvertime
 from division_overtime.service import run
 from division_overtime.slack import SlackDeliveryError
 
@@ -24,14 +25,26 @@ class FixedDateTime(datetime):
 
 class FakeKingOfTimeClient:
     current_minutes = 360
+    current_night_minutes = 0
     previous_minutes = 300
 
     def __init__(self, *args, **kwargs):
         pass
 
-    def fetch_division_month(self, target_month: str, division_code: str) -> dict[str, int]:
-        minutes = self.previous_minutes if target_month == "2026-06" else self.current_minutes
-        return {"employee-key-1": minutes}
+    def fetch_division_month(
+        self, target_month: str, division_code: str
+    ) -> dict[str, MonthlyOvertime]:
+        if target_month == "2026-06":
+            overtime = MonthlyOvertime(
+                total_minutes=self.previous_minutes,
+                night_overtime_minutes=0,
+            )
+        else:
+            overtime = MonthlyOvertime(
+                total_minutes=self.current_minutes,
+                night_overtime_minutes=self.current_night_minutes,
+            )
+        return {"employee-key-1": overtime}
 
 
 class SuccessfulMessenger:
@@ -201,6 +214,19 @@ def test_department_delivery_uses_legacy_message_style(
             "🔙 前月残業 5:00 前月比 120%",
         ]
     )
+
+
+def test_department_delivery_displays_current_night_overtime(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config = make_config(tmp_path)
+    monkeypatch.setattr(FakeKingOfTimeClient, "current_night_minutes", 195)
+    patch_external_services(monkeypatch, SuccessfulMessenger)
+
+    assert run(config, "threshold") == 0
+
+    _, message = SuccessfulMessenger.calls[0]
+    assert "🗓️ 今月(2026-07) 残業 6:00｜🌙 3:15" in message
 
 
 def test_self_delivery_uses_legacy_personal_header(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
