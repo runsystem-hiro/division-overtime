@@ -10,7 +10,8 @@
 - コミットメッセージは英語で記述する
 - Pull Request本文は日本語でよい
 - Pull Requestは原則としてsquash mergeする
-- Squash merge時のコミットタイトルとコミット本文は英語で記述する
+- Squash merge時のコミットタイトルは英語で記述する
+- Squash mergeのコミット本文は原則として省略する
 - GitHubのコミット履歴とファイル一覧では英語表記を維持する
 - 本番影響をPull Requestへ記載する
 
