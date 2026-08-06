@@ -1,7 +1,7 @@
 {
   "name": "division-overtime-web",
   "private": true,
-  "version": "2.4.1",
+  "version": "2.4.2",
   "type": "module",
   "engines": {
     "node": ">=20.19.0 <25",
