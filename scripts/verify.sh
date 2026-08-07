@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_BIN="$PROJECT_ROOT/.venv/bin"
+ENV_FILE="$PROJECT_ROOT/.env"
 ENVIRONMENT="production"
 
 usage() {
@@ -70,7 +71,11 @@ fi
 "$VENV_BIN/ruff" check .
 "$VENV_BIN/ruff" format --check .
 env -u DIVISION_OVERTIME_ENV "$VENV_BIN/pytest" -q
-DIVISION_OVERTIME_ENV=production "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" validate-config
-DIVISION_OVERTIME_ENV=production "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" database status
-DIVISION_OVERTIME_ENV=production "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" employees check-consistency
-DIVISION_OVERTIME_ENV=production "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" health
+run_production_command() {
+    DIVISION_OVERTIME_ENV=production "$VENV_BIN/python" scripts/run_with_env.py "$ENV_FILE" "$@"
+}
+
+run_production_command "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" validate-config
+run_production_command "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" database status
+run_production_command "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" employees check-consistency
+run_production_command "$VENV_BIN/division-overtime" --root "$PROJECT_ROOT" health

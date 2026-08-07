@@ -17,8 +17,14 @@ def test_verify_sh_supports_development_without_leaking_environment_to_pytest():
         'DIVISION_OVERTIME_ENV=development uv run division-overtime --root "$PROJECT_ROOT" '
         "validate-config"
     ) in script
+    assert 'ENV_FILE="$PROJECT_ROOT/.env"' in script
+    assert "run_production_command()" in script
     assert (
-        'DIVISION_OVERTIME_ENV=production "$VENV_BIN/division-overtime" '
+        'DIVISION_OVERTIME_ENV=production "$VENV_BIN/python" scripts/run_with_env.py '
+        '"$ENV_FILE" "$@"'
+    ) in script
+    assert (
+        'run_production_command "$VENV_BIN/division-overtime" '
         '--root "$PROJECT_ROOT" validate-config'
     ) in script
 
