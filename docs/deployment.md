@@ -22,7 +22,8 @@ git status
 
 - mainブランチ
 - working treeがclean
-- Python仮想環境作成済み
+- uvがインストール済みで`uv --version`が成功する
+- Python仮想環境（`.venv`）作成済み
 - `.env`、環境別TOML、社員CSV設定済み
 - frontend buildに必要なNode.js / npmが利用可能
 - `curl`とsystemd管理権限が利用可能
@@ -39,7 +40,7 @@ cd <app-root>
 1. 必須コマンドとworking treeのpreflight
 2. `git pull --ff-only`
 3. `VERSION`読込
-4. Python依存更新
+4. `uv sync --frozen --extra web --extra dev`で`uv.lock`からPython依存を同期
 5. frontend依存インストールとbuild
 6. 本番DBの存在と既存スキーマを確認
 7. SQLite Backup APIでマイグレーション前バックアップを作成・検証
@@ -52,6 +53,19 @@ cd <app-root>
 14. Web再起動
 15. `/api/system/health`再試行
 16. 稼働versionと`VERSION`の一致確認
+
+### Raspberry Piへのuv導入
+
+本番Raspberry Piでは、正式deployの前に`pi`ユーザーでuvを導入します。公式スタンドアロンインストーラーを使用する場合は、内容を確認してから実行します。
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | less
+curl -LsSf https://astral.sh/uv/install.sh | sh
+exec "$SHELL" -l
+uv --version
+```
+
+`deploy.sh`はuv自体を自動インストールしません。`uv sync --frozen --extra web --extra dev`を使用し、`pyproject.toml`と`uv.lock`からプロジェクト直下の`.venv`を同期します。`--frozen`を付けるため、本番deployで`uv.lock`は更新しません。systemdの実行パスは従来どおり`.venv/bin/...`を維持します。
 
 health待機中の一時的な接続失敗は、最終的に成功すれば異常ではありません。待機ループ内の`curl` stderrだけを抑制し、全試行失敗時は最後のhealth確認、systemd status、journalを表示して原因調査に必要な情報を残します。再試行回数・間隔・成功条件は変更しません。
 
@@ -125,3 +139,18 @@ Webサービス停止中も通知timerとCLI healthは独立して動作しま�
 コードだけ戻す緊急確認では、直前の正常commitへdetachしてdeployできます。恒久対応はWindows側でrevert PRを作成します。
 
 DBやCSVを戻す場合は、先に現状をバックアップし、[バックアップ・復旧](backup-restore.md)の手順を使用してください。
+
+### uv移行時のロールバック
+
+uv同期後に問題が発生した場合は、まずWindows側で原因修正またはrevert PRを作成し、正常commitへ戻すことを原則とします。緊急時にpip運用へ戻す必要がある場合は、本番データに触れず`.venv`だけを再作成します。
+
+```bash
+cd <app-root>
+rm -rf .venv
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -e '.[web,dev]'
+./scripts/verify.sh
+```
+
+この操作はPython仮想環境を再作成します。SQLite DB、`employeeKey.csv`、`.env`、backupは削除しません。実施前に対象が`<app-root>/.venv`であることを必ず確認してください。

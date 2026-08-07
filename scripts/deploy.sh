@@ -37,6 +37,7 @@ require_command() {
 echo "==> Preflight"
 require_command git
 require_command npm
+require_command uv
 require_command curl
 require_command cmp
 require_command sudo
@@ -58,7 +59,7 @@ git pull --ff-only
 EXPECTED_VERSION="$(<"$PROJECT_ROOT/VERSION")"
 
 echo "==> Update Python dependencies"
-"$VENV_PYTHON" -m pip install -e '.[web,dev]'
+uv sync --frozen --extra web --extra dev
 
 echo "==> Install frontend dependencies"
 npm --prefix frontend ci

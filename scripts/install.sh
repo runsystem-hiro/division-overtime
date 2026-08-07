@@ -2,9 +2,8 @@
 set -euo pipefail
 ROOT=${1:-/home/pi/division-overtime}
 cd "$ROOT"
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -e '.[web,dev]'
+command -v uv >/dev/null || { echo "Required command was not found: uv" >&2; exit 2; }
+uv sync --frozen --extra web --extra dev
 mkdir -p var data
 sudo install -m 0644 systemd/division-overtime-*.service systemd/division-overtime-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
