@@ -22,7 +22,8 @@ git diff --check
 - version整合性成功
 - Ruff成功
 - pytest成功
-- npm auditで既知の脆弱性なし
+- npm依存インストール成功
+- npm auditの警告がある場合は内容を確認し、今回の変更起因またはリリース阻害要因でないことを確認
 - Oxlint成功
 - Vitest成功
 - frontend build成功
