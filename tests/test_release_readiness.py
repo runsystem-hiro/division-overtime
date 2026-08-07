@@ -11,13 +11,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def test_public_versions_match_version_file() -> None:
     expected = (PROJECT_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+
     with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
         python_version = tomllib.load(handle)["project"]["version"]
+
+    with (PROJECT_ROOT / "uv.lock").open("rb") as handle:
+        uv_lock = tomllib.load(handle)
+
+    locked_project = next(
+        package for package in uv_lock["package"] if package["name"] == "division-overtime"
+    )
+
     frontend = json.loads((PROJECT_ROOT / "frontend/package.json").read_text(encoding="utf-8"))
     lock = json.loads((PROJECT_ROOT / "frontend/package-lock.json").read_text(encoding="utf-8"))
     module_text = (PROJECT_ROOT / "src/division_overtime/__init__.py").read_text(encoding="utf-8")
 
     assert python_version == expected
+    assert locked_project["version"] == expected
     assert frontend["version"] == expected
     assert lock["version"] == expected
     assert lock["packages"][""]["version"] == expected
