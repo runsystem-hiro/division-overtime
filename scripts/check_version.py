@@ -26,6 +26,17 @@ def _read_package_version(root: Path) -> str:
         return str(tomllib.load(handle)["project"]["version"])
 
 
+def _read_uv_lock_version(root: Path) -> str:
+    with (root / "uv.lock").open("rb") as handle:
+        lock = tomllib.load(handle)
+
+    for package in lock["package"]:
+        if package.get("name") == "division-overtime":
+            return str(package["version"])
+
+    raise VersionMismatchError("division-overtime was not found in uv.lock")
+
+
 def _read_module_version(root: Path) -> str:
     text = (root / "src/division_overtime/__init__.py").read_text(encoding="utf-8")
     match = re.search(r'^__version__\s*=\s*"([^"]+)"$', text, re.MULTILINE)
@@ -44,6 +55,7 @@ def collect_versions(root: Path) -> dict[str, str]:
     return {
         "VERSION": _read_expected_version(root),
         "pyproject.toml": _read_package_version(root),
+        "uv.lock": _read_uv_lock_version(root),
         "src/division_overtime/__init__.py": _read_module_version(root),
         "frontend/package.json": _read_json_version(root / "frontend/package.json"),
         "frontend/package-lock.json": _read_json_version(root / "frontend/package-lock.json"),
