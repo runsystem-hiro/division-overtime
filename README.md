@@ -114,11 +114,14 @@ chmod 600 .env config/production.toml data/employeeKey.csv
 
 ### 3. インストール
 
+本番Raspberry Piでもuvを使用します。`uv --version`が成功することを確認してから実行します。
+
 ```bash
+uv --version
 ./scripts/install.sh
 ```
 
-このスクリプトはPython仮想環境を作成し、Python依存とsystemd unitをインストールします。frontendの依存とbuildは正式デプロイ時に`deploy.sh`が行います。
+このスクリプトは`uv.lock`を更新せずにPython仮想環境`.venv`を同期し、systemd unitをインストールします。frontendの依存とbuildは正式デプロイ時に`deploy.sh`が行います。
 
 ### 4. 設定とDBを確認
 

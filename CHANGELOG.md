@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Raspberry Pi本番環境のPython依存同期をpipから`uv sync --frozen`へ移行し、`uv.lock`をWindows・CI・本番の共通正本とする
 - Windows・Ubuntu開発環境の検証項目を揃え、`verify.sh --environment development` を追加
 - development環境の実KING OF TIME API接続とSlack実送信を禁止
 - DB・CSVパス解決でも`.env`の`DIVISION_OVERTIME_ENV`を読み込み、CLI間の環境選択を統一
