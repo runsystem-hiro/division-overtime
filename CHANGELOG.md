@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- production向け`verify.sh`で`.env`を安全に子プロセスへ渡し、SSHからの検証でも本番用シークレットを参照できるようにする
 - Raspberry Pi本番環境のPython依存同期をpipから`uv sync --frozen`へ移行し、`uv.lock`をWindows・CI・本番の共通正本とする
 - Windows・Ubuntu開発環境の検証項目を揃え、`verify.sh --environment development` を追加
 - development環境の実KING OF TIME API接続とSlack実送信を禁止

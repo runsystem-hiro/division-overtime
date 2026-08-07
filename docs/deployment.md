@@ -67,6 +67,8 @@ uv --version
 
 `deploy.sh`はuv自体を自動インストールしません。`uv sync --frozen --extra web --extra dev`を使用し、`pyproject.toml`と`uv.lock`からプロジェクト直下の`.venv`を同期します。`--frozen`を付けるため、本番deployで`uv.lock`は更新しません。systemdの実行パスは従来どおり`.venv/bin/...`を維持します。
 
+production向け`verify.sh`は`.env`をシェルで`source`せず、`python-dotenv`で解析して検証用子プロセスへ渡します。既にシェル環境へ設定されている値は上書きせず、`.env`の内容やシークレット値をログへ表示しません。
+
 health待機中の一時的な接続失敗は、最終的に成功すれば異常ではありません。待機ループ内の`curl` stderrだけを抑制し、全試行失敗時は最後のhealth確認、systemd status、journalを表示して原因調査に必要な情報を残します。再試行回数・間隔・成功条件は変更しません。
 
 ## DBマイグレーションの安全性
