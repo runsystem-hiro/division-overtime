@@ -2,15 +2,23 @@
 
 ## [Unreleased]
 
-- production向け`verify.sh`で`.env`を安全に子プロセスへ渡し、SSHからの検証でも本番用シークレットを参照できるようにする
-- Raspberry Pi本番環境のPython依存同期をpipから`uv sync --frozen`へ移行し、`uv.lock`をWindows・CI・本番の共通正本とする
-- Windows・Ubuntu開発環境の検証項目を揃え、`verify.sh --environment development` を追加
-- development環境の実KING OF TIME API接続とSlack実送信を禁止
-- DB・CSVパス解決でも`.env`の`DIVISION_OVERTIME_ENV`を読み込み、CLI間の環境選択を統一
+## [2.4.3] - 2026-08-07
 
 ### Added
 
 - 残業スナップショットへ当月の深夜残業時間を保存し、通知後もSQLiteから内訳を確認できるようにしました。
+
+### Changed
+
+- Raspberry Pi本番環境のPython依存同期をpipから`uv sync --frozen`へ移行し、`uv.lock`をWindows・CI・本番の共通正本としました。
+- Windows・Ubuntu開発環境の検証項目を揃え、`verify.sh --environment development`を追加しました。
+- development環境の実KING OF TIME API接続とSlack実送信を禁止しました。
+- DB・CSVパス解決でも`.env`の`DIVISION_OVERTIME_ENV`を読み込み、CLI間の環境選択を統一しました。
+- 公開バージョンを2.4.3へ更新しました。
+
+### Fixed
+
+- production向け`verify.sh`で`.env`を安全に子プロセスへ渡し、SSHからの検証でも本番用シークレットを参照できるようにしました。
 
 ## [2.4.2] - 2026-08-06
 

@@ -23,6 +23,9 @@ def test_public_versions_match_version_file() -> None:
     assert lock["packages"][""]["version"] == expected
     assert f'__version__ = "{expected}"' in module_text
 
+    changelog = (PROJECT_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"## [{expected}] - " in changelog
+
 
 def test_version_check_script_succeeds() -> None:
     result = subprocess.run(
@@ -88,6 +91,10 @@ def test_release_checklist_documents_required_production_checks() -> None:
     ]
     for text in required:
         assert text in checklist
+
+    assert "npm依存インストール成功" in checklist
+    assert "npm auditの警告がある場合" in checklist
+    assert "npm auditで既知の脆弱性なし" not in checklist
 
 
 def test_frontend_initial_auth_check_uses_status_endpoint() -> None:
